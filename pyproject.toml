@@ -1,0 +1,21 @@
+[project]
+name = "rkby-member-map-generator"
+version = "0.1.0"
+description = "Local tools for Team Rynkeby Hamburg: member maps, rider pairing suggestions, and a birthday calendar, built from locally-held team data."
+readme = "README.md"
+license = "Unlicense"
+authors = [
+    { name = "Sascha Steffen", email = "sascha.steffen@itemis.de" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.3",
+]
+
+[tool.ruff]
+# Spec Kit's vendored workflow scripts aren't project code; don't lint them.
+extend-exclude = [".specify"]

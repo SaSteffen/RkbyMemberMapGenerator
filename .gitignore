@@ -4,3 +4,16 @@
 # Python bytecode cache
 __pycache__/
 *.pyc
+
+# uv-managed virtual environment (uv.lock IS committed for reproducible installs)
+.venv/
+
+# Dev tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Local team member data and intranet credentials — NEVER commit real member
+# data (constitution Principle I: Member Data Privacy First).
+data/
+.env
+*.env
