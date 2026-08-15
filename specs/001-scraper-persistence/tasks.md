@@ -84,11 +84,11 @@ non-"no" applicant, and no record for any "no"-status applicant.
 
 - [ ] T013 [US1] Add `IntranetClient.login()` (POST credentials to the login form, retain the session cookie, detect an auth failure) to `scripts/scrape_applicants.py`
 - [ ] T014 [US1] Add season-selector fetch + label→(team_id, season_id) resolution to `scripts/scrape_applicants.py` (research.md §5)
-- [ ] T015 [US1] Add `parse_applicant_rows(html)` using BeautifulSoup to extract name/status/profile fields and the photo-popup link per row to `scripts/scrape_applicants.py`
+- [ ] T015 [US1] Add `parse_applicant_rows(html)` using BeautifulSoup to extract name/status/profile fields and the photo-popup link per row to `scripts/scrape_applicants.py`. If address/phone/birthday turn out not to be present in the list-table row during empirical exploration (research.md §3 open question), add a per-applicant detail-page fetch here rather than deferring it — do not silently drop the missing fields.
 - [ ] T016 [US1] Add `fetch_all_pages(session, team_id, season_id)` iterating the `team_application_manager.php` AJAX endpoint until exhausted — network + parse only, no disk writes — to `scripts/scrape_applicants.py` (FR-001, all-or-nothing phase split per research.md §10)
 - [ ] T017 [US1] Add `fetch_photo(session, row)` resolving and downloading the full-resolution image, catching/logging any failure without raising, to `scripts/scrape_applicants.py` (FR-005)
 - [ ] T018 [US1] Add create-only persistence (write a new `ApplicantRecord` YAML + photo per non-"no" row for a season with no prior data) to `scripts/scrape_applicants.py` (FR-003, FR-004, FR-006)
-- [ ] T019 [US1] Wire the CLI entrypoint (`argparse --season`, `main()`) orchestrating login → resolve season → fetch all pages → filter "no" → persist → log run summary, in `scripts/scrape_applicants.py`
+- [ ] T019 [US1] Wire the CLI entrypoint (`argparse --season`, `main()`) orchestrating login → resolve season → fetch all pages → filter "no" → persist → log run summary, in `scripts/scrape_applicants.py`. `main()` MUST call `load_config()` (T004) first and let it raise before `IntranetClient.login()` or any file write is reachable — this is what actually satisfies FR-023 for the MVP; T042 only adds Story 6's explicit end-to-end verification on top of this, it does not introduce a second validation path
 
 ### Tests for User Story 1
 
@@ -99,7 +99,7 @@ non-"no" applicant, and no record for any "no"-status applicant.
 - [ ] T024 [P] [US1] Unit tests for `parse_applicant_rows()` and photo-popup URL resolution in `tests/unit/test_parsing.py`
 - [ ] T025 [P] [US1] Unit tests for all-or-nothing rollback: a page-fetch failure mid-pagination leaves the season directory byte-for-byte untouched, in `tests/unit/test_rollback.py` (FR-018)
 - [ ] T026 [P] [US1] Unit tests for per-applicant photo-fetch failure isolation (other data still persisted, warning logged, photo left `null` for retry) in `tests/unit/test_photo_fetch.py` (FR-005)
-- [ ] T027 [P] [US1] Unit tests for the first-run persistence happy path: multi-page fetch, "no"-status exclusion, default-season selection, in `tests/unit/test_store_merge.py` (Story 1 AC1–AC3)
+- [ ] T027 [P] [US1] Unit tests for the first-run persistence happy path: multi-page fetch, "no"-status exclusion, default-season selection, in `tests/unit/test_store_merge.py` (Story 1 AC1–AC3). Also assert: (a) a log file exists under `<season>/logs/` after the run even though it produced no warnings (FR-016 "every execution"); (b) every newly-written record, read back and parsed, validates against `applicant-record.schema.json` (SC-005's completed-run half)
 
 **Checkpoint**: User Story 1 is fully functional and independently testable (MVP).
 
@@ -124,7 +124,7 @@ unchanged while any genuinely new applicant is still added.
 
 ### Tests for User Story 2
 
-- [ ] T032 [P] [US2] Unit tests: a hand-edited field survives a re-run; a genuinely new applicant is still added, in `tests/unit/test_store_merge.py` (Story 2 AC1, AC3)
+- [ ] T032 [P] [US2] Unit tests: a hand-edited field survives a re-run; a genuinely new applicant is still added, in `tests/unit/test_store_merge.py` (Story 2 AC1, AC3). Also assert the pure-idempotency case (SC-002): merging identical, unchanged scraped input against an already-persisted season twice in a row writes/touches zero files the second time
 - [ ] T033 [P] [US2] Unit tests: an existing photo file is never overwritten by a later run, in `tests/unit/test_photo_fetch.py` (Story 2 AC2)
 - [ ] T034 [P] [US2] Unit tests: a schema-invalid existing record aborts the run without writing or losing data, in `tests/unit/test_schema_validation.py` (FR-017 edge case)
 
@@ -195,7 +195,7 @@ results (or a logged conflict, per the differing-details case).
 
 ### Tests for User Story 5
 
-- [ ] T041 [US5] Unit tests: consistent within-scrape duplicates merge to one record (AC1); conflicting within-scrape duplicates are flagged and neither is persisted (AC2); a scraped row conflicting with an existing persisted record is flagged with its full snapshot and the existing file stays untouched (FR-014), in `tests/unit/test_records.py`
+- [ ] T041 [US5] Unit tests: consistent within-scrape duplicates merge to one record (AC1); conflicting within-scrape duplicates are flagged and neither is persisted (AC2); a scraped row conflicting with an existing persisted record is flagged with its full snapshot and the existing file stays untouched (FR-014), in `tests/unit/test_records.py`. Also assert cross-season independence (FR-020): the same first+last name persisted in two different season folders never triggers matching, merging, or conflict-detection between them
 
 **Checkpoint**: User Stories 1–5 independently functional.
 
@@ -213,7 +213,7 @@ then confirm a missing required variable fails clearly with no partial run.
 
 ### Implementation for User Story 6
 
-- [ ] T042 [US6] Add an explicit `validate_environment()` pre-flight call at the very top of `main()`, strictly before `IntranetClient.login()` or any file write is reachable, to `scripts/scrape_applicants.py` (FR-023)
+- [ ] T042 [US6] Verify (do not reimplement) that `load_config()` (T004) is the very first call in `main()`, strictly before `IntranetClient.login()` or any file write is reachable, per T019's ordering guarantee — this task is a guard/assertion pass, not a new validation function, since `load_config()` is already what satisfies FR-023 as of Phase 3, in `scripts/scrape_applicants.py`
 
 ### Tests for User Story 6
 
@@ -234,6 +234,7 @@ run, not any single one) plus final verification.
 - [ ] T047 Run `uv run ruff check .` and `uv run ruff format .` and fix any findings across `scripts/scrape_applicants.py` and `tests/`
 - [ ] T048 Run `uv run pytest` (full suite) and confirm every FR-021 edge case passes with zero real network calls
 - [ ] T049 Execute quickstart.md scenarios 1–5 against a disposable, local, git-init'd data directory to confirm end-to-end behavior described in `specs/001-scraper-persistence/quickstart.md`
+- [ ] T050 [P] Unit test: force an `IntranetClient.login()` auth failure and assert the raw `RKBY_INTRANET_PASSWORD` value never appears in the run log file, console output, or any raised exception's message, in `tests/unit/test_config.py` (FR-002, SC-007 — Constitution I is NON-NEGOTIABLE)
 
 ---
 
@@ -264,8 +265,14 @@ run, not any single one) plus final verification.
 - **US5 (P3)**: Depends on US2 (`merge_record()`) and reuses `match_key()` from
   Foundational.
 - **US6 (P3)**: Depends only on Foundational (`Config`/`load_config()` already do the
-  heavy lifting from T004; this phase adds the explicit pre-flight call + verifies the
-  end-to-end guarantee).
+  heavy lifting from T004; this phase verifies the end-to-end guarantee, per T042/T043).
+
+> **Note on "depends only on Foundational" above**: this describes *logical*
+> requirement-dependency, not build order. US5 and US6 still can't actually be
+> implemented before US1–US4 in practice — every implementation task in every phase
+> edits the same `scripts/scrape_applicants.py`, so the phases must still be done in
+> the sequential order given (see "Phase Dependencies" above) to avoid merge conflicts,
+> even though nothing in US5/US6's own requirements forces that order.
 
 ### Within Each User Story
 
@@ -283,6 +290,8 @@ run, not any single one) plus final verification.
 - T032, T033, T034 (US2 tests) — three different files.
 - T046 (README) can happen any time after the CLI interface is stable (effectively
   any time after Phase 3).
+- T050 (credential-in-log test) — different file from T044–T049, only needs T009/T013
+  done, so it can happen any time from Phase 3 onward, not just at the end.
 
 ---
 
