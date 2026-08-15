@@ -1,0 +1,348 @@
+---
+
+description: "Task list template for feature implementation"
+---
+
+# Tasks: Applicant Scraper & Data Persistence
+
+**Input**: Design documents from `/specs/001-scraper-persistence/`
+
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md (all present)
+
+**Tests**: FR-021 explicitly requires automated unit tests covering the happy path and
+every named edge case, using recorded/obfuscated fixtures and zero real network calls.
+Test tasks are therefore included throughout, not optional. Ordering within each phase
+is **implementation-first, tests-after** (not strict TDD) — this project has one
+maintainer and no CI gate requiring red-before-green; tests still exist for every FR-021
+edge case by the end of each phase.
+
+**Organization**: Tasks are grouped by user story (spec.md priorities P1/P1/P2/P2/P3/P3)
+to enable independent implementation and testing of each story.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no dependency on an incomplete task in this batch)
+- **[Story]**: Which user story this task belongs to (US1–US6)
+- Every task names an exact file path
+
+## Path Conventions
+
+Single-script project (Constitution II — one script, one artifact; see plan.md
+"Structure Decision"), **not** the generic `src/`+`tests/` layout:
+
+- `scripts/scrape_applicants.py` — the one script this whole feature lives in
+- `scripts/schemas/applicant_record.schema.json` — runtime copy of the JSON Schema contract
+- `tests/unit/*.py`, `tests/fixtures/*.html` — at repo root, per existing project convention
+
+Because almost every implementation task edits the same single file
+(`scripts/scrape_applicants.py`), most implementation tasks are **sequential** even
+within a phase — `[P]` is reserved for genuinely different files (fixtures, distinct
+test modules, the schema copy, README).
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: Project scaffolding for this feature
+
+- [ ] T001 Create directory structure: `scripts/`, `scripts/schemas/`, `tests/unit/`, `tests/fixtures/`
+- [ ] T002 Add `requests`, `beautifulsoup4`, `PyYAML`, `jsonschema` to `[project] dependencies` and `responses` to `[dependency-groups] dev` in `pyproject.toml`, then run `uv sync`
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: Infrastructure every user story needs before its own logic can be written —
+config validation, season-label handling, schema validation, storage layout, logging.
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete.
+
+- [ ] T003 [P] Copy `specs/001-scraper-persistence/contracts/applicant-record.schema.json` to `scripts/schemas/applicant_record.schema.json`
+- [ ] T004 [P] Create `scripts/scrape_applicants.py` with a `Config` dataclass and `load_config()` that validates `RKBY_INTRANET_USERNAME`, `RKBY_INTRANET_PASSWORD`, and `RKBY_DATA_DIR` (present, `RKBY_DATA_DIR` exists and is a directory) before any network request or file write (FR-023)
+- [ ] T005 Add `default_season_label(today)` (Jan–Jul → `(Y-1)-Y`, Aug–Dec → `Y-(Y+1)`) and `parse_season_arg(value)` (accepts `YYYY/YY` or `YYYY-YY`, normalizes to hyphen form) to `scripts/scrape_applicants.py` (FR-022)
+- [ ] T006 Add `normalize_name()` / `match_key(first_name, last_name)` helper (unicodedata NFKD strip, lowercase, hyphen-join) to `scripts/scrape_applicants.py` (FR-013)
+- [ ] T007 Add `load_schema()` / `validate_record(record: dict)` using `jsonschema` against `scripts/schemas/applicant_record.schema.json` to `scripts/scrape_applicants.py` (FR-017)
+- [ ] T008 Add season directory-layout helpers (`season_dir`, `applicants_dir`, `photos_dir`, `logs_dir` under `RKBY_DATA_DIR/seasons/<label>/`) to `scripts/scrape_applicants.py`
+- [ ] T009 Add run-logger setup (per-run timestamped `WARNING`+ `FileHandler` under `<season>/logs/`, `INFO` `StreamHandler` to console) to `scripts/scrape_applicants.py` (FR-016)
+- [ ] T010 [P] Unit tests for default-season computation and season-label parsing, including the July/August boundary, in `tests/unit/test_season.py` (FR-022)
+- [ ] T011 [P] Unit tests for `Config`: each missing/invalid required env var fails clearly before any network or file I/O in `tests/unit/test_config.py` (FR-023)
+- [ ] T012 [P] Unit tests for schema validation: a valid record passes, a structurally invalid record raises a clear error in `tests/unit/test_schema_validation.py` (FR-017)
+
+**Checkpoint**: Foundation ready — user story implementation can now begin.
+
+---
+
+## Phase 3: User Story 1 - First-time scrape of a season (Priority: P1) 🎯 MVP
+
+**Goal**: Running the scraper against a season with no prior local data persists one
+record + photo for every non-"no" applicant, across every result page, defaulting the
+season from today's date when `--season` is omitted.
+
+**Independent Test**: Run the scraper once against a season with no prior local data;
+verify a season folder is created containing one persisted record (with photo) per
+non-"no" applicant, and no record for any "no"-status applicant.
+
+### Implementation for User Story 1
+
+- [ ] T013 [US1] Add `IntranetClient.login()` (POST credentials to the login form, retain the session cookie, detect an auth failure) to `scripts/scrape_applicants.py`
+- [ ] T014 [US1] Add season-selector fetch + label→(team_id, season_id) resolution to `scripts/scrape_applicants.py` (research.md §5)
+- [ ] T015 [US1] Add `parse_applicant_rows(html)` using BeautifulSoup to extract name/status/profile fields and the photo-popup link per row to `scripts/scrape_applicants.py`
+- [ ] T016 [US1] Add `fetch_all_pages(session, team_id, season_id)` iterating the `team_application_manager.php` AJAX endpoint until exhausted — network + parse only, no disk writes — to `scripts/scrape_applicants.py` (FR-001, all-or-nothing phase split per research.md §10)
+- [ ] T017 [US1] Add `fetch_photo(session, row)` resolving and downloading the full-resolution image, catching/logging any failure without raising, to `scripts/scrape_applicants.py` (FR-005)
+- [ ] T018 [US1] Add create-only persistence (write a new `ApplicantRecord` YAML + photo per non-"no" row for a season with no prior data) to `scripts/scrape_applicants.py` (FR-003, FR-004, FR-006)
+- [ ] T019 [US1] Wire the CLI entrypoint (`argparse --season`, `main()`) orchestrating login → resolve season → fetch all pages → filter "no" → persist → log run summary, in `scripts/scrape_applicants.py`
+
+### Tests for User Story 1
+
+- [ ] T020 [P] [US1] Create obfuscated fixture `tests/fixtures/login_page.html` (synthetic login form)
+- [ ] T021 [P] [US1] Create obfuscated fixture `tests/fixtures/applicants_page_1.html` (synthetic table including one "no"-status applicant)
+- [ ] T022 [P] [US1] Create obfuscated fixture `tests/fixtures/applicants_page_2.html` (synthetic second page, proving pagination)
+- [ ] T023 [P] [US1] Create obfuscated fixture `tests/fixtures/photo_popup.html` (synthetic full-resolution photo link)
+- [ ] T024 [P] [US1] Unit tests for `parse_applicant_rows()` and photo-popup URL resolution in `tests/unit/test_parsing.py`
+- [ ] T025 [P] [US1] Unit tests for all-or-nothing rollback: a page-fetch failure mid-pagination leaves the season directory byte-for-byte untouched, in `tests/unit/test_rollback.py` (FR-018)
+- [ ] T026 [P] [US1] Unit tests for per-applicant photo-fetch failure isolation (other data still persisted, warning logged, photo left `null` for retry) in `tests/unit/test_photo_fetch.py` (FR-005)
+- [ ] T027 [P] [US1] Unit tests for the first-run persistence happy path: multi-page fetch, "no"-status exclusion, default-season selection, in `tests/unit/test_store_merge.py` (Story 1 AC1–AC3)
+
+**Checkpoint**: User Story 1 is fully functional and independently testable (MVP).
+
+---
+
+## Phase 4: User Story 2 - Re-run without losing manual corrections (Priority: P1)
+
+**Goal**: Re-running the scraper for a season with existing, possibly hand-edited data
+never overwrites a field or photo that already has a value, while still adding
+genuinely new applicants.
+
+**Independent Test**: Manually edit a field and replace a photo in an already-persisted
+record, re-run the scraper against the same season, and verify the edit and photo are
+unchanged while any genuinely new applicant is still added.
+
+### Implementation for User Story 2
+
+- [ ] T028 [US2] Add `load_existing_records(season_dir)` validating each file against the schema and aborting the run with a clear error on any invalid file to `scripts/scrape_applicants.py` (FR-017)
+- [ ] T029 [US2] Add `merge_record(existing, scraped)` applying the fill-empty-only field rule — `status` frozen at creation, never rewritten — to `scripts/scrape_applicants.py` (FR-009)
+- [ ] T030 [US2] Add a photo overwrite guard: skip photo fetch/write when the season's photo file for a `match_key` already exists on disk, in `scripts/scrape_applicants.py` (Story 2 AC2)
+- [ ] T031 [US2] Replace the create-only path from T018 with the load-existing → merge → write-only-changed flow in `main()`, in `scripts/scrape_applicants.py`
+
+### Tests for User Story 2
+
+- [ ] T032 [P] [US2] Unit tests: a hand-edited field survives a re-run; a genuinely new applicant is still added, in `tests/unit/test_store_merge.py` (Story 2 AC1, AC3)
+- [ ] T033 [P] [US2] Unit tests: an existing photo file is never overwritten by a later run, in `tests/unit/test_photo_fetch.py` (Story 2 AC2)
+- [ ] T034 [P] [US2] Unit tests: a schema-invalid existing record aborts the run without writing or losing data, in `tests/unit/test_schema_validation.py` (FR-017 edge case)
+
+**Checkpoint**: User Stories 1 and 2 both work independently.
+
+---
+
+## Phase 5: User Story 3 - Marking a record ignored (Priority: P2)
+
+**Goal**: A record marked `ignore: true` is never modified or recreated by any future
+run, regardless of what the scraper observes for that person.
+
+**Independent Test**: Mark a persisted record "ignore", re-run the scraper against the
+same season multiple times, and verify the record is never modified and never
+duplicated even if the same person still appears in the scrape.
+
+### Implementation for User Story 3
+
+- [ ] T035 [US3] Add an `ignore`-flag short-circuit to `merge_record()`/the orchestration loop: a persisted record with `ignore == true` is skipped entirely — no field writes, no recreation — in `scripts/scrape_applicants.py` (FR-010, FR-011)
+
+### Tests for User Story 3
+
+- [ ] T036 [US3] Unit tests: an `ignore == true` record is byte-for-byte unchanged across repeated runs, even when the same person reappears in the scrape, in `tests/unit/test_store_merge.py` (Story 3 AC1)
+
+**Checkpoint**: User Stories 1–3 independently functional.
+
+---
+
+## Phase 6: User Story 4 - Automatic exclusion on disapproval (Priority: P2)
+
+**Goal**: When a previously-persisted, non-ignored applicant is later observed with
+status "no", the record is marked excluded with an observed-at timestamp (not deleted),
+its other fields stay untouched, and a warning is logged — unless the record is already
+ignored, in which case nothing happens.
+
+**Independent Test**: Persist a record with a non-"no" status, then have a later scrape
+observe status "no" for that same applicant, and verify the record remains present but
+is marked excluded with an observed-at timestamp, and a warning appears in that run's
+log.
+
+### Implementation for User Story 4
+
+- [ ] T037 [US4] Add status-flip-to-"no" detection to `merge_record()`: for a non-ignored existing record, set `excluded = true` + `excluded_observed_at = now` and log a `WARNING`, leaving every other field untouched — the T035 ignore short-circuit already prevents this from firing on ignored records — in `scripts/scrape_applicants.py` (FR-015, FR-016)
+
+### Tests for User Story 4
+
+- [ ] T038 [US4] Unit tests: a status flip to "no" sets `excluded`+timestamp+warning with other fields unchanged (AC1); an ignored record observing "no" produces no exclusion flag and no log entry (AC2), in `tests/unit/test_store_merge.py` (Story 4)
+
+**Checkpoint**: User Stories 1–4 independently functional.
+
+---
+
+## Phase 7: User Story 5 - Deduplicating repeated entries within a season (Priority: P3)
+
+**Goal**: The same person appearing twice within one season's scrape (overlapping
+pages, duplicate applications) results in a single persisted record when details agree,
+and is flagged for human review rather than silently merged when they don't — the same
+rule applies when a fresh scrape conflicts with an already-persisted record.
+
+**Independent Test**: Feed the scraper a mocked applicant list containing the same
+first and last name twice within one season, and verify only one persisted record
+results (or a logged conflict, per the differing-details case).
+
+### Implementation for User Story 5
+
+- [ ] T039 [US5] Add within-scrape deduplication to the persistence flow: group scraped rows by `match_key`, merge consistent duplicates into one candidate, log a `WARNING` and drop both from this run on a meaningful field conflict, in `scripts/scrape_applicants.py` (FR-013, Story 5)
+- [ ] T040 [US5] Add conflict-vs-persisted-record detection to `merge_record()`: a non-empty field disagreement between an existing record and a newly-scraped row logs a `WARNING` with the full new snapshot and leaves the existing file untouched, in `scripts/scrape_applicants.py` (FR-014)
+
+### Tests for User Story 5
+
+- [ ] T041 [US5] Unit tests: consistent within-scrape duplicates merge to one record (AC1); conflicting within-scrape duplicates are flagged and neither is persisted (AC2); a scraped row conflicting with an existing persisted record is flagged with its full snapshot and the existing file stays untouched (FR-014), in `tests/unit/test_records.py`
+
+**Checkpoint**: User Stories 1–5 independently functional.
+
+---
+
+## Phase 8: User Story 6 - Credentials and storage location kept out of the repository (Priority: P3)
+
+**Goal**: The scraper authenticates and persists successfully using only environment
+variables for credentials and the data-folder path, and fails clearly — before any
+network request or file write — when a required variable is missing.
+
+**Independent Test**: Run the scraper with credentials and the data-folder path set
+only via environment variables, confirm it authenticates and persists successfully;
+then confirm a missing required variable fails clearly with no partial run.
+
+### Implementation for User Story 6
+
+- [ ] T042 [US6] Add an explicit `validate_environment()` pre-flight call at the very top of `main()`, strictly before `IntranetClient.login()` or any file write is reachable, to `scripts/scrape_applicants.py` (FR-023)
+
+### Tests for User Story 6
+
+- [ ] T043 [US6] Unit tests: with valid env vars (mocked HTTP + a temp dir) a run authenticates and writes only under the configured `RKBY_DATA_DIR` (AC1); with a required env var missing, `main()` exits non-zero and makes zero HTTP calls and zero filesystem writes (AC2), in `tests/unit/test_config.py` (Story 6)
+
+**Checkpoint**: All 6 user stories independently functional.
+
+---
+
+## Phase 9: Polish & Cross-Cutting Concerns
+
+**Purpose**: The conditional git auto-commit behavior (spans every story's successful
+run, not any single one) plus final verification.
+
+- [ ] T044 Add conditional git auto-commit after a successful run — detect `RKBY_DATA_DIR` as a git work tree via `git rev-parse --is-inside-work-tree`, stage `seasons/<label>/`, skip if nothing staged, commit with a generated message, catch/log a commit failure as `WARNING` without affecting the run's exit code — to `scripts/scrape_applicants.py` (research.md §14)
+- [ ] T045 Unit tests for auto-commit: a git-detected run creates a commit; a no-change re-run creates no commit; a non-git `RKBY_DATA_DIR` is a no-op; a commit failure logs a warning without changing the exit code, in `tests/unit/test_auto_commit.py`
+- [ ] T046 [P] Update `README.md`: mark `scripts/scrape_applicants.py` as implemented, document the required env vars and `uv run scripts/scrape_applicants.py [--season ...]` usage
+- [ ] T047 Run `uv run ruff check .` and `uv run ruff format .` and fix any findings across `scripts/scrape_applicants.py` and `tests/`
+- [ ] T048 Run `uv run pytest` (full suite) and confirm every FR-021 edge case passes with zero real network calls
+- [ ] T049 Execute quickstart.md scenarios 1–5 against a disposable, local, git-init'd data directory to confirm end-to-end behavior described in `specs/001-scraper-persistence/quickstart.md`
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: No dependencies — start immediately.
+- **Foundational (Phase 2)**: Depends on Setup — BLOCKS all user stories.
+- **User Stories (Phase 3–8)**: All depend on Foundational completion. Written here in
+  priority order (P1, P1, P2, P2, P3, P3) and each phase's implementation tasks build
+  directly on the single script file the previous phase left off at — so, unlike a
+  multi-service project, these phases are best executed **sequentially** in the order
+  given, not fanned out to different contributors, even though each is independently
+  *testable* once reached.
+- **Polish (Phase 9)**: Depends on all six user stories being complete (T044's
+  auto-commit wraps the run these stories already built).
+
+### User Story Dependencies
+
+- **US1 (P1)**: Depends only on Foundational. Establishes the fetch→parse→persist
+  pipeline every later story extends.
+- **US2 (P1)**: Depends on US1 (extends US1's create-only persistence into a merge).
+- **US3 (P2)**: Depends on US2 (`merge_record()` must exist before it can be
+  short-circuited).
+- **US4 (P2)**: Depends on US3 (the ignore short-circuit must exist before this story
+  can rely on it taking precedence).
+- **US5 (P3)**: Depends on US2 (`merge_record()`) and reuses `match_key()` from
+  Foundational.
+- **US6 (P3)**: Depends only on Foundational (`Config`/`load_config()` already do the
+  heavy lifting from T004; this phase adds the explicit pre-flight call + verifies the
+  end-to-end guarantee).
+
+### Within Each User Story
+
+- Implementation tasks touching `scripts/scrape_applicants.py` are sequential (same
+  file).
+- Fixture creation and test-writing tasks in different files are parallelizable with
+  each other, but come after that phase's implementation tasks are done.
+
+### Parallel Opportunities
+
+- T003 and T004 (Foundational) — different files.
+- T010, T011, T012 (Foundational tests) — different files.
+- T020–T023 (US1 fixtures) — four different files.
+- T024–T027 (US1 tests) — four different files.
+- T032, T033, T034 (US2 tests) — three different files.
+- T046 (README) can happen any time after the CLI interface is stable (effectively
+  any time after Phase 3).
+
+---
+
+## Parallel Example: Foundational tests
+
+```bash
+# After T003-T009 are complete, these three can be written in any order/by anyone:
+Task: "Unit tests for default-season computation in tests/unit/test_season.py"
+Task: "Unit tests for Config env-var validation in tests/unit/test_config.py"
+Task: "Unit tests for schema validation in tests/unit/test_schema_validation.py"
+```
+
+## Parallel Example: User Story 1 fixtures
+
+```bash
+# Can all be written before or alongside T013-T019:
+Task: "Create tests/fixtures/login_page.html"
+Task: "Create tests/fixtures/applicants_page_1.html"
+Task: "Create tests/fixtures/applicants_page_2.html"
+Task: "Create tests/fixtures/photo_popup.html"
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (User Story 1 Only)
+
+1. Complete Phase 1: Setup
+2. Complete Phase 2: Foundational (CRITICAL — blocks everything else)
+3. Complete Phase 3: User Story 1
+4. **STOP and VALIDATE**: run quickstart.md Scenario 1 against fixture-backed unit
+   tests (`uv run pytest`); a first-time scrape persisting non-"no" applicants with
+   photos, across pages, is a usable MVP on its own.
+
+### Incremental Delivery
+
+1. Setup + Foundational → foundation ready.
+2. US1 → test independently → usable MVP (first-time scrape works).
+3. US2 → test independently → now safe to re-run without losing manual edits (the
+   real "safe to run repeatedly" guarantee the feature exists for).
+4. US3 → ignore flag respected.
+5. US4 → status-flip exclusion tracked instead of silently vanishing.
+6. US5 → within-season duplicates handled.
+7. US6 → env-var-only config guarantee explicitly verified end-to-end.
+8. Polish → auto-commit, lint, full test run, quickstart walkthrough.
+
+Each increment adds value without breaking the previous one, and per-story unit tests
+keep every earlier guarantee regression-checked as later stories are added.
+
+---
+
+## Notes
+
+- `[P]` tasks = different files, no dependency on an incomplete task in the same batch.
+- `[Story]` label maps a task to its user story for traceability.
+- This is a single-script feature (Constitution II) — most parallelism opportunities
+  are in fixtures/tests, not implementation, since implementation tasks share one file.
+- Commit after each task or logical group (see root `CLAUDE.md` — never touch `data/`
+  or `.env`; only files under `scripts/`, `tests/`, and this feature's `specs/`
+  directory are ever committed to this repository).
+- Verify tests pass after each phase; stop at any checkpoint to validate a story
+  independently before continuing.
