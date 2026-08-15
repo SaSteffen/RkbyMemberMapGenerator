@@ -1,0 +1,6 @@
+# Claude Code local/personal settings (per-machine, not project config)
+.claude/settings.local.json
+
+# Python bytecode cache
+__pycache__/
+*.pyc
