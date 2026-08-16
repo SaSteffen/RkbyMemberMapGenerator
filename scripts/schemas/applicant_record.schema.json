@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://rkby.local/schemas/applicant-record.schema.json",
   "title": "Applicant Record",
-  "description": "One retained applicant's persisted data for one season. See specs/001-scraper-persistence/data-model.md for field-by-field write rules.",
+  "description": "One retained applicant's persisted data for one season. See specs/001-scraper-persistence/data-model.md and specs/002-map-generator/data-model.md for field-by-field write rules.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -63,6 +63,18 @@
     "photo": {
       "type": ["string", "null"],
       "description": "Path to the photo file, relative to the season folder, e.g. \"photos/jane-doe.jpg\". Null until a photo fetch succeeds."
+    },
+    "latitude": {
+      "type": ["number", "null"],
+      "minimum": -90,
+      "maximum": 90,
+      "description": "Geocoded from address by scripts/generate_member_maps.py (002-map-generator). Null until a geocode lookup succeeds. Set once, fill-empty-only — never rewritten by a later run once non-null (Principle III); always set together with longitude."
+    },
+    "longitude": {
+      "type": ["number", "null"],
+      "minimum": -180,
+      "maximum": 180,
+      "description": "Geocoded from address by scripts/generate_member_maps.py (002-map-generator). Null until a geocode lookup succeeds. Set once, fill-empty-only — never rewritten by a later run once non-null (Principle III); always set together with latitude."
     }
   },
   "allOf": [

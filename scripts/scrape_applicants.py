@@ -13,22 +13,38 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import json
 import logging
 import os
 import re
-import subprocess
 import sys
-import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
 import jsonschema
 import requests
-import yaml
 from bs4 import BeautifulSoup
 
-SCHEMA_PATH = Path(__file__).parent / "schemas" / "applicant_record.schema.json"
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Several of these are only used elsewhere in this module (applicants_dir,
+# etc.) -- others (load_schema, validate_record, load_existing_records,
+# setup_run_logger, InvalidExistingRecordError) are re-exported here purely
+# so this module's existing test suite keeps importing them from
+# scripts.scrape_applicants unmodified.
+from scripts.rkby_records import (  # noqa: F401
+    InvalidExistingRecordError,
+    _dump_record_yaml,
+    applicants_dir,
+    auto_commit,
+    load_existing_records,
+    load_schema,
+    logs_dir,
+    normalize_name,
+    photos_dir,
+    setup_run_logger,
+    validate_record,
+)
 
 BASE_URL = "https://intranet.team-rynkeby.com"
 LOGIN_URL = f"{BASE_URL}/login"
@@ -97,18 +113,7 @@ def parse_season_arg(value: str) -> str:
     return f"{start_year}-{end_suffix}"
 
 
-# --- Name normalization / matching (FR-013) ----------------------------------
-
-_WHITESPACE_OR_HYPHEN_RE = re.compile(r"[\s-]+")
-_NON_ALNUM_HYPHEN_RE = re.compile(r"[^a-z0-9-]")
-
-
-def normalize_name(value: str) -> str:
-    stripped = unicodedata.normalize("NFKD", value.strip())
-    ascii_only = stripped.encode("ascii", "ignore").decode("ascii").lower()
-    hyphenated = _WHITESPACE_OR_HYPHEN_RE.sub("-", ascii_only)
-    cleaned = _NON_ALNUM_HYPHEN_RE.sub("", hyphenated)
-    return cleaned.strip("-")
+# --- Name matching (FR-013) ---------------------------------------------------
 
 
 def match_key(first_name: str, last_name: str) -> str:
@@ -116,83 +121,6 @@ def match_key(first_name: str, last_name: str) -> str:
     if not normalized_last:
         return normalize_name(first_name)
     return f"{normalize_name(first_name)}-{normalized_last}"
-
-
-# --- Schema validation (FR-017) ----------------------------------------------
-
-
-def load_schema() -> dict:
-    return json.loads(SCHEMA_PATH.read_text())
-
-
-def validate_record(record: dict) -> None:
-    schema = load_schema()
-    jsonschema.validate(instance=record, schema=schema)
-
-
-# --- Season directory layout --------------------------------------------------
-
-
-def season_dir(data_dir: Path, season_label: str) -> Path:
-    return data_dir / "seasons" / season_label
-
-
-def applicants_dir(data_dir: Path, season_label: str) -> Path:
-    return season_dir(data_dir, season_label) / "applicants"
-
-
-def photos_dir(data_dir: Path, season_label: str) -> Path:
-    return season_dir(data_dir, season_label) / "photos"
-
-
-def logs_dir(data_dir: Path, season_label: str) -> Path:
-    return season_dir(data_dir, season_label) / "logs"
-
-
-# --- Run logging (FR-016) -----------------------------------------------------
-
-
-def _ensure_logs_gitignored(season_directory: Path) -> None:
-    """Every run creates a fresh timestamped log file (FR-016), including
-    no-op re-runs. Without this, such a run would always leave a new
-    untracked file behind, so `git status` (and, if logs/ were ever staged,
-    a commit) would never be truly empty -- breaking SC-002/quickstart
-    Scenario 2. logs/ is scoped to this feature's own season folder, so
-    ignoring it here isn't "provisioning" the data repo (out of scope per
-    spec Assumptions), just this script managing output it alone owns."""
-    gitignore_path = season_directory / ".gitignore"
-    if not gitignore_path.exists():
-        gitignore_path.write_text("logs/\n")
-
-
-def setup_run_logger(
-    run_logs_dir: Path, logger_name: str = "scrape_applicants"
-) -> tuple[logging.Logger, Path]:
-    """Configure a per-run logger: WARNING+ to a timestamped file under
-    run_logs_dir, INFO+ to the console."""
-    run_logs_dir.mkdir(parents=True, exist_ok=True)
-    _ensure_logs_gitignored(run_logs_dir.parent)
-    timestamp = datetime.datetime.now().astimezone().strftime("%Y-%m-%dT%H%M%S")
-    log_file = run_logs_dir / f"{timestamp}.log"
-
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
-    logger.handlers.clear()
-    logger.propagate = False
-
-    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
-    file_handler.setLevel(logging.WARNING)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    return logger, log_file
 
 
 # --- Intranet client (US1: login, season resolution, page/photo fetch) -------
@@ -556,10 +484,6 @@ def fetch_birthday(
 # --- Persistence (US1 create + US2 merge/overwrite-protection, FR-009) --------
 
 
-class InvalidExistingRecordError(Exception):
-    """An existing persisted record failed schema validation (FR-017)."""
-
-
 def _log_invalid_scraped_record(
     logger: logging.Logger,
     key: str,
@@ -581,59 +505,11 @@ def _log_invalid_scraped_record(
     )
 
 
-_RECORD_FIELD_ORDER = (
-    "match_key",
-    "first_name",
-    "last_name",
-    "address",
-    "phone",
-    "role",
-    "birthday",
-    "status",
-    "excluded",
-    "excluded_observed_at",
-    "ignore",
-    "photo",
-)
-
-
 def _guess_photo_extension(thumbnail_url: str | None) -> str:
     if not thumbnail_url:
         return ".jpg"
     suffix = Path(thumbnail_url.split("?", 1)[0]).suffix
     return suffix if suffix else ".jpg"
-
-
-def _dump_record_yaml(record: dict) -> str:
-    # .get() rather than direct indexing: an existing record persisted before
-    # an optional field (e.g. "role") existed won't have that key yet, and
-    # must still be re-dumpable without a separate migration step.
-    ordered = {key: record.get(key) for key in _RECORD_FIELD_ORDER}
-    header = (
-        "# Validate against scripts/schemas/applicant_record.schema.json "
-        "in the RkbyMemberMapGenerator repo.\n"
-    )
-    return header + yaml.safe_dump(ordered, sort_keys=False, allow_unicode=True)
-
-
-def load_existing_records(data_dir: Path, season_label: str) -> dict[str, dict]:
-    """Load + schema-validate every persisted record for a season. Raises
-    before any write happens if any existing file is invalid (FR-017) --
-    callers must call this before touching any other file."""
-    a_dir = applicants_dir(data_dir, season_label)
-    if not a_dir.exists():
-        return {}
-    records: dict[str, dict] = {}
-    for path in sorted(a_dir.glob("*.yaml")):
-        record = yaml.safe_load(path.read_text())
-        try:
-            validate_record(record)
-        except jsonschema.exceptions.ValidationError as exc:
-            raise InvalidExistingRecordError(
-                f"Existing record {path.name} failed schema validation: {exc.message}"
-            ) from exc
-        records[record["match_key"]] = record
-    return records
 
 
 def merge_record(existing: dict, scraped: dict) -> dict:
@@ -814,30 +690,14 @@ def persist_records(
     }
 
 
-# --- Auto-commit local data-repo changes (research.md §14) --------------------
-
-
-def _run_git(data_dir: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", "-C", str(data_dir), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-
-def _is_git_work_tree(data_dir: Path) -> bool:
-    result = _run_git(data_dir, "rev-parse", "--is-inside-work-tree")
-    return result.returncode == 0 and result.stdout.strip() == "true"
+# --- Auto-commit local data-repo changes (research.md §12) --------------------
 
 
 def auto_commit_season(
     data_dir: Path, season_label: str, summary: dict, logger: logging.Logger
 ) -> None:
-    """If `RKBY_DATA_DIR` is a git work tree, stage + commit the applicant
-    data this run changed. No-op if not a git repo or nothing changed; a
-    commit failure is logged as a warning and never raised -- the already
-    -written season data is valid regardless of whether the commit succeeds.
+    """Stage + commit the applicant data this run changed, via the shared
+    `rkby_records.auto_commit` helper (research.md §10, §12).
 
     Deliberately scoped to applicants/ + photos/ (+ the season's own
     logs-ignoring .gitignore, committed once when first created), not
@@ -847,40 +707,17 @@ def auto_commit_season(
     a commit, breaking SC-002/quickstart Scenario 2's "identical HEAD, empty
     git status" guarantee. Log files are still written to disk every run;
     they're just not git-tracked by this step."""
-    if not _is_git_work_tree(data_dir):
-        return
-
     data_paths = [
-        relative
-        for relative in (
-            f"seasons/{season_label}/applicants",
-            f"seasons/{season_label}/photos",
-            f"seasons/{season_label}/.gitignore",
-        )
-        if (data_dir / relative).exists()
+        f"seasons/{season_label}/applicants",
+        f"seasons/{season_label}/photos",
+        f"seasons/{season_label}/.gitignore",
     ]
-    if not data_paths:
-        return
-
-    add_result = _run_git(data_dir, "add", *data_paths)
-    if add_result.returncode != 0:
-        logger.warning(
-            "git add failed for %s: %s", data_paths, add_result.stderr.strip()
-        )
-        return
-
-    status_result = _run_git(data_dir, "status", "--porcelain", "--", *data_paths)
-    if not status_result.stdout.strip():
-        return  # nothing staged -> no empty commit
-
     message = (
         f"scrape({season_label}): {summary['created']} new, "
         f"{summary['excluded']} excluded, {summary['photos_fetched']} photos fetched "
         f"— {_now_iso()}"
     )
-    commit_result = _run_git(data_dir, "commit", "-m", message)
-    if commit_result.returncode != 0:
-        logger.warning("git commit failed: %s", commit_result.stderr.strip())
+    auto_commit(data_dir, data_paths, message, logger)
 
 
 # --- CLI entrypoint ------------------------------------------------------------

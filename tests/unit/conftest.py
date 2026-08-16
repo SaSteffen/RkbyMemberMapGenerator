@@ -3,7 +3,21 @@ for the intranet's login/season-selector endpoints (FR-021: no real network call
 
 from pathlib import Path
 
+import pytest
 import responses
+
+import scripts.rkby_maps.geocoding as _geocoding_module
+
+
+@pytest.fixture(autouse=True)
+def _reset_geocoding_throttle_state():
+    """The Nominatim client's 1 req/sec throttle (research.md §3) tracks the
+    last request time in module state so it holds across every call made
+    during one real run -- reset it before each test so an earlier test's
+    timestamp never causes an unrelated test to sleep for real."""
+    _geocoding_module._last_request_monotonic = None
+    yield
+
 
 BASE_URL = "https://intranet.team-rynkeby.com"
 LOGIN_URL = f"{BASE_URL}/login"

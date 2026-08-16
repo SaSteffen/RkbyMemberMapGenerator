@@ -1,0 +1,15 @@
+[
+  {
+    "place_id": 123456789,
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. https://osm.org/copyright",
+    "osm_type": "way",
+    "osm_id": 987654321,
+    "boundingbox": ["53.5500000", "53.5510000", "9.9930000", "9.9940000"],
+    "lat": "53.5505000",
+    "lon": "9.9935000",
+    "display_name": "Musterstr. 1, 22111 Hamburg, Germany",
+    "class": "place",
+    "type": "house",
+    "importance": 0.62
+  }
+]
