@@ -144,7 +144,7 @@ def test_scraped_row_conflicting_with_persisted_record_is_flagged_and_existing_k
     logger, log_file = setup_run_logger(tmp_path / "logs")
     rows = [_row(address="A Conflicting Street 2")]
 
-    persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+    persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
     for handler in logger.handlers:
         handler.flush()
 
@@ -166,7 +166,7 @@ def test_a_single_token_name_with_no_last_name_is_persisted_not_skipped(tmp_path
     logger, _log_file = setup_run_logger(tmp_path / "logs")
     rows = [_row(first_name="Robin", last_name="")]
 
-    summary = persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
 
     assert summary["validation_errors"] == 0
     assert summary["created"] == 1
@@ -202,7 +202,7 @@ def test_matching_never_crosses_season_boundaries(tmp_path):
     logger, _ = setup_run_logger(tmp_path / "logs-b")
     rows = [_row(address="Season B Street 9")]
 
-    summary = persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
 
     # Season A's record is untouched -- no cross-season match/conflict.
     assert (season_a_dir / "jane-doe.yaml").read_text() == season_a_snapshot

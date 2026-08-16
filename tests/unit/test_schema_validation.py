@@ -165,7 +165,7 @@ def test_a_schema_invalid_new_row_is_logged_with_the_full_record_and_skipped_not
         },
     ]
 
-    summary = persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
     for handler in logger.handlers:
         handler.flush()
 
@@ -218,7 +218,7 @@ def test_a_schema_invalid_merged_record_is_logged_and_skipped_leaving_existing_f
         }
     ]
 
-    summary = persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
     for handler in logger.handlers:
         handler.flush()
 

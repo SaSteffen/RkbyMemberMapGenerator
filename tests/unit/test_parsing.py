@@ -55,6 +55,23 @@ def test_parse_applicant_rows_reports_none_photo_url_when_no_photo_uploaded():
     assert by_name[("Jonas", "Beispiel")]["photo_thumbnail_url"] is None
 
 
+def test_parse_applicant_rows_extracts_applicant_id_from_the_toggle_status_row():
+    rows = parse_applicant_rows(_load("applicants_page_1.html"))
+    by_name = {(r["first_name"], r["last_name"]): r for r in rows}
+
+    assert by_name[("Max", "Mustermann")]["applicant_id"] == 1001
+
+
+def test_parse_applicant_rows_extracts_applicant_id_from_the_finalized_status_row():
+    # The plain-text "User has approved" rendering still carries the same
+    # <span class="iddata" data-id="..."> as the toggle rendering
+    # (research.md §15 revision).
+    rows = parse_applicant_rows(_load("applicants_page_1.html"))
+    by_name = {(r["first_name"], r["last_name"]): r for r in rows}
+
+    assert by_name[("Petra", "Beispiel")]["applicant_id"] == 1004
+
+
 def test_full_resolution_photo_url_strips_the_resize_query_string():
     assert (
         full_resolution_photo_url(

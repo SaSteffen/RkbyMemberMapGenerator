@@ -9,6 +9,7 @@ BASE_URL = "https://intranet.team-rynkeby.com"
 LOGIN_URL = f"{BASE_URL}/login"
 APPLICANTS_URL = f"{BASE_URL}/team/applicants"
 AJAX_URL = f"{BASE_URL}/Ajax/team_application_manager.php"
+PARTICIPANT_URL = f"{BASE_URL}/Ajax/showparticipant.php"
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
@@ -58,6 +59,26 @@ def register_ajax_page(page: int, body: str, status: int = 200) -> None:
                     "season": "1181",
                     "filter_status": "",
                     "page": str(page),
+                }
+            )
+        ],
+    )
+
+
+def register_participant_detail(
+    applicant_id: int, body: str, season: int = 1181, status: int = 200
+) -> None:
+    responses.add(
+        responses.GET,
+        PARTICIPANT_URL,
+        body=body,
+        status=status,
+        match=[
+            responses.matchers.query_param_matcher(
+                {
+                    "season": str(season),
+                    "mplc": "/team/applicants",
+                    "userid": str(applicant_id),
                 }
             )
         ],

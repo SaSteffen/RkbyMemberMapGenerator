@@ -34,6 +34,7 @@ BASE_URL = "https://intranet.team-rynkeby.com"
 LOGIN_URL = f"{BASE_URL}/login"
 APPLICANTS_URL = f"{BASE_URL}/team/applicants"
 AJAX_URL = f"{BASE_URL}/Ajax/team_application_manager.php"
+PARTICIPANT_URL = f"{BASE_URL}/Ajax/showparticipant.php"
 
 REQUIRED_ENV_VARS = (
     "RKBY_INTRANET_USERNAME",
@@ -291,6 +292,19 @@ class IntranetClient:
         response.raise_for_status()
         return response.content
 
+    def fetch_participant_detail(self, season_id: int, applicant_id: int) -> str:
+        response = self.session.get(
+            PARTICIPANT_URL,
+            params={
+                "season": season_id,
+                "mplc": "/team/applicants",
+                "userid": applicant_id,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.text
+
 
 # --- Applicant row parsing (FR-001, FR-004, FR-005) ---------------------------
 
@@ -336,6 +350,36 @@ def _parse_photo_thumbnail_url(image_cell) -> str | None:
     return match.group(1) if match else None
 
 
+def _parse_applicant_id(status_cell) -> int | None:
+    """The "Accept on teams" cell carries `<span class="iddata"
+    data-id="...">` regardless of which status rendering it uses (research.md
+    §15 revision) -- this is the `userid` the detail popup is fetched by."""
+    span = status_cell.find("span", class_="iddata")
+    if span is None:
+        return None
+    raw = span.get("data-id")
+    return int(raw) if raw and raw.isdigit() else None
+
+
+_BIRTHDAY_RE = re.compile(r"(\d{2})-(\d{2})-(\d{4})")
+
+
+def _parse_birthday(html: str) -> str | None:
+    """Parse the `dd-mm-yyyy` birthday out of an applicant detail popup
+    (`/Ajax/showparticipant.php`) into ISO 8601 (YYYY-MM-DD). Birthday is not
+    present in the applicant list view itself, only here (research.md §15
+    revision)."""
+    soup = BeautifulSoup(html, "html.parser")
+    el = soup.find("p", class_="profile_birthday")
+    if el is None:
+        return None
+    match = _BIRTHDAY_RE.search(el.get_text())
+    if not match:
+        return None
+    day, month, year = match.groups()
+    return f"{year}-{month}-{day}"
+
+
 def full_resolution_photo_url(thumbnail_url: str | None) -> str | None:
     if thumbnail_url is None:
         return None
@@ -377,9 +421,10 @@ def parse_applicant_rows(html: str) -> list[dict]:
                 "last_name": last_name,
                 "phone": cell["Phone"].get_text(strip=True) or None,
                 "address": address,
-                "birthday": None,  # not available on this view (research.md §15)
+                "birthday": None,  # fetched later from the detail popup if needed
                 "status": _parse_status(cell["Accept on teams"]),
                 "photo_thumbnail_url": _parse_photo_thumbnail_url(cell["Image"]),
+                "applicant_id": _parse_applicant_id(cell["Accept on teams"]),
             }
         )
     return rows
@@ -485,6 +530,26 @@ def fetch_photo(
     except Exception as exc:  # noqa: BLE001 - intentionally broad, see FR-005
         logger.warning("Photo fetch failed for %s: %s", match_key_value, exc)
         return None
+
+
+def fetch_birthday(
+    client: IntranetClient,
+    season_id: int,
+    applicant_id: int | None,
+    logger: logging.Logger,
+    match_key_value: str,
+) -> str | None:
+    """Fetch one applicant's birthday from their detail popup. Never raises
+    -- a failure is logged as a warning and retried on a later run (mirrors
+    fetch_photo's FR-005 handling)."""
+    if applicant_id is None:
+        return None
+    try:
+        html = client.fetch_participant_detail(season_id, applicant_id)
+    except Exception as exc:  # noqa: BLE001 - intentionally broad, see FR-005
+        logger.warning("Birthday fetch failed for %s: %s", match_key_value, exc)
+        return None
+    return _parse_birthday(html)
 
 
 # --- Persistence (US1 create + US2 merge/overwrite-protection, FR-009) --------
@@ -602,6 +667,25 @@ def _fetch_photo_if_needed(
     return True
 
 
+def _fetch_birthday_if_needed(
+    record: dict,
+    row: dict,
+    client: IntranetClient,
+    season_id: int,
+    logger: logging.Logger,
+    key: str,
+) -> bool:
+    """Fetch + set a birthday into `record` (mutated in place) unless one is
+    already recorded. Returns whether a new birthday was fetched."""
+    if record.get("birthday"):
+        return False
+    birthday = fetch_birthday(client, season_id, row.get("applicant_id"), logger, key)
+    if birthday is None:
+        return False
+    record["birthday"] = birthday
+    return True
+
+
 def _now_iso() -> str:
     return datetime.datetime.now().astimezone().isoformat()
 
@@ -609,6 +693,7 @@ def _now_iso() -> str:
 def persist_records(
     data_dir: Path,
     season_label: str,
+    season_id: int,
     rows: list[dict],
     client: IntranetClient,
     logger: logging.Logger,
@@ -631,6 +716,7 @@ def persist_records(
     created = 0
     updated = 0
     photos_fetched = 0
+    birthdays_fetched = 0
     excluded = 0
     validation_errors = 0
 
@@ -667,6 +753,8 @@ def persist_records(
                 continue
             if _fetch_photo_if_needed(record, row, client, p_dir, logger, key):
                 photos_fetched += 1
+            if _fetch_birthday_if_needed(record, row, client, season_id, logger, key):
+                birthdays_fetched += 1
             (a_dir / f"{key}.yaml").write_text(_dump_record_yaml(record))
             created += 1
             continue
@@ -696,6 +784,8 @@ def persist_records(
             record = merge_record(existing, row)
             if _fetch_photo_if_needed(record, row, client, p_dir, logger, key):
                 photos_fetched += 1
+            if _fetch_birthday_if_needed(record, row, client, season_id, logger, key):
+                birthdays_fetched += 1
 
         if record != existing:
             try:
@@ -712,6 +802,7 @@ def persist_records(
         "created": created,
         "updated": updated,
         "photos_fetched": photos_fetched,
+        "birthdays_fetched": birthdays_fetched,
         "excluded": excluded,
         "validation_errors": validation_errors,
     }
@@ -831,19 +922,22 @@ def main(argv: list[str] | None = None, today: datetime.date | None = None) -> i
     # decides per-row (FR-003: never create from a "no"; FR-015: mark an
     # existing record excluded rather than dropping it).
     try:
-        summary = persist_records(config.data_dir, season_label, rows, client, logger)
+        summary = persist_records(
+            config.data_dir, season_label, season_id, rows, client, logger
+        )
     except InvalidExistingRecordError as exc:
         logger.error("Run aborted, existing data left untouched: %s", exc)
         return 1
 
     logger.info(
         "Run complete for season %s: %d created, %d updated, %d excluded, "
-        "%d photos fetched, %d validation errors",
+        "%d photos fetched, %d birthdays fetched, %d validation errors",
         season_label,
         summary["created"],
         summary["updated"],
         summary["excluded"],
         summary["photos_fetched"],
+        summary["birthdays_fetched"],
         summary["validation_errors"],
     )
 

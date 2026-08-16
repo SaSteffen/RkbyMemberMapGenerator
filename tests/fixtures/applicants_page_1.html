@@ -1,7 +1,10 @@
 <!-- Obfuscated/synthetic: shape of a real /Ajax/team_application_manager.php response
      fragment (page=0). Column headers and per-row markup (photo div, status toggle
      group with an "active" label, or a plain finalized-status string) mirror the real
-     site's structure; all names/contact details/photo paths are synthetic. -->
+     site's structure; all names/contact details/photo paths are synthetic. The
+     "Accept on teams" cell's <span class="iddata" data-id="..."> is the applicant's
+     userid, used to fetch their detail popup for the birthday (research.md §15
+     revision) -- present on both status renderings. -->
 <div><input type="hidden" id="team_is_cluster" value="False" /></div>
 <div><input type="hidden" id="team_in_cluster" value="False" /></div>
 <table id="applicants" class="stripe row-border">
@@ -30,7 +33,7 @@
 <td>Male</td>
 <td>No</td>
 <td>Looking forward to it</td>
-<td><span class="iddata"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1001]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[1001]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1001]" value="No"><i></i>No</label></div></td>
+<td><span class="iddata" data-id="1001"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1001]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[1001]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1001]" value="No"><i></i>No</label></div></td>
 <td></td>
 </tr>
 <tr>
@@ -50,7 +53,7 @@
 <td>Female</td>
 <td>No</td>
 <td></td>
-<td><span class="iddata"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1002]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1002]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[1002]" value="No"><i></i>No</label></div></td>
+<td><span class="iddata" data-id="1002"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1002]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1002]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[1002]" value="No"><i></i>No</label></div></td>
 <td></td>
 </tr>
 <tr>
@@ -70,7 +73,7 @@
 <td>Male</td>
 <td>No</td>
 <td></td>
-<td><span class="iddata"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[1003]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1003]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1003]" value="No"><i></i>No</label></div></td>
+<td><span class="iddata" data-id="1003"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[1003]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1003]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1003]" value="No"><i></i>No</label></div></td>
 <td></td>
 </tr>
 <tr>
@@ -90,7 +93,7 @@
 <td>Female</td>
 <td>Yes</td>
 <td></td>
-<td>User has approved</td>
+<td><span class="iddata" data-id="1004"></span>User has approved</td>
 <td></td>
 </tr>
 </tbody>

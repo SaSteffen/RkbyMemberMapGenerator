@@ -12,6 +12,7 @@ import yaml
 from conftest import (
     load_fixture,
     register_ajax_page,
+    register_participant_detail,
     register_season_selector,
     register_successful_login,
 )
@@ -53,6 +54,9 @@ def test_first_run_persists_multi_page_non_no_applicants_with_default_season(
     _register_photo("/uploaded/webusers/1001_1700000000_11111111/max.jpg")
     _register_photo("/uploaded/webusers/1004_1700000003_44444444/petra.jpg")
     _register_photo("/uploaded/webusers/1005_1700000004_55555555/lena.jpg")
+    birthday_html = load_fixture("applicant_detail_popup.html")
+    for applicant_id in (1001, 1003, 1004, 1005):  # not 1002 (erika): status "no"
+        register_participant_detail(applicant_id, birthday_html)
 
     # No --season passed: default_season_label(2026-03-01) == "2025-26",
     # matching the 1181 season id in season_selector_page.html (FR-022).
@@ -77,6 +81,7 @@ def test_first_run_persists_multi_page_non_no_applicants_with_default_season(
     for record_file in a_dir.glob("*.yaml"):
         record = yaml.safe_load(record_file.read_text())
         validate_record(record)  # must not raise -- SC-005
+        assert record["birthday"] == "1990-03-15"  # fetched from the detail popup
 
 
 # --- Story 2: re-run without losing manual corrections (FR-009, SC-002, SC-003) ---
@@ -242,7 +247,7 @@ def test_ignored_record_is_byte_for_byte_unchanged_even_if_person_reappears(tmp_
         }
     ]
 
-    summary = persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
 
     assert ignored_file.read_text() == ignored_content
     assert summary["created"] == 0
@@ -282,7 +287,7 @@ def test_status_flip_to_no_sets_excluded_and_timestamp_leaving_other_fields_unch
         }
     ]
 
-    summary = persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
     for handler in logger.handlers:
         handler.flush()
 
@@ -324,7 +329,7 @@ def test_ignored_record_observing_no_status_produces_no_exclusion_and_no_log(
         }
     ]
 
-    persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+    persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
     for handler in logger.handlers:
         handler.flush()
 
@@ -345,7 +350,7 @@ def test_a_never_before_seen_no_status_applicant_is_still_never_persisted(tmp_pa
         }
     ]
 
-    summary = persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
 
     assert summary["created"] == 0
     a_dir = tmp_path / "seasons" / "2025-26" / "applicants"

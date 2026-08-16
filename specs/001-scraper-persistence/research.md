@@ -352,14 +352,25 @@ Accept on teams, Note`) and one `<tr>` per applicant in `<tbody>`.
   `Country` columns) — no per-applicant detail fetch is needed for those. They are
   combined into the single `address` field as `f"{address}, {zip} {city}, {country}"`
   (each part omitted if blank).
-- **Birthday is NOT present anywhere in this view** — only an `Age` column (whole
-  years). No linked per-applicant detail page/endpoint was found from this table (no
-  row `onclick`, no per-row link). Per data-model.md, `birthday` is an optional/
-  nullable field; the scraper leaves it `null` on every record (a human fills it in by
-  hand later, per Constitution III) rather than guessing at an unconfirmed detail
-  endpoint. This revises research.md §3's "add a per-applicant detail-page fetch"
-  contingency: empirically, no such endpoint is reachable from this table, so the
-  correct behavior is "leave null", not "add a detail fetch".
+- **Birthday is NOT present in the list view itself** — only an `Age` column (whole
+  years). **Revision (post-implementation, live-site inspection via the row-click
+  popup)**: it *is* available, on a per-applicant detail endpoint reachable from this
+  table after all — `GET /Ajax/showparticipant.php?season=<season_id>&mplc=/team/
+  applicants&userid=<applicant_id>`, the same request the site fires when a user
+  clicks an applicant row to open its profile popup. `applicant_id` (`userid`) is read
+  from `<span class="iddata" data-id="...">` inside the row's `Accept on teams` cell —
+  present under both status renderings (toggle and finalized plain-text). The detail
+  response contains `<p class="profile_birthday"><span>Birthday: </span>dd-mm-yyyy</p>`
+  (European day-first order, confirmed against a known applicant's `Age` value);
+  parsed and stored as ISO 8601 (`YYYY-MM-DD`) per data-model.md. Fetched lazily and
+  only once per applicant — mirrors the existing photo-fetch pattern: skipped whenever
+  a record already has a non-empty `birthday` (fill-empty-only, FR-009), and a fetch
+  failure is logged as a warning and simply retried on a later run (FR-005) rather than
+  aborting. This further revises the initial "leave null, no such endpoint exists"
+  conclusion above (itself a revision of research.md §3's original detail-page-fetch
+  contingency) — the endpoint exists, it just isn't linked from the table row the way a
+  normal `<a href>` or `onclick` would be; it only became apparent by watching the
+  network request the site's own UI makes on row click.
 - **Status** (`Accept on teams` column) has two renderings that both need parsing: (a)
   an editable 3-way toggle (`Undecided`/`No`/`Yes`), where the selected option's
   `<label>` carries an extra `active` CSS class — read that label's text; (b) an

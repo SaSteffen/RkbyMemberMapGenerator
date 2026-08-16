@@ -73,7 +73,7 @@ def test_persist_records_isolates_a_single_photo_failure(tmp_path):
         },
     ]
 
-    summary = persist_records(tmp_path, "2025-26", rows, client, logger)
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, client, logger)
 
     assert summary["created"] == 2
     assert summary["photos_fetched"] == 1
@@ -141,7 +141,9 @@ def test_persist_records_does_not_refetch_or_overwrite_an_existing_photo_file(
         }
     ]
 
-    summary = persist_records(tmp_path, "2025-26", rows, _FailIfCalledClient(), logger)
+    summary = persist_records(
+        tmp_path, "2025-26", 1181, rows, _FailIfCalledClient(), logger
+    )
 
     assert summary["photos_fetched"] == 0
     assert existing_photo.read_bytes() == b"manually-placed-photo-bytes"
