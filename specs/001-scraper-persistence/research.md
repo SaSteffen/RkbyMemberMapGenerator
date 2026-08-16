@@ -306,3 +306,82 @@ user's instruction is explicitly conditional ("if git is detected"), and forcing
 opt-out environment variable to disable auto-commit — not added; the behavior is scoped,
 local-only, and trivially reversible via normal git commands, so a dedicated toggle
 would be speculative complexity ahead of anyone needing it.
+
+## 15. Empirical findings from live-site inspection (implementation-time, US1)
+
+The following resolves the open questions §2/§3/§4/§5 left for implementation, from a
+one-time authenticated inspection of the real site (no real data persisted or
+committed; only structural facts recorded here).
+
+**Login** (§2): `POST /login` with fields `loginusername`, `loginpassword`, and three
+fixed accompanying fields the form always sends: `UseMd5=UseMd5`,
+`dologinnoredirect=dologinnoredirect`, `dologin=Login`. Session auth via cookies
+(`PHPSESSID`, `csrf_token`) — no CSRF token needs to be read/replayed for this POST.
+**Failure detection**: on failure the response stays on `/login` (an unauthenticated
+`GET` of any protected page also redirects back to `/login`); the failure page also
+contains an element with `class="error"` whose text is a human-readable message (not
+matched on verbatim, only used as a secondary signal) — success is detected by the
+response URL no longer being `/login`.
+
+**Season/team resolution** (§5): the authenticated `GET /team/applicants` page embeds
+a toggle-button group per season: `<label ... OnClick="get_season_data(<id>);"> <input
+... value="<id>"><i></i><label-text></label>`, where `<label-text>` is either
+`"Season YYYY/YY"` or `"Inactive"`. Parse with a regex over that pattern to build
+`{"YYYY-YY": id}`. Team id comes from `<select id="team_group" name="team_group">`
+(single `<option>` per team the account has access to; this account has exactly one:
+`value="740"` text `"Hamburg"`, matching the spec's own example request). Confirmed:
+season `"2025-26"` resolves to `season_id=1181`, matching the spec's example request
+exactly.
+
+**Applicant list shape** (§3): `GET /Ajax/team_application_manager.php` (params
+`tableSettings=true, teamid, season, filter_status, page`) returns one `<table
+id="applicants">` with a `<thead>` (`Image, Created, Name, Email, Phone, Jobtitle,
+Address, Zip, City, Country, Participated, Role, Age, Sex, Email send, Motivation,
+Accept on teams, Note`) and one `<tr>` per applicant in `<tbody>`.
+
+- **Pagination is client-side only**: the server returns *every* applicant row for the
+  season in a single response regardless of the `page` query param — `page` only seeds
+  a jQuery DataTables `displayStart` UI hint in an inline `<script>`, it does not
+  change which rows are present in the HTML (confirmed: `page=0` and `page=1`
+  responses are byte-identical apart from that one hint value). `fetch_all_pages()`
+  therefore does not need true multi-request pagination against the real site, but
+  still loops defensively (fetch a page, stop once a subsequent page adds no
+  previously-unseen row) rather than hard-coding "always exactly one fetch" — cheap,
+  and keeps the multi-page fixture/rollback tests (FR-018) meaningful.
+- **Address/phone are present directly in the row** (`Phone`, `Address`, `Zip`, `City`,
+  `Country` columns) — no per-applicant detail fetch is needed for those. They are
+  combined into the single `address` field as `f"{address}, {zip} {city}, {country}"`
+  (each part omitted if blank).
+- **Birthday is NOT present anywhere in this view** — only an `Age` column (whole
+  years). No linked per-applicant detail page/endpoint was found from this table (no
+  row `onclick`, no per-row link). Per data-model.md, `birthday` is an optional/
+  nullable field; the scraper leaves it `null` on every record (a human fills it in by
+  hand later, per Constitution III) rather than guessing at an unconfirmed detail
+  endpoint. This revises research.md §3's "add a per-applicant detail-page fetch"
+  contingency: empirically, no such endpoint is reachable from this table, so the
+  correct behavior is "leave null", not "add a detail fetch".
+- **Status** (`Accept on teams` column) has two renderings that both need parsing: (a)
+  an editable 3-way toggle (`Undecided`/`No`/`Yes`), where the selected option's
+  `<label>` carries an extra `active` CSS class — read that label's text; (b) an
+  already-finalized plain-text value, either `"User has approved"` or `"User has
+  declined (Resend)"` (no toggle markup in that case). Both are normalized at parse
+  time into one of three canonical, lowercase stored values: `"yes"` (Yes / User has
+  approved), `"no"` (No / User has declined...), `"undecided"` (Undecided) — any other
+  raw text is lowercased and stored as-is but never treated as `"no"` for FR-003/FR-015
+  purposes (only an exact `"no"` excludes/flips a record). Storing normalized tokens
+  rather than the raw site text keeps FR-003's "status is no" check and FR-015's
+  status-flip check simple exact-string comparisons.
+- **Name** is one cell, `"First Last"`; split on the first space into `first_name`/
+  `last_name` (no structural separation is available for multi-word first names — an
+  acceptable, documented limitation given the source data itself doesn't separate
+  them).
+
+**Photo — no popup page exists** (§4, revises the original decision): the thumbnail is
+a CSS `background-image: url('/uploaded/webusers/<id>_<ts>_<rand>/<filename>?w=60')`
+on a `<div class="profile-image-list">` in the row's `Image` cell (empty `style` when
+no photo was ever uploaded). There is no separate anchor/popup page to fetch or parse.
+The full-resolution image is the *same URL with the `?w=60` query string stripped* —
+confirmed by fetching both: the thumbnail is ~2.5KB, the query-stripped URL is a full
+~64KB JPEG at the original upload resolution. `fetch_photo()` is therefore a pure URL
+transform (strip the `w` query param) plus one `GET`, not a two-step popup-then-image
+fetch as originally modeled.

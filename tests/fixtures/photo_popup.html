@@ -1,0 +1,12 @@
+<!-- Obfuscated/synthetic. Empirically (research.md §15) the real site has no separate
+     "popup" page for the full-resolution photo: the thumbnail shown in the applicant
+     row is a CSS background-image URL with a "?w=60" resize query string, and the
+     full-resolution image is the same URL with that query string stripped. This
+     fixture holds representative row-image markup (with and without an uploaded
+     photo) so the URL-resolution logic can be unit tested against it directly. -->
+<table>
+<tbody>
+<tr><td><div class="profile-image-list" style="background-image:url('/uploaded/webusers/9001_1700000000_99999999/sample.jpg?w=60')"></div></td></tr>
+<tr><td><div class="profile-image-list" style=""></div></td></tr>
+</tbody>
+</table>

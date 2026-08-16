@@ -8,15 +8,26 @@ authors = [
     { name = "Sascha Steffen", email = "sascha.steffen@itemis.de" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "requests>=2.32.0",
+    "beautifulsoup4>=4.12.0",
+    "PyYAML>=6.0.0",
+    "jsonschema>=4.23.0",
+]
 
 [dependency-groups]
 dev = [
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
     "ruff>=0.16.3",
+    "responses>=0.25.0",
 ]
 
 [tool.ruff]
 # Spec Kit's vendored workflow scripts aren't project code; don't lint them.
 extend-exclude = [".specify"]
+
+[tool.pytest.ini_options]
+# Lets tests import `scripts.<name>` (namespace package, no __init__.py needed)
+# without installing the project or hand-rolling sys.path tweaks per test file.
+pythonpath = ["."]

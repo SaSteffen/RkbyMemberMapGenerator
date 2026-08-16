@@ -1,0 +1,43 @@
+<!-- Obfuscated/synthetic: a second /Ajax/team_application_manager.php response
+     (page=1) containing one applicant not present on page 1, proving fetch_all_pages()
+     aggregates across pages. Real-world behavior returns the full dataset on every
+     page (research.md §15); this fixture instead models a genuinely paginated season
+     to exercise the multi-page aggregation/rollback code paths (FR-001, FR-018). -->
+<div><input type="hidden" id="team_is_cluster" value="False" /></div>
+<div><input type="hidden" id="team_in_cluster" value="False" /></div>
+<table id="applicants" class="stripe row-border">
+<thead>
+<tr>
+<th>Image</th><th>Created</th><th>Name</th><th>Email</th><th>Phone</th><th>Jobtitle</th>
+<th>Address</th><th>Zip</th><th>City</th><th>Country</th><th>Participated</th><th>Role</th>
+<th>Age</th><th>Sex</th><th>Email send</th><th>Motivation</th><th>Accept on teams</th><th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><div class="profile-image-list" style="background-image:url('/uploaded/webusers/1005_1700000004_55555555/lena.jpg?w=60')"></div></td>
+<td>2025-08-01 10:20</td>
+<td>Lena Beispiel</td>
+<td>lena.beispiel@example.test</td>
+<td>01704445566</td>
+<td>Physician</td>
+<td>Probeweg 5</td>
+<td>22045</td>
+<td>Hamburg</td>
+<td>Germany</td>
+<td>0</td>
+<td>Rider</td>
+<td>30</td>
+<td>Female</td>
+<td>No</td>
+<td></td>
+<td><span class="iddata"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1005]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[1005]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[1005]" value="No"><i></i>No</label></div></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<script>
+dataTable = $('#applicants').DataTable({
+    'paging': true, 'pageLength': 25, 'displayStart': 25
+});
+</script>
