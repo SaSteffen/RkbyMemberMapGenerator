@@ -25,7 +25,7 @@
     },
     "last_name": {
       "type": "string",
-      "minLength": 1
+      "description": "Empty when the intranet has no last name on file for this person (a Name cell with no separator to split one out of)."
     },
     "address": {
       "type": ["string", "null"]

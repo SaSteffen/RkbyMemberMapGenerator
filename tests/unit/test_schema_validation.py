@@ -56,6 +56,13 @@ def test_validate_record_accepts_a_valid_record():
     validate_record(VALID_RECORD)  # must not raise
 
 
+def test_validate_record_accepts_an_empty_last_name_single_name_applicant():
+    # The intranet sometimes has just one name on file for a person -- no
+    # last name, and no separator to split one out of.
+    record = {**VALID_RECORD, "match_key": "robin", "last_name": ""}
+    validate_record(record)  # must not raise
+
+
 @pytest.mark.parametrize(
     "broken_record",
     [

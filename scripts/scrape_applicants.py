@@ -111,7 +111,10 @@ def normalize_name(value: str) -> str:
 
 
 def match_key(first_name: str, last_name: str) -> str:
-    return f"{normalize_name(first_name)}-{normalize_name(last_name)}"
+    normalized_last = normalize_name(last_name)
+    if not normalized_last:
+        return normalize_name(first_name)
+    return f"{normalize_name(first_name)}-{normalized_last}"
 
 
 # --- Schema validation (FR-017) ----------------------------------------------
@@ -294,6 +297,20 @@ class IntranetClient:
 _BACKGROUND_URL_RE = re.compile(r"url\('([^']+)'\)")
 
 
+def _split_name(name_text: str) -> tuple[str, str]:
+    """Split one intranet Name cell into (first_name, last_name). Usually
+    "First Last" -- split on the first space (research.md §15's documented
+    limitation for multi-word first names still applies). Two shapes seen in
+    practice break that: "Last,First" (comma, no space -- entered
+    last-name-first) and a bare single name with no separator at all (no
+    last name on file for that person)."""
+    if "," in name_text:
+        last_name, _, first_name = name_text.partition(",")
+        return first_name.strip(), last_name.strip()
+    first_name, _, last_name = name_text.partition(" ")
+    return first_name, last_name
+
+
 def _parse_status(status_cell) -> str:
     active_label = status_cell.find("label", class_="active")
     raw = (
@@ -342,7 +359,7 @@ def parse_applicant_rows(html: str) -> list[dict]:
         cell = dict(zip(headers, tds))
 
         name_text = cell["Name"].get_text(strip=True)
-        first_name, _, last_name = name_text.partition(" ")
+        first_name, last_name = _split_name(name_text)
 
         address_line = cell["Address"].get_text(strip=True)
         zip_code = cell["Zip"].get_text(strip=True)

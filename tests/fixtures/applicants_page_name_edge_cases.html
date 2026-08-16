@@ -1,0 +1,62 @@
+<!-- Obfuscated/synthetic: two Name-cell shapes seen on the real site that
+     break the "First Last" (single-space) assumption -- "Last,First" (comma,
+     no space) and a bare single name (no last name on file at all, no
+     separator present). All names/contact details/photo paths are synthetic. -->
+<div><input type="hidden" id="team_is_cluster" value="False" /></div>
+<div><input type="hidden" id="team_in_cluster" value="False" /></div>
+<table id="applicants" class="stripe row-border">
+<thead>
+<tr>
+<th>Image</th><th>Created</th><th>Name</th><th>Email</th><th>Phone</th><th>Jobtitle</th>
+<th>Address</th><th>Zip</th><th>City</th><th>Country</th><th>Participated</th><th>Role</th>
+<th>Age</th><th>Sex</th><th>Email send</th><th>Motivation</th><th>Accept on teams</th><th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><div class="profile-image-list" style="background-image:url('/uploaded/webusers/2001_1700000010_55555555/annaschmidt.jpg?w=60')"></div></td>
+<td>2025-08-02 09:00</td>
+<td>Schmidt,Anna</td>
+<td>anna.schmidt@example.test</td>
+<td>01701112222</td>
+<td>Analyst</td>
+<td>Beispielstr. 5</td>
+<td>20457</td>
+<td>Hamburg</td>
+<td>Germany</td>
+<td>0</td>
+<td>Rider</td>
+<td>30</td>
+<td>Female</td>
+<td>No</td>
+<td></td>
+<td><span class="iddata"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[2001]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[2001]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[2001]" value="No"><i></i>No</label></div></td>
+<td></td>
+</tr>
+<tr>
+<td><div class="profile-image-list" style=""></div></td>
+<td>2025-08-02 09:05</td>
+<td>Prinz</td>
+<td>prinz@example.test</td>
+<td>01703334444</td>
+<td>Artist</td>
+<td>Teststr. 9</td>
+<td>21073</td>
+<td>Hamburg</td>
+<td>Germany</td>
+<td>0</td>
+<td>Rider</td>
+<td>27</td>
+<td>Other</td>
+<td>No</td>
+<td></td>
+<td><span class="iddata"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[2002]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[2002]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[2002]" value="No"><i></i>No</label></div></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<script>
+dataTable = $('#applicants').DataTable({
+    'paging': true, 'pageLength': 25, 'displayStart': 0
+});
+</script>

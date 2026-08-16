@@ -48,6 +48,13 @@ def test_match_key_is_case_and_whitespace_insensitive():
     assert match_key("JANE", "DOE") == match_key("  jane  ", "  doe  ")
 
 
+def test_match_key_drops_the_separator_when_last_name_is_empty():
+    # A Name cell with no last name on file at all (no separator to split
+    # on) must not produce a trailing hyphen -- the schema's match_key
+    # pattern forbids one.
+    assert match_key("Jane", "") == "jane"
+
+
 # --- Story 5: within-scrape deduplication (AC1/AC2, FR-013) -----------------
 
 
@@ -146,6 +153,25 @@ def test_scraped_row_conflicting_with_persisted_record_is_flagged_and_existing_k
     log_content = log_file.read_text()
     assert "jane-doe" in log_content
     assert "A Conflicting Street 2" in log_content  # full new snapshot logged
+
+
+# --- Regression: a Name cell with no last name on file must still persist ---
+
+
+def test_a_single_token_name_with_no_last_name_is_persisted_not_skipped(tmp_path):
+    """Previously: last_name="" failed the schema's minLength, and the
+    resulting match_key ("robin-", trailing hyphen) failed the pattern too
+    -- the applicant was silently skipped every run, logged only as a
+    validation error. Both are now valid."""
+    logger, _log_file = setup_run_logger(tmp_path / "logs")
+    rows = [_row(first_name="Robin", last_name="")]
+
+    summary = persist_records(tmp_path, "2025-26", rows, _NoPhotoClient(), logger)
+
+    assert summary["validation_errors"] == 0
+    assert summary["created"] == 1
+    a_dir = tmp_path / "seasons" / "2025-26" / "applicants"
+    assert [p.stem for p in a_dir.glob("*.yaml")] == ["robin"]
 
 
 # --- FR-020: matching never crosses season boundaries ------------------------

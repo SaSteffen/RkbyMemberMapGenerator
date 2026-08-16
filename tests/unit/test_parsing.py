@@ -75,3 +75,22 @@ def test_full_resolution_photo_url_passes_through_a_url_without_a_query_string()
 
 def test_full_resolution_photo_url_returns_none_for_no_photo():
     assert full_resolution_photo_url(None) is None
+
+
+# --- Name cell shapes that break the "First Last" single-space split --------
+
+
+def test_parse_applicant_rows_splits_comma_separated_last_first_name():
+    rows = parse_applicant_rows(_load("applicants_page_name_edge_cases.html"))
+    comma_row = next(r for r in rows if r["phone"] == "01701112222")
+
+    assert comma_row["first_name"] == "Anna"
+    assert comma_row["last_name"] == "Schmidt"
+
+
+def test_parse_applicant_rows_treats_a_single_token_name_as_first_name_only():
+    rows = parse_applicant_rows(_load("applicants_page_name_edge_cases.html"))
+    single_row = next(r for r in rows if r["phone"] == "01703334444")
+
+    assert single_row["first_name"] == "Prinz"
+    assert single_row["last_name"] == ""
