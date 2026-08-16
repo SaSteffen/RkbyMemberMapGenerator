@@ -56,11 +56,11 @@ independently-testable "story" on its own, but every story needs all of it.
 - [ ] T004 Extend `scripts/schemas/applicant_record.schema.json` with the `latitude`/`longitude` fields exactly as specified in `specs/002-map-generator/contracts/applicant-record.schema.json` (nullable number, `-90..90` / `-180..180` bounds, `additionalProperties: false`-safe)
 - [ ] T005 [P] Write failing tests in `tests/unit/test_rkby_records.py` for the shared module's extracted functions (`season_dir`, `applicants_dir`, `photos_dir`, `logs_dir`, `load_schema`, `validate_record`, `load_existing_records`, `_dump_record_yaml`, `normalize_name`, `setup_run_logger`) plus the new `discover_seasons(data_dir) -> list[str]` and a generalized `auto_commit(data_dir, paths, message, logger)` helper (research.md §10, §12)
 - [ ] T006 Extract the functions listed in T005 from `scripts/scrape_applicants.py` into new `scripts/rkby_records.py`; generalize `auto_commit_season`'s `_run_git`/`_is_git_work_tree`/commit logic into the reusable `auto_commit()`; add `discover_seasons()`; refactor `scripts/scrape_applicants.py` to import and re-export the moved names so its own behavior and its existing test suite (`test_records.py`, `test_season.py`, `test_rollback.py`, `test_auto_commit.py`, `test_logging.py`, `test_schema_validation.py`) keep passing unmodified — makes T005 pass (research.md §10)
-- [ ] T007 [P] Write failing tests in `tests/unit/test_geocoding.py` for a Nominatim client: successful match, no-match, HTTP/network error, 1 request/second throttling, and that an address with already-cached coordinates is never re-requested — mock HTTP via `responses` and `tests/fixtures/nominatim_response_match.json` / `nominatim_response_no_match.json` (research.md §3)
+- [ ] T007 [P] Write failing tests in `tests/unit/test_geocoding.py` for a Nominatim client: successful match, no-match, HTTP/network error, 1 request/second throttling, that an address with already-cached coordinates is never re-requested, and that a record pre-seeded with a hand-corrected (even implausible-looking) `latitude`/`longitude` is left byte-for-byte untouched by a run — the fill-empty-only guarantee never overwrites a human correction, per Constitution Principle III (research.md §3, §11) — mock HTTP via `responses` and `tests/fixtures/nominatim_response_match.json` / `nominatim_response_no_match.json`
 - [ ] T008 Implement `scripts/rkby_maps/geocoding.py`: a minimal `requests`-based Nominatim client (`https://nominatim.openstreetmap.org/search`, address text only as `q`, custom identifying `User-Agent`, 1 req/sec throttle) and a fill-empty-only cache-write helper — makes T007 pass (research.md §3, §11)
 - [ ] T009 [P] Write failing tests in `tests/unit/test_basemap.py` for Web Mercator projection (lon/lat → pixel at a given center/zoom), meters-per-pixel at a given zoom/latitude, zoom-from-required-width selection, and OSM tile fetch/on-disk-cache/stitch — mock HTTP via `responses` and `tests/fixtures/osm_tile_fixture.png` (research.md §1, §2, §5, §6)
 - [ ] T010 Implement `scripts/rkby_maps/basemap.py`: Web Mercator projection math, meters-per-pixel, zoom-from-width selection, and tile fetch/`<RKBY_DATA_DIR>/.tile_cache/`-persistence/stitch-to-canvas with a custom `User-Agent` — makes T009 pass (research.md §1, §2)
-- [ ] T011 [P] Write failing tests in `tests/unit/test_generate_member_maps_cli.py` for CLI arg parsing (`--min-width-km` positive number, default `50`; `--no-scale-bar` flag, default off; no other switches) and config loading (`RKBY_DATA_DIR` required and must exist; no intranet credentials needed) (contracts/cli-and-env.md)
+- [ ] T011 [P] Write failing tests in `tests/unit/test_generate_member_maps_cli.py` for CLI arg parsing (`--min-width-km` positive number, default `50`; `--no-scale-bar` flag, default off; no other switches), config loading (`RKBY_DATA_DIR` required and must exist; no intranet credentials needed), and output-folder bootstrapping (a run creates `maps/` and `.tile_cache/` under `RKBY_DATA_DIR` if absent, and creates/updates the data-dir `.gitignore` to ignore both, before any map file is written) (contracts/cli-and-env.md, FR-017)
 - [ ] T012 Implement `scripts/generate_member_maps.py` skeleton: `Config`/`load_config`, `build_arg_parser`, per-season logger setup (reusing `rkby_records.setup_run_logger`), `maps/` + `.tile_cache/` folder creation, top-level data-dir `.gitignore` creation/update so both are ignored before any file is written, and a `main()` that discovers every season via `rkby_records.discover_seasons` and loops over them doing nothing yet — makes T011 pass (research.md §12, FR-017)
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
@@ -81,7 +81,7 @@ bottom-right corner, and any member with no address is named in the run's log.
 ### Tests for User Story 1 ⚠️
 
 - [ ] T013 [P] [US1] Write failing tests in `tests/unit/test_rendering.py` for role→color mapping (research.md §7's 4-color table, case-insensitive role match, neutral color for unset/unrecognized role), filled-circle pin drawing, scale-bar (ruler) rendering in the bottom-right corner (suppressible), and attribution text in the bottom-left corner (always present) — pixel-level asserts on a small deterministic canvas
-- [ ] T014 [P] [US1] Write a failing end-to-end test in `tests/unit/test_generate_member_maps_cli.py` using a synthetic season fixture (mocked Nominatim + tile HTTP via `responses`): running the script produces `maps/<season>_overview_pins.png` with one pin per eligible geocodable member colored by role, a member with no address is logged and skipped (run still exits `0`), and a member whose record already has cached `latitude`/`longitude` is never re-geocoded
+- [ ] T014 [P] [US1] Write a failing end-to-end test in `tests/unit/test_generate_member_maps_cli.py` using a synthetic season fixture (mocked Nominatim + tile HTTP via `responses`): running the script produces `maps/<season>_overview_pins.png` with one pin per eligible geocodable member colored by role, a member with no address is logged and skipped (run still exits `0`), a member whose record already has cached `latitude`/`longitude` is never re-geocoded, and a member flagged `excluded` or `ignore` has no pin on the map at all (not even logged as skipped)
 
 ### Implementation for User Story 1
 
@@ -139,14 +139,15 @@ map.
 - [ ] T024 [P] [US3] Extend `tests/unit/test_clustering.py` with failing tests for the FR-014 same-exact-address-pair short-circuit (an overlap group of exactly two members with an identical `address` string is never treated as detail-map-worthy) and the detail-map filename slug derivation (city-token extraction from a cluster member's cached `address` text + `normalize_name` + `_2`/`_3` collision suffixing) (FR-014, research.md §9)
 - [ ] T025 [P] [US3] Write failing tests in `tests/unit/test_basemap.py` for detail-map sizing: bounding box + fixed padding around a group's members → required covered width in km → snapped to the tightest integer zoom level whose resulting width is still ≥ `max(min_width_km, required_width)` (research.md §5)
 - [ ] T026 [P] [US3] Write failing tests in `tests/unit/test_rendering.py` for FR-013 fallback rendering: a single merged pin with a numeric multiplicity badge (shared role color if the group is single-role, else the neutral "unrecognized" color) for the pin variant, and photo circles horizontally offset by 60% of the circle diameter per additional member (not stacked) for the photo variant (research.md §8)
+- [ ] T027 [P] [US3] Write a failing end-to-end test in `tests/unit/test_generate_member_maps_cli.py` using a synthetic season fixture with a 3+-member cluster (mocked Nominatim + tile HTTP via `responses`): running the script additionally produces one or more `maps/<season>_detail_<variant>_<slug>.png` files (correct filename grammar per contracts/map-output.md), zoomed in enough that no two of that cluster's markers overlap on them — or, for any pair still overlapping at `--min-width-km`, that the FR-013 fallback is used instead of a further detail map; and, separately, that a two-member group sharing one exact address never gets its own detail map (FR-014), for both the pin and photo variants
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Implement overlap-graph/connected-components clustering (per-variant marker radii) and the FR-014 same-address-pair short-circuit in `scripts/rkby_maps/clustering.py` — makes T023/T024's clustering tests pass
-- [ ] T028 [US3] Implement the detail-map filename slug derivation (city-token extraction + `normalize_name` + collision suffixing) in `scripts/rkby_maps/clustering.py` — makes T024's slug tests pass
-- [ ] T029 [US3] Implement detail-map bounding-box sizing + integer-zoom selection in `scripts/rkby_maps/basemap.py` — makes T025 pass
-- [ ] T030 [US3] Implement FR-013 fallback rendering (merged pin + multiplicity badge; offset photo-circle stack) in `scripts/rkby_maps/rendering.py` — makes T026 pass
-- [ ] T031 [US3] Wire cluster detection + detail-map generation + fallback rendering into `generate_member_maps.py`'s per-season, per-variant orchestration: for every overlap group that isn't the FR-014 exception, render a detail map at the size from T029, re-run the T027 overlap check against that render, and apply the T030 fallback to any pair still overlapping instead of recursing into a further detail map; verify the T017 idempotent-regeneration cleanup (`maps/<season_label>_*.png` glob-delete-then-regenerate) also removes stale detail-map files for clusters that no longer exist
+- [ ] T028 [US3] Implement overlap-graph/connected-components clustering (per-variant marker radii) and the FR-014 same-address-pair short-circuit in `scripts/rkby_maps/clustering.py` — makes T023/T024's clustering tests pass
+- [ ] T029 [US3] Implement the detail-map filename slug derivation (city-token extraction + `normalize_name` + collision suffixing) in `scripts/rkby_maps/clustering.py` — makes T024's slug tests pass
+- [ ] T030 [US3] Implement detail-map bounding-box sizing + integer-zoom selection in `scripts/rkby_maps/basemap.py` — makes T025 pass
+- [ ] T031 [US3] Implement FR-013 fallback rendering (merged pin + multiplicity badge; offset photo-circle stack) in `scripts/rkby_maps/rendering.py` — makes T026 pass
+- [ ] T032 [US3] Wire cluster detection + detail-map generation + fallback rendering into `generate_member_maps.py`'s per-season, per-variant orchestration: for every overlap group that isn't the FR-014 exception, render a detail map at the size from T030, re-run the T028 overlap check against that render, and apply the T031 fallback to any pair still overlapping instead of recursing into a further detail map; verify the T017 idempotent-regeneration cleanup (`maps/<season_label>_*.png` glob-delete-then-regenerate) also removes stale detail-map files for clusters that no longer exist — makes T027 pass
 
 **Checkpoint**: All three user stories are independently functional — feature complete.
 
@@ -156,9 +157,9 @@ map.
 
 **Purpose**: Bring documentation and the full test/lint suite in line with the now-complete feature.
 
-- [ ] T032 [P] Update `README.md`'s script status/usage section: rename the `scripts/generate_map.py` reference to `scripts/generate_member_maps.py`, add its usage snippet (`--min-width-km`, `--no-scale-bar`), and mark it implemented alongside the scraper
-- [ ] T033 [P] Walk through `specs/002-map-generator/quickstart.md` Scenarios 1–6 end-to-end against a throwaway synthetic `RKBY_DATA_DIR` (never real member data) and confirm every documented "Expect" holds
-- [ ] T034 Run `uv run ruff check .`, `uv run ruff format .`, and `uv run pytest` for the full suite; fix any lint/format/test failures before considering the feature done
+- [ ] T033 [P] Update `README.md`'s script status/usage section: rename the `scripts/generate_map.py` reference to `scripts/generate_member_maps.py`, add its usage snippet (`--min-width-km`, `--no-scale-bar`), and mark it implemented alongside the scraper
+- [ ] T034 [P] Walk through `specs/002-map-generator/quickstart.md` Scenarios 1–6 end-to-end against a throwaway synthetic `RKBY_DATA_DIR` (never real member data) and confirm every documented "Expect" holds
+- [ ] T035 Run `uv run ruff check .`, `uv run ruff format .`, and `uv run pytest` for the full suite; fix any lint/format/test failures before considering the feature done
 
 ---
 
@@ -194,11 +195,14 @@ map.
   T012) must wait for its own test task but not for the others.
 - Within US1: T013 and T014 (different files) run in parallel.
 - Within US2: T019 and T020 (different files) run in parallel.
-- Within US3: T023, T024, T025, T026 (test tasks across `test_clustering.py`,
-  `test_basemap.py`, `test_rendering.py`) run in parallel; their implementation tasks
-  (T027-T030) touch three different files but T027/T028 share `clustering.py`
-  (sequential) and T029 shares `basemap.py` with prior foundational work (sequential).
-- T032 and T033 (Polish) run in parallel — different concerns, no shared file.
+- Within US3: T023, T024, T025, T026, T027 (test tasks across `test_clustering.py`,
+  `test_basemap.py`, `test_rendering.py`, `test_generate_member_maps_cli.py` — four
+  distinct files) run in parallel; their implementation tasks (T028-T032) are mostly
+  sequential — T028/T029 share `clustering.py`, T030 shares `basemap.py` with prior
+  foundational work, T031 shares `rendering.py` with prior US1/US2 work, and T032
+  (the orchestration wiring, `generate_member_maps.py`) depends on T028, T030, and T031
+  all being done.
+- T033 and T034 (Polish) run in parallel — different concerns, no shared file.
 
 ---
 
@@ -220,6 +224,7 @@ Task: "Overlap detection tests in tests/unit/test_clustering.py (T023)"
 Task: "FR-014 short-circuit + slug tests in tests/unit/test_clustering.py (T024)"
 Task: "Detail-map sizing tests in tests/unit/test_basemap.py (T025)"
 Task: "FR-013 fallback rendering tests in tests/unit/test_rendering.py (T026)"
+Task: "Detail-map generation + fallback end-to-end test in tests/unit/test_generate_member_maps_cli.py (T027)"
 ```
 
 ---
