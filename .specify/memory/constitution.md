@@ -1,22 +1,27 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
-- Rationale for MINOR: adds a new core principle (Test-First Development / Red-Green)
-  and materially expands Development Workflow and Technology Constraints guidance to
-  match; no existing principle was removed or redefined.
-- Principles added:
-  - V. Test-First Development (Red-Green) (NON-NEGOTIABLE)
-- Principles modified: none (I-IV unchanged)
-- Sections added: none (existing sections expanded, see below)
+- Version change: 1.1.0 → 2.0.0
+- Rationale for MAJOR: redefines the scope of Principle I (Member Data Privacy First,
+  NON-NEGOTIABLE). The principle previously read as an unqualified "MUST NOT be
+  uploaded to third-party cloud services"; this amendment adds a narrow, conditional
+  exception for address-text geocoding. That flips the compliance verdict for a
+  concrete, already-planned behavior (specs/002-map-generator's Nominatim call) from
+  "in tension with a NON-NEGOTIABLE principle" (see plan.md's Complexity Tracking,
+  CONDITIONAL PASS) to compliant — a backward-incompatible redefinition of what the
+  principle permits, not a mere clarification or additive expansion.
+- Principles added: none
+- Principles modified:
+  - I. Member Data Privacy First (NON-NEGOTIABLE) — added an explicit, narrowly-scoped
+    exception permitting address-text-only geocoding lookups, under stated conditions.
+- Sections added: none
 - Sections removed: none
-- Section content changes:
-  - Technology Constraints: added a "Testing" bullet naming pytest / `uv run pytest`.
-  - Development Workflow: added bullets requiring a failing test before implementation
-    and a passing `uv run pytest` run before a change is considered done.
+- Section content changes: none outside Principle I
 - Templates checked for alignment:
-  - .specify/templates/* — not modified by this command (out of scope per scope guard);
-    plan/tasks templates already carry generic test-first checkpoints compatible with
-    this principle, no outdated references found requiring a follow-up.
+  - .specify/templates/* — not modified by this command (out of scope per scope guard).
+  - specs/002-map-generator/plan.md's Complexity Tracking table explicitly recommended
+    this amendment before/alongside implementation; this ratifies that recommendation.
+    No further template changes needed — the exception is scoped to match what that
+    plan already documents (research.md §3, §11).
 - Deferred TODOs: none — all placeholders resolved from user input.
 -->
 
@@ -38,10 +43,26 @@ sensitive at every stage of handling.
   its stated purpose, and MUST support excluding a member who opts out.
 - Credentials or session tokens used to scrape the Team Rynkeby Intranet MUST be kept
   out of source control (environment variables or a gitignored config file only).
+- Exception — address-only geocoding lookups: a member's `address` field text MAY be
+  sent to a third-party geocoding lookup (e.g. OpenStreetMap's Nominatim) solely to
+  resolve it to map coordinates, and only when all of the following hold:
+  - No other member field (name, photo, phone, birthday) accompanies the request —
+    the request payload is address text and nothing else.
+  - Each distinct address is geocoded at most once, ever; the resolved coordinates
+    are cached locally and reused on every subsequent run, never re-requested.
+  - The lookup is the minimum necessary to produce the artifact's location data; no
+    other third-party service is covered by this exception.
+  This exception exists because plotting members on a map is impossible without
+  converting an address into coordinates; it MUST NOT be read as license to send any
+  other field, or to send address data for any purpose beyond geocoding.
 
 Rationale: The entire input to this tool is personal data. A privacy lapse — an
 accidental commit, an over-shared map, a leaked credential — directly harms team
 members' trust and safety, and is the single largest risk this project carries.
+Address-text geocoding is the one deliberate exception to the "no third-party upload"
+rule; the conditions above (address-only, once-ever, cached, single-purpose) exist
+specifically to keep that exception narrow rather than letting it become a general
+license to share member data.
 
 ### II. One Script, One Artifact
 
@@ -147,4 +168,4 @@ Versioning policy: MAJOR.MINOR.PATCH — MAJOR for removing or redefining a prin
 MINOR for adding a principle or materially expanding guidance, PATCH for wording or
 clarification fixes that don't change meaning.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-15 | **Last Amended**: 2026-08-16
+**Version**: 2.0.0 | **Ratified**: 2026-08-15 | **Last Amended**: 2026-08-16
