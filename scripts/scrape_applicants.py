@@ -477,6 +477,27 @@ class InvalidExistingRecordError(Exception):
     """An existing persisted record failed schema validation (FR-017)."""
 
 
+def _log_invalid_scraped_record(
+    logger: logging.Logger,
+    key: str,
+    record: dict,
+    exc: jsonschema.exceptions.ValidationError,
+) -> None:
+    """A freshly-scraped record failing schema validation means the scraper
+    produced something the schema doesn't allow (e.g. an unusual name shape),
+    not a hand-edit problem. Log the full offending record at ERROR (so it
+    lands in the WARNING+ run-log file, not just the console) so the failure
+    is diagnosable without having to reproduce it."""
+    logger.error(
+        "Applicant %s: scraped record failed schema validation at %s: %s; "
+        "not persisted this run. Offending record: %s",
+        key,
+        list(exc.path),
+        exc.message,
+        record,
+    )
+
+
 _RECORD_FIELD_ORDER = (
     "match_key",
     "first_name",
@@ -578,7 +599,11 @@ def persist_records(
     """Load existing records (US2), merge scraped rows into them
     (fill-empty-only, FR-009) or create genuinely new ones (US1), mark a
     status flip to "no" as excluded rather than deleting (FR-015), and write
-    only what actually changed (SC-002 idempotency)."""
+    only what actually changed (SC-002 idempotency). A freshly-built record
+    that fails schema validation (a scraper bug, not a hand-edit -- existing
+    records are already validated by load_existing_records above) is logged
+    with its full contents and skipped; it does not abort the rest of the
+    run."""
     existing_records = load_existing_records(data_dir, season_label)
 
     a_dir = applicants_dir(data_dir, season_label)
@@ -590,6 +615,7 @@ def persist_records(
     updated = 0
     photos_fetched = 0
     excluded = 0
+    validation_errors = 0
 
     for row in rows:
         key = match_key(row["first_name"], row["last_name"])
@@ -616,9 +642,14 @@ def persist_records(
                 "ignore": False,
                 "photo": None,
             }
+            try:
+                validate_record(record)
+            except jsonschema.exceptions.ValidationError as exc:
+                _log_invalid_scraped_record(logger, key, record, exc)
+                validation_errors += 1
+                continue
             if _fetch_photo_if_needed(record, row, client, p_dir, logger, key):
                 photos_fetched += 1
-            validate_record(record)
             (a_dir / f"{key}.yaml").write_text(_dump_record_yaml(record))
             created += 1
             continue
@@ -650,7 +681,12 @@ def persist_records(
                 photos_fetched += 1
 
         if record != existing:
-            validate_record(record)
+            try:
+                validate_record(record)
+            except jsonschema.exceptions.ValidationError as exc:
+                _log_invalid_scraped_record(logger, key, record, exc)
+                validation_errors += 1
+                continue
             (a_dir / f"{key}.yaml").write_text(_dump_record_yaml(record))
             updated += 1
         # else: nothing changed for this record -> no write (SC-002)
@@ -660,6 +696,7 @@ def persist_records(
         "updated": updated,
         "photos_fetched": photos_fetched,
         "excluded": excluded,
+        "validation_errors": validation_errors,
     }
 
 
@@ -783,17 +820,22 @@ def main(argv: list[str] | None = None, today: datetime.date | None = None) -> i
         return 1
 
     logger.info(
-        "Run complete for season %s: %d created, %d updated, %d excluded, %d photos fetched",
+        "Run complete for season %s: %d created, %d updated, %d excluded, "
+        "%d photos fetched, %d validation errors",
         season_label,
         summary["created"],
         summary["updated"],
         summary["excluded"],
         summary["photos_fetched"],
+        summary["validation_errors"],
     )
 
     auto_commit_season(config.data_dir, season_label, summary, logger)
 
-    return 0
+    # Non-zero exit even though we didn't abort: some applicants were
+    # silently skipped this run (already logged above with full details)
+    # and need a human to look at the log, not just a clean-looking exit.
+    return 1 if summary["validation_errors"] else 0
 
 
 if __name__ == "__main__":
