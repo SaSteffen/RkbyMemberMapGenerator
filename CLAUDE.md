@@ -9,12 +9,18 @@ original feature background.
 ## Commands
 
 ```bash
-uv sync                  # install deps into .venv/
-uv run scripts/<name>.py # run a script
-uv run ruff check .      # lint
-uv run ruff format .     # format
-uv run pytest            # test
+uv sync                              # install deps into .venv/
+uv run pre-commit install --install-hooks  # one-time: enable git hooks
+uv run scripts/<name>.py             # run a script
+uv run ruff check .                  # lint
+uv run ruff format .                 # format
+uv run pytest                        # test
 ```
+
+Commits go through git hooks (`.pre-commit-config.yaml`): ruff lint/format run on
+every commit, and commit messages must follow
+[Conventional Commits](https://www.conventionalcommits.org/) (`feat: ...`, `fix: ...`,
+`chore: ...`, etc.).
 
 ## Non-negotiables
 

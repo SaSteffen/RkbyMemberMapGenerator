@@ -1,0 +1,22 @@
+# Installed via `uv run pre-commit install` (see README.md "Getting started").
+# Hooks run on every commit; `default_install_hook_types` below wires up both
+# the pre-commit and commit-msg git hooks from a single `pre-commit install`.
+default_install_hook_types: [pre-commit, commit-msg]
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      # Lint first, autofixing what it can. Anything left unfixed fails the
+      # commit — fix it by hand and re-stage.
+      - id: ruff-check
+        args: [--fix]
+      # Formatting always applies automatically; if it rewrites files the
+      # commit still stops so you can review and re-stage the changes.
+      - id: ruff-format
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]

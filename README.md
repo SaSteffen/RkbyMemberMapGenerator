@@ -49,6 +49,10 @@ environment management.
 # Install dependencies (creates .venv/ automatically)
 uv sync
 
+# One-time: install git hooks (lint/format on commit, Conventional Commits
+# on commit message) — see "Git hooks" below
+uv run pre-commit install --install-hooks
+
 # Run a script once it exists, e.g.:
 uv run scripts/generate_map.py
 
@@ -62,6 +66,26 @@ uv run pytest
 
 Requires Python 3.11+ (pinned via `.python-version`; uv will fetch a matching
 interpreter automatically if you don't have one).
+
+## Git hooks
+
+This repo uses [pre-commit](https://pre-commit.com/) to enforce code quality and commit
+message style. Git doesn't run anything automatically on clone, so after `uv sync` run:
+
+```bash
+uv run pre-commit install --install-hooks
+```
+
+This wires up two hooks (config in [.pre-commit-config.yaml](.pre-commit-config.yaml)):
+
+- **pre-commit**: runs `ruff check --fix` then `ruff format` on staged files.
+  Formatting is applied automatically; if lint finds issues it can't fix, the
+  commit is blocked until you fix them by hand.
+- **commit-msg**: rejects commit messages that don't follow
+  [Conventional Commits](https://www.conventionalcommits.org/) (e.g.
+  `feat: add map export`, `fix: correct geocoding fallback`).
+
+Run `uv run pre-commit run --all-files` to check the whole repo on demand.
 
 ## License
 
