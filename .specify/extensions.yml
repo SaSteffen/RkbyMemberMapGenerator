@@ -7,6 +7,78 @@ hooks:
     - extension: git
       command: speckit.git.commit
       description: "Commit the newly created/updated spec.md and checklist for this feature."
-      prompt: "Commit the current feature directory's Spec Kit artifacts (spec.md, checklists/) using this repo's Conventional Commits convention. Local commit only — never push."
+      prompt: "Commit whatever this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push."
+      optional: false
+      enabled: true
+
+  after_clarify:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit spec.md after clarification answers were applied."
+      prompt: "Commit whatever this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push."
+      optional: false
+      enabled: true
+
+  after_plan:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit plan.md and its supporting design docs (research.md, data-model.md, contracts/, quickstart.md)."
+      prompt: "Commit whatever this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push."
+      optional: false
+      enabled: true
+
+  after_tasks:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit tasks.md."
+      prompt: "Commit whatever this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push."
+      optional: false
+      enabled: true
+
+  after_checklist:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit the generated checklist under checklists/."
+      prompt: "Commit whatever this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push."
+      optional: false
+      enabled: true
+
+  after_analyze:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit any analysis report/artifact this phase wrote, if it wrote one."
+      prompt: "Commit whatever this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push. Analyze is read-only unless it saved a report file — if nothing changed, this hook is a no-op."
+      optional: false
+      enabled: true
+
+  after_constitution:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit .specify/memory/constitution.md."
+      prompt: "Commit whatever this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push."
+      optional: false
+      enabled: true
+
+  after_converge:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit tasks appended to tasks.md to close the gap between code and plan."
+      prompt: "Commit whatever this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push."
+      optional: false
+      enabled: true
+
+  after_implement:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit the implementation changes (scripts/, tests/, tasks.md checkbox updates, etc.)."
+      prompt: "Commit whatever this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push. This scope is real implementation code, not docs — use feat/fix/refactor/test/chore as appropriate, and let ruff + the Conventional Commit check run normally."
+      optional: false
+      enabled: true
+
+  after_taskstoissues:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit any local file changes (e.g. tasks.md updated with issue links) this phase made. Creating the GitHub issues themselves is this phase's own job, not this hook's."
+      prompt: "Commit whatever local file changes this phase just wrote, using this repo's Conventional Commits convention. Local commit only — never push."
       optional: false
       enabled: true
