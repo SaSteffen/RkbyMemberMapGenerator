@@ -421,6 +421,7 @@ def parse_applicant_rows(html: str) -> list[dict]:
                 "last_name": last_name,
                 "phone": cell["Phone"].get_text(strip=True) or None,
                 "address": address,
+                "role": cell["Role"].get_text(strip=True) or None,
                 "birthday": None,  # fetched later from the detail popup if needed
                 "status": _parse_status(cell["Accept on teams"]),
                 "photo_thumbnail_url": _parse_photo_thumbnail_url(cell["Image"]),
@@ -455,7 +456,7 @@ def fetch_all_pages(client: IntranetClient, team_id: int, season_id: int) -> lis
     return all_rows
 
 
-_CONFLICT_FIELDS = ("address", "phone", "birthday")
+_CONFLICT_FIELDS = ("address", "phone", "birthday", "role")
 
 
 def _conflicting_fields(a: dict, b: dict) -> list[str]:
@@ -586,6 +587,7 @@ _RECORD_FIELD_ORDER = (
     "last_name",
     "address",
     "phone",
+    "role",
     "birthday",
     "status",
     "excluded",
@@ -603,7 +605,10 @@ def _guess_photo_extension(thumbnail_url: str | None) -> str:
 
 
 def _dump_record_yaml(record: dict) -> str:
-    ordered = {key: record[key] for key in _RECORD_FIELD_ORDER}
+    # .get() rather than direct indexing: an existing record persisted before
+    # an optional field (e.g. "role") existed won't have that key yet, and
+    # must still be re-dumpable without a separate migration step.
+    ordered = {key: record.get(key) for key in _RECORD_FIELD_ORDER}
     header = (
         "# Validate against scripts/schemas/applicant_record.schema.json "
         "in the RkbyMemberMapGenerator repo.\n"
@@ -636,7 +641,7 @@ def merge_record(existing: dict, scraped: dict) -> dict:
     never overwritten by a new scrape; `status` is frozen at creation and
     never touched here. Returns a new dict; does not mutate `existing`."""
     merged = dict(existing)
-    for field in ("address", "phone", "birthday"):
+    for field in ("address", "phone", "birthday", "role"):
         if not merged.get(field) and scraped.get(field):
             merged[field] = scraped[field]
     return merged
@@ -738,6 +743,7 @@ def persist_records(
                 "last_name": row["last_name"],
                 "address": row.get("address"),
                 "phone": row.get("phone"),
+                "role": row.get("role"),
                 "birthday": row.get("birthday"),
                 "status": row["status"],
                 "excluded": False,

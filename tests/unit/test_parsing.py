@@ -21,10 +21,18 @@ def test_parse_applicant_rows_extracts_expected_fields_and_row_count():
     max_row = by_name[("Max", "Mustermann")]
     assert max_row["phone"] == "01701234567"
     assert max_row["address"] == "Musterstr. 1, 20095 Hamburg, Germany"
+    assert max_row["role"] == "Rider"
     assert max_row["status"] == "yes"
     assert max_row["photo_thumbnail_url"] == (
         "/uploaded/webusers/1001_1700000000_11111111/max.jpg?w=60"
     )
+
+
+def test_parse_applicant_rows_extracts_role_raw_from_the_role_column():
+    rows = parse_applicant_rows(_load("applicants_page_1.html"))
+    by_name = {(r["first_name"], r["last_name"]): r for r in rows}
+
+    assert by_name[("Petra", "Beispiel")]["role"] == "Service"
 
 
 def test_parse_applicant_rows_normalizes_active_toggle_status_to_no():
@@ -46,6 +54,12 @@ def test_parse_applicant_rows_normalizes_plain_text_finalized_status():
     by_name = {(r["first_name"], r["last_name"]): r for r in rows}
 
     assert by_name[("Petra", "Beispiel")]["status"] == "yes"
+
+
+def test_parse_applicant_rows_reports_none_role_when_role_column_is_blank():
+    rows = parse_applicant_rows(_load("applicants_page_empty_role.html"))
+
+    assert rows[0]["role"] is None
 
 
 def test_parse_applicant_rows_reports_none_photo_url_when_no_photo_uploaded():

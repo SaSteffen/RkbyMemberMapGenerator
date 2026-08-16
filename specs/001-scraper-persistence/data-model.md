@@ -27,6 +27,7 @@ One YAML file per retained applicant, at
 | `last_name` | string | yes | Frozen once non-empty (FR-009). |
 | `address` | string \| null | no | Frozen once non-empty (FR-009). `null`/absent until first observed. |
 | `phone` | string \| null | no | Frozen once non-empty (FR-009). |
+| `role` | string \| null | no | Frozen once non-empty (FR-009). Raw text from the applicant list's `Role` column (research.md §15), e.g. `"Rider"`, `"Service Crew"`, `"Supporter"` — stored as scraped, not normalized/mapped. |
 | `birthday` | string (`YYYY-MM-DD`) \| null | no | Frozen once non-empty (FR-009). Stored ISO 8601 regardless of the intranet's display format. |
 | `status` | string | yes | The application status text as first observed (e.g. `"yes"`, `"maybe"`). Frozen at creation — never rewritten by later scrapes, per research.md §8 / FR-015 ("other fields left unchanged"). |
 | `excluded` | boolean | yes | Default `false`. Set to `true` automatically, once, the first time a later scrape observes `status == "no"` for this (non-ignored) record (FR-015). Never auto-reverts; only a human edits it back. |

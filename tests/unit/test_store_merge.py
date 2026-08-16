@@ -83,6 +83,9 @@ def test_first_run_persists_multi_page_non_no_applicants_with_default_season(
         validate_record(record)  # must not raise -- SC-005
         assert record["birthday"] == "1990-03-15"  # fetched from the detail popup
 
+    max_record = yaml.safe_load((a_dir / "max-mustermann.yaml").read_text())
+    assert max_record["role"] == "Rider"  # scraped straight from the Role column
+
 
 # --- Story 2: re-run without losing manual corrections (FR-009, SC-002, SC-003) ---
 
@@ -94,6 +97,7 @@ def _base_record(**overrides) -> dict:
         "last_name": "Doe",
         "address": None,
         "phone": None,
+        "role": None,
         "birthday": None,
         "status": "yes",
         "excluded": False,
@@ -121,6 +125,36 @@ def test_merge_record_fills_a_field_that_was_previously_empty():
     merged = merge_record(existing, scraped)
 
     assert merged["phone"] == "01701234567"
+
+
+def test_merge_record_fills_role_when_previously_empty():
+    existing = _base_record(role=None)
+    scraped = {"address": None, "phone": None, "birthday": None, "role": "Rider"}
+
+    merged = merge_record(existing, scraped)
+
+    assert merged["role"] == "Rider"
+
+
+def test_merge_record_keeps_a_hand_corrected_role_even_when_scraped_value_differs():
+    existing = _base_record(role="Service Crew")
+    scraped = {"address": None, "phone": None, "birthday": None, "role": "Rider"}
+
+    merged = merge_record(existing, scraped)
+
+    assert merged["role"] == "Service Crew"
+
+
+def test_merge_record_backfills_role_on_a_pre_existing_record_missing_the_key():
+    # A record persisted before the "role" field existed has no "role" key
+    # at all -- merge must still fill it in, not KeyError.
+    existing = _base_record()
+    del existing["role"]
+    scraped = {"address": None, "phone": None, "birthday": None, "role": "Rider"}
+
+    merged = merge_record(existing, scraped)
+
+    assert merged["role"] == "Rider"
 
 
 def test_merge_record_never_rewrites_the_frozen_status_field():
@@ -298,6 +332,38 @@ def test_status_flip_to_no_sets_excluded_and_timestamp_leaving_other_fields_unch
     assert updated_record["address"] == "Original Street 1"  # left unchanged
     assert summary["updated"] == 1
     assert "jane-doe" in log_file.read_text()  # FR-016: warning landed in the run log
+
+
+def test_record_persisted_before_role_existed_can_still_be_rewritten(tmp_path):
+    # Regression: a record written before "role" was added to the schema has
+    # no "role" key at all on disk. Any later write path (here: the FR-015
+    # exclusion flip) must backfill it as null rather than KeyError.
+    a_dir = tmp_path / "seasons" / "2025-26" / "applicants"
+    a_dir.mkdir(parents=True)
+    pre_role_record = _base_record(
+        match_key="jane-doe", first_name="Jane", last_name="Doe", status="yes"
+    )
+    del pre_role_record["role"]
+    (a_dir / "jane-doe.yaml").write_text(yaml.safe_dump(pre_role_record))
+
+    logger, _log_file = setup_run_logger(tmp_path / "logs")
+    rows = [
+        {
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "phone": None,
+            "address": None,
+            "status": "no",
+            "photo_thumbnail_url": None,
+        }
+    ]
+
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
+
+    assert summary["validation_errors"] == 0
+    updated_record = yaml.safe_load((a_dir / "jane-doe.yaml").read_text())
+    assert updated_record["excluded"] is True
+    assert updated_record["role"] is None
 
 
 def test_ignored_record_observing_no_status_produces_no_exclusion_and_no_log(

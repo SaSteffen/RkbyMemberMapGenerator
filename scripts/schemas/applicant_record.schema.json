@@ -33,6 +33,10 @@
     "phone": {
       "type": ["string", "null"]
     },
+    "role": {
+      "type": ["string", "null"],
+      "description": "Raw participation role text as scraped from the intranet applicant table's Role column (e.g. \"Rider\", \"Service Crew\", \"Supporter\"), or null if not yet known."
+    },
     "birthday": {
       "type": ["string", "null"],
       "format": "date",

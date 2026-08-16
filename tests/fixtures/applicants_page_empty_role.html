@@ -1,0 +1,41 @@
+<!-- Obfuscated/synthetic: single-row fixture covering an applicant whose Role
+     column is blank on the intranet (role not yet assigned/known). All
+     names/contact details are synthetic. -->
+<div><input type="hidden" id="team_is_cluster" value="False" /></div>
+<div><input type="hidden" id="team_in_cluster" value="False" /></div>
+<table id="applicants" class="stripe row-border">
+<thead>
+<tr>
+<th>Image</th><th>Created</th><th>Name</th><th>Email</th><th>Phone</th><th>Jobtitle</th>
+<th>Address</th><th>Zip</th><th>City</th><th>Country</th><th>Participated</th><th>Role</th>
+<th>Age</th><th>Sex</th><th>Email send</th><th>Motivation</th><th>Accept on teams</th><th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><div class="profile-image-list" style=""></div></td>
+<td>2025-08-03 09:00</td>
+<td>Nora Beispiel</td>
+<td>nora.beispiel@example.test</td>
+<td>01705556677</td>
+<td>Student</td>
+<td>Beispielallee 7</td>
+<td>20255</td>
+<td>Hamburg</td>
+<td>Germany</td>
+<td>0</td>
+<td></td>
+<td>22</td>
+<td>Female</td>
+<td>No</td>
+<td></td>
+<td><span class="iddata" data-id="3001"></span><div class="checklist btn-group btn-group-toggle action-selected"><label class="btn btn-secondary active"><input class="required applicant-state" type="radio" name="action[3001]" value="Undecided"><i></i>Undecided</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[3001]" value="Yes"><i></i>Yes</label><label class="btn btn-secondary"><input class="required applicant-state" type="radio" name="action[3001]" value="No"><i></i>No</label></div></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<script>
+dataTable = $('#applicants').DataTable({
+    'paging': true, 'pageLength': 25, 'displayStart': 0
+});
+</script>
