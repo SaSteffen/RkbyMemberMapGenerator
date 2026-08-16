@@ -35,9 +35,9 @@ TILE_URL_PATTERN = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.pn
 # --- CLI arg parsing -----------------------------------------------------------
 
 
-def test_min_width_km_defaults_to_50():
+def test_min_width_km_defaults_to_15():
     args = build_arg_parser().parse_args([])
-    assert args.min_width_km == 50
+    assert args.min_width_km == 15
 
 
 def test_min_width_km_accepts_a_positive_number():
