@@ -57,7 +57,7 @@ from scripts.rkby_records import (
     setup_run_logger,
 )
 
-DEFAULT_MIN_WIDTH_KM = 50
+DEFAULT_MIN_WIDTH_KM = 15
 CANVAS_SIZE = (1600, 1200)
 # Geographic center of Germany -- used only as the overview map's center for
 # a season with zero plottable members (Assumptions: "Empty/degenerate
