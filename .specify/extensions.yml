@@ -1,0 +1,12 @@
+# Machine-shared Spec Kit extension config — hooks that run around core
+# speckit commands. See .claude/skills/speckit-git-commit/SKILL.md for what
+# the git extension's commit hook actually does.
+
+hooks:
+  after_specify:
+    - extension: git
+      command: speckit.git.commit
+      description: "Commit the newly created/updated spec.md and checklist for this feature."
+      prompt: "Commit the current feature directory's Spec Kit artifacts (spec.md, checklists/) using this repo's Conventional Commits convention. Local commit only — never push."
+      optional: false
+      enabled: true
