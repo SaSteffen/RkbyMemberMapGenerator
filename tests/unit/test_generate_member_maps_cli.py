@@ -20,7 +20,13 @@ from scripts.generate_member_maps import (
     load_config,
     main,
 )
-from scripts.rkby_maps.rendering import NEUTRAL_COLOR, role_color
+from scripts.rkby_maps.rendering import (
+    NEUTRAL_COLOR,
+    PHOTO_DIAMETER_PX,
+    PLACEHOLDER_PHOTO_PATH,
+    crop_circular_photo,
+    role_color,
+)
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
@@ -167,6 +173,16 @@ def test_main_accepts_min_width_km_and_no_scale_bar_flags(monkeypatch, tmp_path)
 # perfectly lossless even for a solid-color source.
 SAMPLE_PHOTO_COLOR = (
     Image.open(FIXTURES_DIR / "sample_photo.jpg").convert("RGB").getpixel((0, 0))
+)
+
+# The placeholder mascot goes through the same crop-to-circle pipeline as a
+# real member photo, so read back its rendered center pixel rather than a
+# raw pixel off the source file.
+_PLACEHOLDER_CENTER = PHOTO_DIAMETER_PX // 2
+PLACEHOLDER_PHOTO_COLOR = (
+    crop_circular_photo(PLACEHOLDER_PHOTO_PATH)
+    .convert("RGB")
+    .getpixel((_PLACEHOLDER_CENTER, _PLACEHOLDER_CENTER))
 )
 
 
@@ -362,7 +378,7 @@ def test_overview_photo_map_end_to_end(monkeypatch, tmp_path):
         role="Supporter",
         latitude=53.6,
         longitude=10.0,
-        # no photo -- eligible for the pin map, not the photo map
+        # no photo on file -- gets the placeholder mascot on the photo map
     )
 
     _register_common_mocks()
@@ -376,20 +392,16 @@ def test_overview_photo_map_end_to_end(monkeypatch, tmp_path):
     assert pin_map_path.exists()
     assert photo_map_path.exists()
 
-    # Both members still get a pin on the pin map (John has no photo, but a pin).
+    # Both members still get a pin on the pin map.
     pin_colors = set(Image.open(pin_map_path).convert("RGB").getdata())
     assert _hex_to_rgb(role_color("Rider")) in pin_colors
     assert _hex_to_rgb(role_color("Supporter")) in pin_colors
 
-    # Only Jane (who has a photo) is rendered on the photo map.
+    # Jane's real photo and John's placeholder mascot both appear on the photo
+    # map -- no one is skipped from it for lacking a picture.
     photo_colors = set(Image.open(photo_map_path).convert("RGB").getdata())
     assert SAMPLE_PHOTO_COLOR in photo_colors
-
-    # John is logged as skipped from the photo map only -- still on the pin map.
-    log_dir = tmp_path / "seasons" / "2025-26" / "logs"
-    log_contents = "\n".join(p.read_text() for p in log_dir.glob("*.log"))
-    assert "john-smith" in log_contents
-    assert "photo" in log_contents.lower()
+    assert PLACEHOLDER_PHOTO_COLOR in photo_colors
 
 
 # --- US3 end-to-end: detail maps for crowded areas (T027) --------------------------

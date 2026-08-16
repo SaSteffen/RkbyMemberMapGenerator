@@ -85,8 +85,9 @@ photo centered on their address instead of a colored pin.
    for that season with each member shown as a circular cropped photo centered on
    their address.
 2. **Given** a member has a valid address but no photo on file, **When** the map
-   generator runs, **Then** that member is logged as skipped from the photo map (they
-   still appear on the pin map) and the run continues.
+   generator runs, **Then** that member still appears on the photo map, shown with a
+   fixed placeholder image (the team mascot) in place of a personal photo, and the run
+   continues.
 
 ---
 
@@ -129,8 +130,8 @@ shows a readable stand-in for the whole cluster.
 
 - A member has no address on file → logged, excluded from both map variants, run
   continues (Story 1 AC2).
-- A member has an address but no photo on file → logged, excluded from the photo
-  variant only, still included on the pin variant (Story 2 AC2).
+- A member has an address but no photo on file → still included on the photo variant,
+  shown with the fixed placeholder image instead of a personal photo (Story 2 AC2).
 - A member's address exists but cannot be resolved to a geographic location → treated
   the same as "no address": logged and skipped, run continues.
 - A member is marked `excluded` (declined participation) or `ignore` in their local
@@ -164,15 +165,16 @@ shows a readable stand-in for the whole cluster.
   showing one marker per member who has a resolvable address, excluding members
   flagged `excluded` or `ignore` in their local record.
 - **FR-004**: For each season, the system MUST generate an overview photo-map PNG
-  showing each resolvable, photographed member as a circular cropped portrait
-  centered on their address, using the same eligibility rules as FR-003 plus requiring
-  a photo on file.
+  showing every resolvable member (same eligibility rules as FR-003) as a circular
+  cropped portrait centered on their address — their own photo where one is on file,
+  otherwise the fixed placeholder image from FR-020.
 - **FR-005**: The system MUST crop member photos to a circular portrait using a
   centered square crop of the source image (matching the existing intranet table
   presentation), before placing it on the photo-map variant.
 - **FR-006**: The system MUST log (not crash on) any member skipped from a map variant
-  due to a missing/unresolvable address or missing photo, identifying which member and
-  which variant they were skipped from, and continue processing the rest of the run.
+  due to a missing/unresolvable address, identifying which member and which variant
+  they were skipped from, and continue processing the rest of the run. A missing photo
+  is not a skip (see FR-004/FR-020) and is not logged as one.
 - **FR-007**: The system MUST color-code pins on the pin-map variant by the member's
   role (read from the member's local record — see Assumptions), using a fixed,
   visually distinct, low-saturation ("neutral") color per role, plus one additional
@@ -219,6 +221,11 @@ shows a readable stand-in for the whole cluster.
   online geocoding lookup at most once per address, caching the resolved coordinates
   back into that member's local data record so subsequent runs reuse the cached value
   instead of re-querying the geocoding service.
+- **FR-020**: On the photo-map variant, for a resolvable member with no photo on file,
+  the system MUST render a fixed placeholder image (the Team Rynkeby mascot, shipped as
+  a project asset) in place of a personal photo, cropped the same way as FR-005, so
+  every resolvable member appears on the photo map regardless of whether they have a
+  photo on file.
 
 ### Key Entities
 
@@ -243,9 +250,9 @@ shows a readable stand-in for the whole cluster.
 - **SC-001**: Running the map generator once produces a complete set of overview maps
   (both variants) for every season present in the local data directory, with no manual
   steps in between.
-- **SC-002**: Every member skipped from a map (missing address, unresolvable address,
-  or missing photo) is individually identifiable from the run's log output, with zero
-  skipped members causing the run to stop early.
+- **SC-002**: Every member skipped from a map (missing or unresolvable address) is
+  individually identifiable from the run's log output, with zero skipped members
+  causing the run to stop early. A missing photo never causes a skip (FR-020).
 - **SC-003**: On every generated map, no two distinct members' markers visually
   overlap — each is either spatially separated, resolved onto its own detail map, or
   shown via the multiplicity/offset fallback.

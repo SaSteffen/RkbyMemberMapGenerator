@@ -36,6 +36,7 @@ from scripts.rkby_maps.geocoding import geocode_record_if_needed
 from scripts.rkby_maps.rendering import (
     PHOTO_RADIUS_PX,
     PIN_RADIUS_PX,
+    PLACEHOLDER_PHOTO_PATH,
     crop_circular_photo,
     draw_attribution,
     draw_merged_pin,
@@ -288,6 +289,16 @@ def _draw_pin_layer(
     return groups, by_key
 
 
+def _photo_path(s_dir: Path, record: dict) -> Path:
+    """The member's own photo if one is on file, otherwise the Team Rynkeby
+    mascot placeholder -- every plottable member gets a circle on the photo
+    map, picture or not."""
+    photo_relative_path = record.get("photo")
+    if photo_relative_path and (s_dir / photo_relative_path).exists():
+        return s_dir / photo_relative_path
+    return PLACEHOLDER_PHOTO_PATH
+
+
 def _draw_photo_layer(
     data_dir: Path,
     season_label: str,
@@ -306,13 +317,13 @@ def _draw_photo_layer(
 
     for key, record in by_key.items():
         if key not in grouped_keys:
-            circular_photo = crop_circular_photo(s_dir / record["photo"])
+            circular_photo = crop_circular_photo(_photo_path(s_dir, record))
             draw_photo_circle(canvas, positions[key], circular_photo)
 
     for group in groups:
         group_records = [by_key[key] for key in group]
         circles = [
-            crop_circular_photo(s_dir / record["photo"]) for record in group_records
+            crop_circular_photo(_photo_path(s_dir, record)) for record in group_records
         ]
         draw_offset_photo_circles(canvas, _group_position(group, positions), circles)
 
@@ -386,30 +397,10 @@ def _render_overview_pin_map(
     return canvas, groups, by_key
 
 
-def _photo_eligible_members(
-    data_dir: Path, season_label: str, plottable: list[dict], logger: logging.Logger
-) -> list[dict]:
-    """US2's eligibility filter: reuses US1's `plottable` list (FR-004) plus
-    requiring a photo file on disk; a plottable member with no photo is
-    logged and skipped from the photo variant only (FR-006) -- they still
-    appear on the pin map."""
-    s_dir = season_dir(data_dir, season_label)
-    eligible = []
-    for record in plottable:
-        photo_relative_path = record.get("photo")
-        if not photo_relative_path or not (s_dir / photo_relative_path).exists():
-            logger.warning(
-                "%s skipped from photo map: no photo on file", record["match_key"]
-            )
-            continue
-        eligible.append(record)
-    return eligible
-
-
 def _render_overview_photo_map(
     data_dir: Path,
     season_label: str,
-    photo_eligible: list[dict],
+    plottable: list[dict],
     center: tuple[float, float],
     zoom: int,
     show_scale_bar: bool,
@@ -419,7 +410,7 @@ def _render_overview_photo_map(
         center=center, zoom=zoom, canvas_size=CANVAS_SIZE, cache_dir=tile_cache_dir
     )
     groups, by_key = _draw_photo_layer(
-        data_dir, season_label, canvas, photo_eligible, center, zoom
+        data_dir, season_label, canvas, plottable, center, zoom
     )
     if show_scale_bar:
         draw_scale_bar(canvas, meters_per_pixel=meters_per_pixel(center[0], zoom))
@@ -431,7 +422,6 @@ def _process_season(
     data_dir: Path, season_label: str, args: argparse.Namespace, logger: logging.Logger
 ) -> None:
     plottable = _resolve_plottable_members(data_dir, season_label, logger)
-    photo_eligible = _photo_eligible_members(data_dir, season_label, plottable, logger)
 
     maps_dir = data_dir / "maps"
     prefix = _season_file_prefix(season_label)
@@ -462,15 +452,15 @@ def _process_season(
         tile_cache_dir,
     )
 
-    photo_center, photo_zoom = _overview_center_and_zoom(
-        photo_eligible, args.min_width_km
-    )
+    # Same member set as the pin map now that a photo-less member is drawn
+    # with the placeholder mascot rather than skipped, so the overview's
+    # bounding box (and therefore zoom) is identical -- reuse pin_center/zoom.
     photo_canvas, photo_groups, photo_by_key = _render_overview_photo_map(
         data_dir,
         season_label,
-        photo_eligible,
-        photo_center,
-        photo_zoom,
+        plottable,
+        pin_center,
+        pin_zoom,
         show_scale_bar=show_scale_bar,
         tile_cache_dir=tile_cache_dir,
     )

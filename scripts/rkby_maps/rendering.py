@@ -12,6 +12,10 @@ PIN_RADIUS_PX = 10
 PHOTO_DIAMETER_PX = 48
 PHOTO_RADIUS_PX = PHOTO_DIAMETER_PX // 2
 
+# Team Rynkeby mascot, used on the photo map in place of any member with no
+# photo on file (FR-004: every plottable member appears on the photo map).
+PLACEHOLDER_PHOTO_PATH = Path(__file__).resolve().parent / "assets" / "rynke.png"
+
 ATTRIBUTION_TEXT = "© OpenStreetMap contributors"
 
 # Low-saturation, roughly-equal-lightness colors so no role visually
