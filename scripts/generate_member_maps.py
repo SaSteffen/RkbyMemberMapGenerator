@@ -34,6 +34,7 @@ from scripts.rkby_maps.clustering import (
 )
 from scripts.rkby_maps.geocoding import geocode_record_if_needed
 from scripts.rkby_maps.rendering import (
+    PHOTO_OVERLAP_MARGIN_PX,
     PHOTO_RADIUS_PX,
     PIN_RADIUS_PX,
     PLACEHOLDER_PHOTO_PATH,
@@ -312,7 +313,9 @@ def _draw_photo_layer(
     s_dir = season_dir(data_dir, season_label)
     by_key = {record["match_key"]: record for record in records}
     positions = _pixel_positions(records, center, zoom)
-    groups = find_overlap_groups(positions, radius=PHOTO_RADIUS_PX)
+    groups = find_overlap_groups(
+        positions, radius=PHOTO_RADIUS_PX, margin=PHOTO_OVERLAP_MARGIN_PX
+    )
     grouped_keys = {key for group in groups for key in group}
 
     for key, record in by_key.items():

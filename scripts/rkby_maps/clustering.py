@@ -15,13 +15,21 @@ def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
 
 
 def find_overlap_groups(
-    positions: dict[str, tuple[float, float]], radius: float
+    positions: dict[str, tuple[float, float]],
+    radius: float,
+    margin: float = 0,
 ) -> list[list[str]]:
     """Connected components of members whose pixel distance is within the
     combined marker radius (research.md §4: "distance is less than the sum
     of their marker radii" -- both markers share `radius` here, so the
-    combined radius is `2 * radius`). Solo members with no overlapping
-    partner are left out of the result entirely."""
+    combined radius is `2 * radius`), plus `margin`. Solo members with no
+    overlapping partner are left out of the result entirely.
+
+    `margin` (photo variant only, see `PHOTO_OVERLAP_MARGIN_PX`) is a small
+    extra pixel allowance on top of the strict combined-radius test: a
+    near-miss a few pixels outside it still reads as "one cluster" to a
+    viewer, so it's folded in rather than rendered as a solo circle nearly
+    touching an adjacent one."""
     keys = list(positions.keys())
     parent = {key: key for key in keys}
 
@@ -36,9 +44,10 @@ def find_overlap_groups(
         if root_a != root_b:
             parent[root_b] = root_a
 
+    threshold = 2 * radius + margin
     for i, a in enumerate(keys):
         for b in keys[i + 1 :]:
-            if _distance(positions[a], positions[b]) <= 2 * radius:
+            if _distance(positions[a], positions[b]) <= threshold:
                 union(a, b)
 
     components: dict[str, list[str]] = {}

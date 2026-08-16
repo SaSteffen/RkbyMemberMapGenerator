@@ -71,6 +71,34 @@ def test_find_overlap_groups_with_no_members_returns_empty_list():
     assert find_overlap_groups({}, radius=10) == []
 
 
+# --- Near-miss tolerance (margin, photo variant only) ------------------------------
+
+
+def test_margin_folds_in_a_near_miss_just_outside_the_combined_radius():
+    # a-b are 23px apart -- 3px past the strict 2*10=20px combined-radius
+    # test, so no group forms without slack.
+    positions = {"a": (0, 0), "b": (23, 0)}
+
+    assert find_overlap_groups(positions, radius=10) == []
+    assert find_overlap_groups(positions, radius=10, margin=8) == [["a", "b"]]
+
+
+def test_margin_still_excludes_a_member_beyond_the_slack():
+    positions = {"a": (0, 0), "b": (23, 0), "c": (1000, 0)}
+
+    groups = find_overlap_groups(positions, radius=10, margin=8)
+
+    assert all("c" not in group for group in groups)
+
+
+def test_margin_defaults_to_zero_and_matches_base_behavior():
+    positions = {"a": (0, 0), "b": (23, 0)}
+
+    assert find_overlap_groups(positions, radius=10) == find_overlap_groups(
+        positions, radius=10, margin=0
+    )
+
+
 # --- FR-014 same-exact-address-pair short-circuit ---------------------------------
 
 
