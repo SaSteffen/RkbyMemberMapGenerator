@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rkby.local/schemas/applicant-record.schema.json",
+  "title": "Applicant Record",
+  "description": "One retained applicant's persisted data for one season. See specs/001-scraper-persistence/data-model.md and specs/002-map-generator/data-model.md for field-by-field write rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "match_key",
+    "first_name",
+    "last_name",
+    "status",
+    "excluded",
+    "ignore"
+  ],
+  "properties": {
+    "match_key": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "normalize(first_name)-normalize(last_name); also the filename stem. Immutable once created."
+    },
+    "first_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "last_name": {
+      "type": "string",
+      "description": "Empty when the intranet has no last name on file for this person (a Name cell with no separator to split one out of)."
+    },
+    "address": {
+      "type": ["string", "null"]
+    },
+    "phone": {
+      "type": ["string", "null"]
+    },
+    "role": {
+      "type": ["string", "null"],
+      "description": "Raw participation role text as scraped from the intranet applicant table's Role column (e.g. \"Rider\", \"Service Crew\", \"Supporter\"), or null if not yet known."
+    },
+    "birthday": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "ISO 8601 date (YYYY-MM-DD), or null if not yet known."
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Application status text as first observed. Frozen at creation; never rewritten by later scrapes."
+    },
+    "excluded": {
+      "type": "boolean",
+      "description": "Set true, once, the first time a later scrape observes status \"no\" for this non-ignored record."
+    },
+    "excluded_observed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Set together with excluded: true. Null while excluded is false."
+    },
+    "ignore": {
+      "type": "boolean",
+      "description": "Manual-only flag. The scraper reads but never writes this field."
+    },
+    "photo": {
+      "type": ["string", "null"],
+      "description": "Path to the photo file, relative to the season folder, e.g. \"photos/jane-doe.jpg\". Null until a photo fetch succeeds."
+    },
+    "latitude": {
+      "type": ["number", "null"],
+      "minimum": -90,
+      "maximum": 90,
+      "description": "Geocoded from address by scripts/generate_member_maps.py (002-map-generator). Null until a geocode lookup succeeds. Set once, fill-empty-only — never rewritten by a later run once non-null (Principle III); always set together with longitude."
+    },
+    "longitude": {
+      "type": ["number", "null"],
+      "minimum": -180,
+      "maximum": 180,
+      "description": "Geocoded from address by scripts/generate_member_maps.py (002-map-generator). Null until a geocode lookup succeeds. Set once, fill-empty-only — never rewritten by a later run once non-null (Principle III); always set together with latitude."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "excluded": { "const": true } }
+      },
+      "then": {
+        "required": ["excluded_observed_at"],
+        "properties": {
+          "excluded_observed_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  ]
+}
