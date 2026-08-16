@@ -42,6 +42,12 @@ processes — stale files from a since-changed cluster set are deleted, not left
   documented here/in research.md instead.
 - **Photo variant**: one circular, center-square-cropped photo per eligible
   photographed member (research.md §8), same position as that member's pin would occupy.
+- **Detail map membership** (FR-021): a detail map shows every eligible member who
+  falls within its rendered area, not just the overlap group that triggered it — the
+  `--min-width-km` floor routinely makes that area wider than the triggering group
+  alone. A member landing within a small margin of the map's own edge is left off that
+  specific map instead of drawn clipped or crowded against the border; they remain
+  visible on the overview (research.md §5).
 - **Overlap fallback** (FR-013, applies on whichever map(s) a still-overlapping group
   appears on — an overview if no detail map was generated for it per FR-014, or a
   detail map that couldn't fully resolve it per research.md §5): pin variant shows one

@@ -14,6 +14,7 @@ import argparse
 import logging
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,7 +35,6 @@ from scripts.rkby_maps.clustering import (
 )
 from scripts.rkby_maps.geocoding import geocode_record_if_needed
 from scripts.rkby_maps.rendering import (
-    PHOTO_OVERLAP_MARGIN_PX,
     PHOTO_RADIUS_PX,
     PIN_RADIUS_PX,
     PLACEHOLDER_PHOTO_PATH,
@@ -68,6 +68,14 @@ DEFAULT_CENTER = (51.1657, 10.4515)
 # either an overlap group (detail maps) or the season's full member set
 # (the overview) -- before flooring the result at --min-width-km.
 DETAIL_MAP_PADDING_KM = 0.5
+# A detail map is framed around its triggering overlap group, but --min-width-km
+# often floors that frame far wider than the group itself -- other plottable
+# members frequently fall inside it too and must be drawn, not just the group
+# that triggered it (research.md §5). A member within this many pixels of the
+# canvas edge is left off that specific map instead: a marker clipped by (or
+# crowding right up against) the border reads worse than one member simply not
+# appearing on this particular detail map -- they still appear on the overview.
+DETAIL_MAP_EDGE_MARGIN_PX = 50
 
 _GITIGNORE_ENTRIES = ("maps/", ".tile_cache/")
 
@@ -262,6 +270,35 @@ def _group_position(
     return sum(xs) / len(xs), sum(ys) / len(ys)
 
 
+def _records_within_frame(
+    records: list[dict],
+    always_include: set[str],
+    center: tuple[float, float],
+    zoom: int,
+    canvas_size: tuple[int, int],
+    edge_margin_px: float,
+) -> list[dict]:
+    """Every plottable member who actually lands inside a detail map's
+    rendered frame at `(center, zoom)`, not just the overlap group that
+    triggered it (DETAIL_MAP_EDGE_MARGIN_PX). `always_include` members (the
+    triggering group) are kept regardless of where they land, since they
+    define the frame itself; everyone else within `edge_margin_px` of the
+    canvas border is left off this particular map."""
+    canvas_width, canvas_height = canvas_size
+    positions = _pixel_positions(records, center, zoom)
+    selected = []
+    for record in records:
+        key = record["match_key"]
+        x, y = positions[key]
+        in_frame = (
+            edge_margin_px <= x <= canvas_width - edge_margin_px
+            and edge_margin_px <= y <= canvas_height - edge_margin_px
+        )
+        if key in always_include or in_frame:
+            selected.append(record)
+    return selected
+
+
 def _draw_pin_layer(
     canvas, records: list[dict], center: tuple[float, float], zoom: int
 ) -> tuple[list[list[str]], dict[str, dict]]:
@@ -313,9 +350,7 @@ def _draw_photo_layer(
     s_dir = season_dir(data_dir, season_label)
     by_key = {record["match_key"]: record for record in records}
     positions = _pixel_positions(records, center, zoom)
-    groups = find_overlap_groups(
-        positions, radius=PHOTO_RADIUS_PX, margin=PHOTO_OVERLAP_MARGIN_PX
-    )
+    groups = find_overlap_groups(positions, radius=PHOTO_RADIUS_PX)
     grouped_keys = {key for group in groups for key in group}
 
     for key, record in by_key.items():
@@ -350,8 +385,16 @@ def _generate_detail_maps(
     merged on the overview forever (never gets its own detail map). Re-runs
     the same overlap check at the detail map's own (tighter) scale, so a
     subset still overlapping there falls back to FR-013 on that map too
-    instead of recursing into an ever-tighter detail map (research.md §5)."""
+    instead of recursing into an ever-tighter detail map (research.md §5).
+
+    Once a detail map's frame is decided, every plottable member who lands
+    inside it is drawn -- not just the triggering group (see
+    `_records_within_frame`) -- so slugs are assigned up front, in
+    deterministic group order, before the (parallelized) rendering itself
+    reads them."""
     existing_slugs: set[str] = set()
+    all_records = list(by_key.values())
+    jobs = []
     for group in groups:
         addresses = {key: by_key[key]["address"] for key in group}
         if is_fr014_exception(group, addresses):
@@ -365,22 +408,37 @@ def _generate_detail_maps(
             min_width_km=min_width_km,
             canvas_size=CANVAS_SIZE,
         )
+        frame_records = _records_within_frame(
+            all_records,
+            always_include=set(group),
+            center=center,
+            zoom=zoom,
+            canvas_size=CANVAS_SIZE,
+            edge_margin_px=DETAIL_MAP_EDGE_MARGIN_PX,
+        )
+
+        slug = detail_map_slug(group_records[0]["address"], existing_slugs)
+        existing_slugs.add(slug)
+        jobs.append((center, zoom, frame_records, slug))
+
+    def _render_and_save(job: tuple) -> None:
+        center, zoom, frame_records, slug = job
         canvas = stitch_basemap(
             center=center, zoom=zoom, canvas_size=CANVAS_SIZE, cache_dir=tile_cache_dir
         )
         if variant == "pins":
-            _draw_pin_layer(canvas, group_records, center, zoom)
+            _draw_pin_layer(canvas, frame_records, center, zoom)
         else:
             _draw_photo_layer(
-                data_dir, season_label, canvas, group_records, center, zoom
+                data_dir, season_label, canvas, frame_records, center, zoom
             )
         if show_scale_bar:
             draw_scale_bar(canvas, meters_per_pixel=meters_per_pixel(center[0], zoom))
         draw_attribution(canvas)
-
-        slug = detail_map_slug(group_records[0]["address"], existing_slugs)
-        existing_slugs.add(slug)
         canvas.save(maps_dir / f"{prefix}_detail_{variant}_{slug}.png")
+
+    with ThreadPoolExecutor() as executor:
+        list(executor.map(_render_and_save, jobs))
 
 
 def _render_overview_pin_map(
@@ -433,53 +491,71 @@ def _process_season(
     tile_cache_dir = data_dir / ".tile_cache"
     show_scale_bar = not args.no_scale_bar
 
-    pin_center, pin_zoom = _overview_center_and_zoom(plottable, args.min_width_km)
-    pin_canvas, pin_groups, pin_by_key = _render_overview_pin_map(
-        plottable,
-        pin_center,
-        pin_zoom,
-        show_scale_bar=show_scale_bar,
-        tile_cache_dir=tile_cache_dir,
-    )
-    pin_canvas.save(maps_dir / f"{prefix}_overview_pins.png")
-    _generate_detail_maps(
-        data_dir,
-        season_label,
-        maps_dir,
-        prefix,
-        "pins",
-        pin_groups,
-        pin_by_key,
-        args.min_width_km,
-        show_scale_bar,
-        tile_cache_dir,
-    )
-
-    # Same member set as the pin map now that a photo-less member is drawn
+    # Same member set for both variants now that a photo-less member is drawn
     # with the placeholder mascot rather than skipped, so the overview's
-    # bounding box (and therefore zoom) is identical -- reuse pin_center/zoom.
-    photo_canvas, photo_groups, photo_by_key = _render_overview_photo_map(
-        data_dir,
-        season_label,
-        plottable,
-        pin_center,
-        pin_zoom,
-        show_scale_bar=show_scale_bar,
-        tile_cache_dir=tile_cache_dir,
-    )
+    # bounding box (and therefore zoom) is identical -- reuse pin_center/zoom
+    # for the photo overview too.
+    pin_center, pin_zoom = _overview_center_and_zoom(plottable, args.min_width_km)
+
+    # The two overview variants are fully independent renders (own tile
+    # fetches, own drawing) -- generate them concurrently.
+    with ThreadPoolExecutor() as executor:
+        pin_future = executor.submit(
+            _render_overview_pin_map,
+            plottable,
+            pin_center,
+            pin_zoom,
+            show_scale_bar=show_scale_bar,
+            tile_cache_dir=tile_cache_dir,
+        )
+        photo_future = executor.submit(
+            _render_overview_photo_map,
+            data_dir,
+            season_label,
+            plottable,
+            pin_center,
+            pin_zoom,
+            show_scale_bar=show_scale_bar,
+            tile_cache_dir=tile_cache_dir,
+        )
+        pin_canvas, pin_groups, pin_by_key = pin_future.result()
+        photo_canvas, photo_groups, photo_by_key = photo_future.result()
+
+    pin_canvas.save(maps_dir / f"{prefix}_overview_pins.png")
     photo_canvas.save(maps_dir / f"{prefix}_overview_photos.png")
-    _generate_detail_maps(
-        data_dir,
-        season_label,
-        maps_dir,
-        prefix,
-        "photos",
-        photo_groups,
-        photo_by_key,
-        args.min_width_km,
-        show_scale_bar,
-        tile_cache_dir,
-    )
+
+    # Detail-map generation for the two variants is likewise independent
+    # (different overlap groups, different member lookups); each further
+    # parallelizes its own per-group rendering internally.
+    with ThreadPoolExecutor() as executor:
+        pins_detail_future = executor.submit(
+            _generate_detail_maps,
+            data_dir,
+            season_label,
+            maps_dir,
+            prefix,
+            "pins",
+            pin_groups,
+            pin_by_key,
+            args.min_width_km,
+            show_scale_bar,
+            tile_cache_dir,
+        )
+        photos_detail_future = executor.submit(
+            _generate_detail_maps,
+            data_dir,
+            season_label,
+            maps_dir,
+            prefix,
+            "photos",
+            photo_groups,
+            photo_by_key,
+            args.min_width_km,
+            show_scale_bar,
+            tile_cache_dir,
+        )
+        pins_detail_future.result()
+        photos_detail_future.result()
 
 
 # --- CLI entrypoint --------------------------------------------------------------

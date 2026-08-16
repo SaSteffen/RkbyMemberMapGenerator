@@ -3,6 +3,7 @@ Web Mercator projection math, meters-per-pixel, zoom-from-required-width
 selection, and OSM tile fetch/on-disk-cache/stitch."""
 
 import math
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -190,6 +191,32 @@ def test_fetch_tile_reuses_the_on_disk_cache_without_a_second_http_request(tmp_p
 
     assert tile_bytes == TILE_FIXTURE_BYTES
     assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_fetch_tile_concurrent_writes_never_leave_a_corrupt_cache_file(tmp_path):
+    # Parallel image creation means several threads can race to cache the
+    # same missing tile; a reader landing between another thread's truncate
+    # and its write must never see a corrupt (partial/empty) file.
+    responses.add(
+        responses.GET,
+        "https://tile.openstreetmap.org/3/4/2.png",
+        body=TILE_FIXTURE_BYTES,
+        status=200,
+        content_type="image/png",
+    )
+
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        results = list(
+            executor.map(
+                lambda _: fetch_tile(z=3, x=4, y=2, cache_dir=tmp_path), range(16)
+            )
+        )
+
+    assert all(result == TILE_FIXTURE_BYTES for result in results)
+    cache_dir = tmp_path / "3" / "4"
+    assert [p.name for p in cache_dir.iterdir()] == ["2.png"]
+    assert (cache_dir / "2.png").read_bytes() == TILE_FIXTURE_BYTES
 
 
 @responses.activate

@@ -14,12 +14,16 @@ import yaml
 from PIL import Image
 
 from scripts.generate_member_maps import (
+    CANVAS_SIZE,
+    DETAIL_MAP_EDGE_MARGIN_PX,
+    DETAIL_MAP_PADDING_KM,
     Config,
     ConfigError,
     build_arg_parser,
     load_config,
     main,
 )
+from scripts.rkby_maps.basemap import TILE_SIZE, zoom_for_bounding_box
 from scripts.rkby_maps.rendering import (
     NEUTRAL_COLOR,
     PHOTO_DIAMETER_PX,
@@ -523,3 +527,96 @@ def test_detail_maps_resolve_a_cluster_and_respect_the_fr014_exception(
     assert overview_path.exists()
     overview_colors = set(Image.open(overview_path).convert("RGB").getdata())
     assert _hex_to_rgb(NEUTRAL_COLOR) in overview_colors
+
+
+# --- Detail-map frame membership (research.md §5) -----------------------------------
+
+
+@responses.activate
+def test_detail_map_includes_frame_members_and_omits_ones_too_close_to_the_edge(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    a_dir = tmp_path / "seasons" / "2025-26" / "applicants"
+    a_dir.mkdir(parents=True)
+
+    # A tight pair, ~20m apart -- the overlap group that triggers a detail map.
+    cluster_lat, cluster_lon_a, cluster_lon_b = 52.9241, 9.2255, 9.2258
+    _write_record(
+        a_dir,
+        "cluster-one",
+        first_name="Cluster",
+        last_name="One",
+        address="Clusterstr. 1, 27283 Verden, Germany",
+        role=None,
+        latitude=cluster_lat,
+        longitude=cluster_lon_a,
+    )
+    _write_record(
+        a_dir,
+        "cluster-two",
+        first_name="Cluster",
+        last_name="Two",
+        address="Clusterstr. 2, 27283 Verden, Germany",
+        role=None,
+        latitude=cluster_lat,
+        longitude=cluster_lon_b,
+    )
+
+    # Compute the exact frame (center/zoom) this detail map will be rendered
+    # at -- a pure function of the pair's own bounding box, independent of
+    # the other records below -- so the two extra members can be placed at
+    # precise pixel offsets from it.
+    min_width_km = 5
+    center, zoom = zoom_for_bounding_box(
+        [(cluster_lat, cluster_lon_a), (cluster_lat, cluster_lon_b)],
+        padding_km=DETAIL_MAP_PADDING_KM,
+        min_width_km=min_width_km,
+        canvas_size=CANVAS_SIZE,
+    )
+    scale = TILE_SIZE * 2**zoom
+    canvas_width, _canvas_height = CANVAS_SIZE
+
+    def _lon_at_pixel_x(target_x_px: float) -> float:
+        dx_px = target_x_px - canvas_width / 2
+        return center[1] + dx_px * 360 / scale
+
+    # Well clear of the edge margin -- must appear on the detail map even
+    # though it's no part of the triggering pair.
+    appearing_lon = _lon_at_pixel_x(DETAIL_MAP_EDGE_MARGIN_PX + 150)
+    # Inside the edge margin -- must be omitted from this detail map.
+    omitted_lon = _lon_at_pixel_x(DETAIL_MAP_EDGE_MARGIN_PX - 20)
+
+    _write_record(
+        a_dir,
+        "appearing-member",
+        first_name="Appearing",
+        last_name="Member",
+        address="Farstr. 1, 27283 Verden, Germany",
+        role="Rider",
+        latitude=center[0],
+        longitude=appearing_lon,
+    )
+    _write_record(
+        a_dir,
+        "omitted-member",
+        first_name="Omitted",
+        last_name="Member",
+        address="Edgestr. 1, 27283 Verden, Germany",
+        role="Supporter",
+        latitude=center[0],
+        longitude=omitted_lon,
+    )
+
+    _register_common_mocks()
+
+    exit_code = main(["--min-width-km", str(min_width_km)])
+    assert exit_code == 0
+
+    maps_dir = tmp_path / "maps"
+    detail_candidates = list(maps_dir.glob("2025_26_detail_pins_*.png"))
+    assert len(detail_candidates) == 1
+
+    detail_colors = set(Image.open(detail_candidates[0]).convert("RGB").getdata())
+    assert _hex_to_rgb(role_color("Rider")) in detail_colors
+    assert _hex_to_rgb(role_color("Supporter")) not in detail_colors

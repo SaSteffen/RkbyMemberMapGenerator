@@ -60,6 +60,15 @@ cost/signup friction for a volunteer hobby tool, OSM's own tiles are the natural
 already implied by the spec's Nominatim/OSM framing); no caching (rejected — wastes the
 shared service's capacity on every re-run and risks throttling under SC-005/SC-006).
 
+**Parallel image creation**: The two overview variants, and each variant's own set of
+detail maps, are independent renders (own tile fetches, own drawing, own output file),
+so they're generated concurrently via a thread pool rather than strictly one after
+another, to keep SC-005's 5-minute budget comfortable as a season's member count grows.
+Concurrent renders routinely need the *same* cached tile at once (nearby maps share
+geography), so `fetch_tile` writes to a fresh temp file and atomically renames it into
+place instead of writing the cache entry directly — otherwise a reader landing between
+another thread's truncate and its write could see a corrupt (partial/empty) tile.
+
 ## 3. Geocoding
 
 **Decision**: A minimal Nominatim client using plain `requests` (no `geopy`) against
@@ -148,6 +157,19 @@ strict lower bound).
 cropping stitched tiles to a fractional scale — rejected as unnecessary complexity;
 snapping to the nearest coarser integer zoom already satisfies every functional
 requirement (a lower bound, not an exact target) with far simpler, more testable code.
+
+**Frame membership (FR-021)**: A detail map's `center`/`zoom` are derived only from the
+triggering group's own bounding box, but the FR-010 floor routinely makes the resulting
+area wider than that group — so once the area is fixed, every other resolvable member
+of that season/variant is projected into it and drawn if they land inside, not just the
+triggering group. Otherwise a detail map would visually cover ground it doesn't
+actually report on, silently omitting members who happen to live in the same area. A
+member landing within `DETAIL_MAP_EDGE_MARGIN_PX` of the canvas border is left off that
+specific map instead — a marker crowded against (or clipped by) the edge reads worse
+than that member simply not appearing on this one map; they're still on the overview.
+The triggering group's own members are always drawn regardless of where they land,
+since they define the frame. Re-running the §4 overlap check (above) against this
+wider member set is what a detail map already did per-group; nothing new there.
 
 ## 6. Scale bar (ruler) rendering
 

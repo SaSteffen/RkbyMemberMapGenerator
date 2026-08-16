@@ -226,6 +226,14 @@ shows a readable stand-in for the whole cluster.
   a project asset) in place of a personal photo, cropped the same way as FR-005, so
   every resolvable member appears on the photo map regardless of whether they have a
   photo on file.
+- **FR-021**: Once a detail map's rendered area (FR-012) is determined, the system MUST
+  render every other resolvable member of that season/variant whose marker position
+  falls within that area — not just the overlap group that triggered the map — since
+  the FR-010 minimum width commonly makes a detail map's covered area wider than the
+  triggering group alone. A member whose marker would fall within a small margin of the
+  map's own edge MUST instead be omitted from that specific detail map rather than
+  rendered clipped or crowded against the border; they remain visible on the overview
+  (and any detail map whose area does comfortably contain them).
 
 ### Key Entities
 
@@ -286,7 +294,9 @@ shows a readable stand-in for the whole cluster.
 - **Detail map framing**: A detail map is centered on the overlapping group and sized
   to the smallest width that both resolves the overlap and respects the FR-010 minimum
   width; if the minimum width itself is too wide to resolve the overlap, FR-013's
-  fallback rendering applies instead of an ever-tighter detail map.
+  fallback rendering applies instead of an ever-tighter detail map. Whoever else falls
+  inside that resulting area is drawn on the map too (FR-021), since the minimum width
+  floor routinely makes the area wider than the group that triggered it.
 - **Detail map file naming**: Detail map filenames additionally include a
   location-derived identifier (e.g., the resolved place name) after the season prefix,
   so multiple detail maps in one season run don't collide, e.g.

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import io
 import math
+import tempfile
 from pathlib import Path
 
 import requests
@@ -119,7 +120,16 @@ def fetch_tile(z: int, x: int, y: int, cache_dir: Path) -> bytes:
     tile_bytes = response.content
 
     cached_path.parent.mkdir(parents=True, exist_ok=True)
-    cached_path.write_bytes(tile_bytes)
+    # Write-then-atomic-rename, not a direct write_bytes: parallel image
+    # creation means two threads can race to cache the same tile, and a
+    # reader landing between another thread's truncate and its write would
+    # otherwise see a corrupt (partial/empty) cached file.
+    with tempfile.NamedTemporaryFile(
+        dir=cached_path.parent, delete=False, suffix=".tmp"
+    ) as tmp_file:
+        tmp_file.write(tile_bytes)
+        tmp_path = Path(tmp_file.name)
+    tmp_path.replace(cached_path)
     return tile_bytes
 
 

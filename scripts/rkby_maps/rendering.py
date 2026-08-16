@@ -17,13 +17,6 @@ PHOTO_RADIUS_PX = PHOTO_DIAMETER_PX // 2
 # adjacent circles.
 PHOTO_OFFSET_FRACTION = 0.8
 
-# Extra pixel slack added to the overlap-detection radius sum for photo
-# circles only (clustering.py's `margin`). A near-miss a few pixels outside
-# the strict combined-radius test still reads as "one cluster" to a viewer,
-# so it's folded in rather than rendered as a solo circle nearly touching an
-# adjacent (possibly merged) one.
-PHOTO_OVERLAP_MARGIN_PX = 8
-
 # Team Rynkeby mascot, used on the photo map in place of any member with no
 # photo on file (FR-004: every plottable member appears on the photo map).
 PLACEHOLDER_PHOTO_PATH = Path(__file__).resolve().parent / "assets" / "rynke.png"
