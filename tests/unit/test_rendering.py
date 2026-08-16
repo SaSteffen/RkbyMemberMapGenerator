@@ -11,6 +11,7 @@ from scripts.rkby_maps.rendering import (
     ATTRIBUTION_TEXT,
     NEUTRAL_COLOR,
     PHOTO_DIAMETER_PX,
+    PHOTO_OFFSET_FRACTION,
     PIN_RADIUS_PX,
     ROLE_COLORS,
     crop_circular_photo,
@@ -240,10 +241,10 @@ def test_draw_offset_photo_circles_places_the_first_circle_at_the_given_position
     assert canvas.getpixel((100, 75)) == SAMPLE_PHOTO_COLOR
 
 
-def test_draw_offset_photo_circles_offsets_each_additional_circle_by_60_percent_diameter():
+def test_draw_offset_photo_circles_offsets_each_additional_circle_by_the_offset_fraction():
     canvas = _blank_canvas()
     circles = [crop_circular_photo(SAMPLE_PHOTO_PATH) for _ in range(2)]
-    offset_step = round(PHOTO_DIAMETER_PX * 0.6)
+    offset_step = round(PHOTO_DIAMETER_PX * PHOTO_OFFSET_FRACTION)
 
     draw_offset_photo_circles(canvas, (60, 75), circles)
 
@@ -254,8 +255,8 @@ def test_draw_offset_photo_circles_offsets_each_additional_circle_by_60_percent_
 def test_draw_offset_photo_circles_does_not_fully_stack_two_circles():
     # If circles were stacked (no offset) rather than side-by-side, the
     # region exactly one full diameter to the right of the first circle
-    # would still be background -- offsetting by 60% instead of 100% means
-    # it must already be covered by the second circle.
+    # would still be background -- offsetting by PHOTO_OFFSET_FRACTION
+    # instead of 100% means it must already be covered by the second circle.
     canvas = _blank_canvas()
     circles = [crop_circular_photo(SAMPLE_PHOTO_PATH) for _ in range(2)]
 

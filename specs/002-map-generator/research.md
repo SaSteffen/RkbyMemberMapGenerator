@@ -197,7 +197,8 @@ of the source photo (side length = `min(width, height)`), resizing to the target
 diameter, then masking to a circle with `Pillow` (`ImageDraw.ellipse` alpha mask +
 `Image.composite`). For the FR-013 photo-variant fallback (an unresolved overlap),
 render each affected member's circle at the shared position but horizontally offset by
-60% of the circle's diameter per additional member, so faces stay individually visible
+a configurable fraction (`PHOTO_OFFSET_FRACTION`, `rkby_maps/rendering.py`; currently
+80%) of the circle's diameter per additional member, so faces stay individually visible
 instead of fully stacking. For the pin-variant fallback, draw one merged pin at the
 shared position plus a small counter badge (a filled circle with the member count as
 white text) offset to its upper-right — the same visual language commonly used for

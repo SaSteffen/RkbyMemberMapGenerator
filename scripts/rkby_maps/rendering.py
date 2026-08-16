@@ -11,6 +11,11 @@ from PIL import Image, ImageDraw
 PIN_RADIUS_PX = 10
 PHOTO_DIAMETER_PX = 48
 PHOTO_RADIUS_PX = PHOTO_DIAMETER_PX // 2
+# Fraction of the photo diameter each additional overlapping member's circle
+# is offset by (research.md §8: "offset... so faces stay individually
+# visible instead of fully stacking"). Higher = less overlap between
+# adjacent circles.
+PHOTO_OFFSET_FRACTION = 0.8
 
 # Team Rynkeby mascot, used on the photo map in place of any member with no
 # photo on file (FR-004: every plottable member appears on the photo map).
@@ -188,10 +193,10 @@ def draw_offset_photo_circles(
     circular_photos: list[Image.Image],
 ) -> None:
     """Draw each member's circular photo at the shared `position`, offset
-    horizontally by 60% of the circle's diameter per additional member
-    (research.md §8) so faces stay individually visible instead of fully
-    stacking."""
+    horizontally by `PHOTO_OFFSET_FRACTION` of the circle's diameter per
+    additional member (research.md §8) so faces stay individually visible
+    instead of fully stacking."""
     x, y = position
     for index, circular_photo in enumerate(circular_photos):
-        offset_step = round(circular_photo.width * 0.6)
+        offset_step = round(circular_photo.width * PHOTO_OFFSET_FRACTION)
         draw_photo_circle(image, (x + index * offset_step, y), circular_photo)
