@@ -1,19 +1,23 @@
 <!--
 Sync Impact Report
-- Version change: (unratified template) → 1.0.0
-- Rationale for MAJOR: initial ratification — the prior file contained only unfilled
-  [PLACEHOLDER] tokens, so this is the first substantive constitution, not an amendment.
+- Version change: 1.0.0 → 1.1.0
+- Rationale for MINOR: adds a new core principle (Test-First Development / Red-Green)
+  and materially expands Development Workflow and Technology Constraints guidance to
+  match; no existing principle was removed or redefined.
 - Principles added:
-  - I. Member Data Privacy First (NON-NEGOTIABLE)
-  - II. One Script, One Artifact
-  - III. Local Data Is the Editable Source of Truth
-  - IV. Python, Minimal Dependencies
-- Sections added: Technology Constraints, Development Workflow, Governance
+  - V. Test-First Development (Red-Green) (NON-NEGOTIABLE)
+- Principles modified: none (I-IV unchanged)
+- Sections added: none (existing sections expanded, see below)
 - Sections removed: none
+- Section content changes:
+  - Technology Constraints: added a "Testing" bullet naming pytest / `uv run pytest`.
+  - Development Workflow: added bullets requiring a failing test before implementation
+    and a passing `uv run pytest` run before a change is considered done.
 - Templates checked for alignment:
   - .specify/templates/* — not modified by this command (out of scope per scope guard);
-    no outdated principle references found requiring a follow-up.
-- Deferred TODOs: none — all placeholders resolved from req.md and user answers.
+    plan/tasks templates already carry generic test-first checkpoints compatible with
+    this principle, no outdated references found requiring a follow-up.
+- Deferred TODOs: none — all placeholders resolved from user input.
 -->
 
 # Team Rynkeby Hamburg Team Map Tool Constitution
@@ -81,6 +85,31 @@ introduced.
 Rationale: Matches the project's stated implementation approach and keeps the tool
 runnable by a small volunteer team without infrastructure to maintain.
 
+### V. Test-First Development (Red-Green) (NON-NEGOTIABLE)
+
+New functionality — a new script (Principle II) or new behavior added to an existing
+one — MUST be developed test-first using the red-green cycle:
+
+- Write a failing test that demonstrates the missing behavior (red) before writing the
+  implementation.
+- Write the minimal code needed to make that test pass (green).
+- Refactor only once the test is green, without changing behavior.
+
+Constraints on how this is done:
+
+- Tests MUST run via `pytest` (`uv run pytest`) and MUST NOT read, write, or depend on
+  real data in `data/` or `.env`; use fixtures or synthetic data shaped like real
+  member records, never actual scraped data (Principle I).
+- Bug fixes SHOULD also start with a failing test that reproduces the bug, following
+  the same red-green cycle.
+- Test code stays proportional to the project's size: prefer plain `pytest` functions
+  and fixtures over additional test frameworks or infrastructure (Principle IV).
+
+Rationale: Untested scraping and merge logic is exactly where Principle III
+(preserving manual corrections) silently breaks. Writing the failing test first forces
+the expected behavior to be stated before code exists, and provides the verification
+that a single-maintainer project has no PR-review safety net to otherwise catch.
+
 ## Technology Constraints
 
 - Language: Python 3, pinned once project tooling (e.g. `pyproject.toml`) exists.
@@ -91,14 +120,20 @@ runnable by a small volunteer team without infrastructure to maintain.
 - Output artifacts: static image maps and/or shareable interactive (zoomable) maps;
   an `.ics` calendar file of member birthdays; rider pairing suggestions based on
   location and seasons of participation.
+- Testing: `pytest`, run via `uv run pytest`; no additional test framework or
+  infrastructure without documented need (Principle IV, Principle V).
 
 ## Development Workflow
 
 - Given the project's small scope and maintainer count, formal PR review is not
   required, but changes to scraping or data-merge logic (Principle III) SHOULD be
-  manually verified against a sample of real data before being relied on.
+  manually verified against a sample of real data before being relied on, in addition
+  to the automated tests required by Principle V.
 - Each script SHOULD be runnable and testable independently of the others, in line
   with Principle II.
+- New functionality MUST have a failing test written before implementation begins,
+  per Principle V's red-green cycle; `uv run pytest` MUST pass before a change is
+  considered done.
 
 ## Governance
 
@@ -112,4 +147,4 @@ Versioning policy: MAJOR.MINOR.PATCH — MAJOR for removing or redefining a prin
 MINOR for adding a principle or materially expanding guidance, PATCH for wording or
 clarification fixes that don't change meaning.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-15 | **Last Amended**: 2026-08-15
+**Version**: 1.1.0 | **Ratified**: 2026-08-15 | **Last Amended**: 2026-08-16
