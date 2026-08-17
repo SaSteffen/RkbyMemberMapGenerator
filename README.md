@@ -103,15 +103,40 @@ from a since-changed member set are deleted and regenerated, not left behind.
 ## Getting started
 
 This project uses [uv](https://docs.astral.sh/uv/) for Python dependency and
-environment management.
+environment management, and — for `scripts/generate_interactive_map.py`, which
+builds its frontend on every run (see
+[specs/003-interactive-photo-map/](specs/003-interactive-photo-map/)) — Node.js
+(via [nvm](https://github.com/nvm-sh/nvm), version pinned in
+[.nvmrc](.nvmrc)) and [pnpm](https://pnpm.io/) (via Node's bundled
+[Corepack](https://nodejs.org/api/corepack.html)). Every other script is
+Python-only and doesn't need Node at all.
+
+Run the setup script to install/verify both toolchains in one go:
 
 ```bash
-# Install dependencies (creates .venv/ automatically)
+./setup.sh
+```
+
+It installs `uv` and `nvm` if they're missing, runs `uv sync`, installs the
+Node version pinned in `.nvmrc` and activates `pnpm` via Corepack, and installs
+the git hooks (see "Git hooks" below). Safe to re-run any time.
+
+Equivalent manual steps, if you'd rather not run the script (or need to debug
+one piece of it):
+
+```bash
+# Python deps (creates .venv/ automatically)
 uv sync
 
 # One-time: install git hooks (lint/format on commit, Conventional Commits
 # on commit message) — see "Git hooks" below
 uv run pre-commit install --install-hooks
+
+# Node, pinned to the version in .nvmrc (only needed for the interactive map)
+nvm install
+nvm use
+corepack enable
+corepack prepare pnpm@latest --activate
 
 # Run a script, e.g.:
 uv run scripts/scrape_applicants.py
