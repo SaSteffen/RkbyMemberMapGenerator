@@ -25,6 +25,11 @@ export function popupData(member, activeSeasons) {
     // own -- +1 folds in that latest season itself so it's a plain total.
     totalSeasons:
       member.num_previous_seasons === null ? null : member.num_previous_seasons + 1,
+    // The season `num_previous_seasons` was scraped against (merge.py's
+    // "person's own latest-labeled eligible season-record") -- not
+    // filtered to activeSeasons, since a "1st Season!" badge for a season
+    // that's since lapsed needs this even when that season is toggled off.
+    latestSeason: Object.keys(member.seasons).sort().at(-1),
     photoFull: member.photo_full,
     seasons,
   };

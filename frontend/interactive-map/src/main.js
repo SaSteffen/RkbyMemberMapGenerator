@@ -43,6 +43,10 @@ function main() {
   const data = window.RKBY_MAP_DATA;
   const imageWidth = data.image.width;
   const imageHeight = data.image.height;
+  // Newest season label bundled in this run, same sort-as-plain-strings
+  // order as discover_seasons/merge.py -- used to tell a still-current
+  // rookie from a member whose only season is long since over.
+  const newestBundledSeason = [...data.seasons].sort().at(-1);
 
   // L.CRS.Simple treats the basemap image's own pixel space as the map's
   // coordinate system -- there are no live geographic tiles to align to
@@ -127,10 +131,14 @@ function main() {
   // (`member.photo`, bundle.py's HOVER_PHOTO_MAX_PX-capped `photo_full`).
   function renderPopupContent(member) {
     const data = popupData(member, activeSeasons);
+    // "1st Season!" only reads as true if that one season is also the
+    // newest one bundled -- a member whose sole (and by now lapsed) season
+    // was years ago isn't a rookie anymore, just a former one-timer.
+    const isCurrentRookie = data.totalSeasons === 1 && data.latestSeason === newestBundledSeason;
     const totalSeasonsText =
       data.totalSeasons === null
         ? "Total Seasons: unknown"
-        : data.totalSeasons === 1
+        : isCurrentRookie
           ? "1st Season!"
           : `Total Seasons: ${data.totalSeasons}`;
     const seasonItems = data.seasons

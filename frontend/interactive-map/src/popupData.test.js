@@ -43,6 +43,7 @@ describe("popupData", () => {
     expect(popupData(member, new Set(["2025-26", "2023-24"]))).toEqual({
       name: "Jane Doe",
       totalSeasons: 4,
+      latestSeason: "2025-26",
       photoFull: "photos/jane-doe-full.jpg",
       seasons: [
         { label: "2023-24", role: "Rider", additionalRoles: ["Steering Committee"] },
@@ -61,6 +62,7 @@ describe("popupData", () => {
     expect(popupData(member, new Set(["2024-25", "2025-26"]))).toEqual({
       name: "Jane Doe",
       totalSeasons: 2,
+      latestSeason: "2024-25",
       photoFull: "photos/jane-doe-full.jpg",
       seasons: [{ label: "2024-25", role: "Rider", additionalRoles: [] }],
     });
@@ -76,6 +78,7 @@ describe("popupData", () => {
     expect(popupData(member, new Set(["2025-26"]))).toEqual({
       name: "Jane Doe",
       totalSeasons: 2,
+      latestSeason: "2024-25",
       photoFull: "photos/jane-doe-full.jpg",
       seasons: [],
     });
@@ -89,6 +92,20 @@ describe("popupData", () => {
       seasons: { "2024-25": { role: "Rider", additional_roles: [] } },
     };
     expect(popupData(member, new Set(["2024-25"])).totalSeasons).toBeNull();
+  });
+
+  it("reports latestSeason as the member's own most recent season, regardless of which seasons are active", () => {
+    const member = {
+      name: "Jane Doe",
+      num_previous_seasons: 3,
+      photo_full: "photos/jane-doe-full.jpg",
+      seasons: {
+        "2025-26": { role: "Service Crew", additional_roles: [] },
+        "2023-24": { role: "Rider", additional_roles: ["Steering Committee"] },
+        "2024-25": { role: "Rider", additional_roles: [] },
+      },
+    };
+    expect(popupData(member, new Set(["2023-24"])).latestSeason).toBe("2025-26");
   });
 
   it("passes role through as null when not on file", () => {
