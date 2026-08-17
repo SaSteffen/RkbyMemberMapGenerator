@@ -144,10 +144,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def _ensure_output_dirs_and_gitignore(data_dir: Path) -> None:
-    """Create `maps/` and `.tile_cache/` under `data_dir` if absent, and
-    create/update the data-dir `.gitignore` so both are ignored -- before any
-    map file is written this run."""
-    (data_dir / "maps").mkdir(exist_ok=True)
+    """Create `maps/pins`, `maps/photos`, and `.tile_cache/` under `data_dir`
+    if absent, and create/update the data-dir `.gitignore` so `maps/` (both
+    variant subfolders) and `.tile_cache/` are ignored -- before any map file
+    is written this run."""
+    (data_dir / "maps" / "pins").mkdir(parents=True, exist_ok=True)
+    (data_dir / "maps" / "photos").mkdir(parents=True, exist_ok=True)
     (data_dir / ".tile_cache").mkdir(exist_ok=True)
 
     gitignore_path = data_dir / ".gitignore"
@@ -240,11 +242,12 @@ def _overview_center_and_zoom(
     )
 
 
-def _delete_existing_season_maps(maps_dir: Path, season_prefix: str) -> None:
+def _delete_existing_season_maps(variant_dir: Path, season_prefix: str) -> None:
     """Idempotent regeneration (data-model.md § Local Data Repository): a
     stale map from a since-changed data set is deleted, not left alongside a
-    fresh set."""
-    for stale_map in maps_dir.glob(f"{season_prefix}_*.png"):
+    fresh set. Called once per variant subfolder (`maps/pins/`,
+    `maps/photos/`)."""
+    for stale_map in variant_dir.glob(f"{season_prefix}_*.png"):
         stale_map.unlink()
 
 
@@ -372,7 +375,7 @@ def _draw_photo_layer(
 def _generate_detail_maps(
     data_dir: Path,
     season_label: str,
-    maps_dir: Path,
+    variant_dir: Path,
     prefix: str,
     variant: str,
     groups: list[list[str]],
@@ -436,7 +439,7 @@ def _generate_detail_maps(
         if show_scale_bar:
             draw_scale_bar(canvas, meters_per_pixel=meters_per_pixel(center[0], zoom))
         draw_attribution(canvas)
-        canvas.save(maps_dir / f"{prefix}_detail_{variant}_{slug}.png")
+        canvas.save(variant_dir / f"{prefix}_detail_{variant}_{slug}.png")
 
     with ThreadPoolExecutor() as executor:
         list(executor.map(_render_and_save, jobs))
@@ -485,9 +488,11 @@ def _process_season(
 ) -> None:
     plottable = _resolve_plottable_members(data_dir, season_label, logger)
 
-    maps_dir = data_dir / "maps"
+    pins_dir = data_dir / "maps" / "pins"
+    photos_dir = data_dir / "maps" / "photos"
     prefix = _season_file_prefix(season_label)
-    _delete_existing_season_maps(maps_dir, prefix)
+    _delete_existing_season_maps(pins_dir, prefix)
+    _delete_existing_season_maps(photos_dir, prefix)
 
     tile_cache_dir = data_dir / ".tile_cache"
     show_scale_bar = not args.no_scale_bar
@@ -522,8 +527,8 @@ def _process_season(
         pin_canvas, pin_groups, pin_by_key = pin_future.result()
         photo_canvas, photo_groups, photo_by_key = photo_future.result()
 
-    pin_canvas.save(maps_dir / f"{prefix}_overview_pins.png")
-    photo_canvas.save(maps_dir / f"{prefix}_overview_photos.png")
+    pin_canvas.save(pins_dir / f"{prefix}_overview_pins.png")
+    photo_canvas.save(photos_dir / f"{prefix}_overview_photos.png")
 
     # Detail-map generation for the two variants is likewise independent
     # (different overlap groups, different member lookups); each further
@@ -533,7 +538,7 @@ def _process_season(
             _generate_detail_maps,
             data_dir,
             season_label,
-            maps_dir,
+            pins_dir,
             prefix,
             "pins",
             pin_groups,
@@ -546,7 +551,7 @@ def _process_season(
             _generate_detail_maps,
             data_dir,
             season_label,
-            maps_dir,
+            photos_dir,
             prefix,
             "photos",
             photo_groups,

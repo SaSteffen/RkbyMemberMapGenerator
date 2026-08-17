@@ -205,9 +205,10 @@ shows a readable stand-in for the whole cluster.
   consists of exactly two members sharing the identical address — such a pair is
   always rendered via the FR-013 fallback wherever it appears, never given its own
   detail map.
-- **FR-015**: The system MUST write all generated map images into one flat,
-  non-nested folder at the top level of the local data directory (identified by the
-  existing `RKBY_DATA_DIR` environment variable), with no per-season subfolders.
+- **FR-015**: The system MUST write all generated map images into one top-level maps
+  folder in the local data directory (identified by the existing `RKBY_DATA_DIR`
+  environment variable), split into exactly two variant subfolders — `pins/` and
+  `photos/` — with no per-season subfolders within either.
 - **FR-016**: The system MUST prefix every generated map filename with the season
   label in `YYYY_YY` underscore form (e.g. `2025_26_...`), derived from that season's
   hyphenated folder name (e.g. `2025-26`).

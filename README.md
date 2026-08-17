@@ -93,7 +93,8 @@ uv run scripts/generate_member_maps.py --min-width-km 100     # wider minimum ma
 uv run scripts/generate_member_maps.py --no-scale-bar          # suppress the scale bar
 ```
 
-Generated PNGs land in `$RKBY_DATA_DIR/maps/` (flat, one folder for every season — see
+Generated PNGs land in `$RKBY_DATA_DIR/maps/`, split into `pins/`/`photos/` variant
+subfolders (see
 [specs/002-map-generator/contracts/map-output.md](specs/002-map-generator/contracts/map-output.md)
 for the filename grammar); OSM tiles are cached in `$RKBY_DATA_DIR/.tile_cache/`. Both
 folders are gitignored inside the data directory. Every run is idempotent — stale maps

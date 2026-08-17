@@ -295,8 +295,8 @@ non-null, skip re-geocoding" are the same check.
 top-level `<RKBY_DATA_DIR>/.gitignore` (created if absent, appended to if present and
 missing an entry) before any file is written into either:
 
-- `maps/` — flat, all generated PNGs for every season directly inside it (FR-015),
-  named per `contracts/map-output.md`.
+- `maps/` — split into two variant subfolders, `pins/` and `photos/`, each flat
+  across every season (FR-015), named per `contracts/map-output.md`.
 - `.tile_cache/` — the OSM tile cache (§2); not a generated artifact, so it sits
   outside `maps/` to keep that folder exactly "the generated maps" for a human
   browsing it.

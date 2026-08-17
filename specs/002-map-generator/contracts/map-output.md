@@ -5,21 +5,25 @@ What a team organizer (or a future script) can rely on when reading
 
 ## Folder layout
 
-Flat, non-nested — every season's every map lives directly inside `maps/` (FR-015), no
-per-season subfolders:
+Split by variant into two subfolders, each flat within itself — every season's every
+map of that variant lives directly inside its own subfolder (FR-015), no per-season
+subfolders:
 
 ```
 <RKBY_DATA_DIR>/maps/
-├── 2025_26_overview_pins.png
-├── 2025_26_overview_photos.png
-├── 2025_26_detail_pins_verden.png
-├── 2025_26_detail_photos_verden.png
-└── ...
+├── pins/
+│   ├── 2025_26_overview_pins.png
+│   ├── 2025_26_detail_pins_verden.png
+│   └── ...
+└── photos/
+    ├── 2025_26_overview_photos.png
+    ├── 2025_26_detail_photos_verden.png
+    └── ...
 ```
 
-Every run fully regenerates and overwrites this folder's contents for every season it
-processes — stale files from a since-changed cluster set are deleted, not left behind
-(data-model.md § Local Data Repository, "Idempotency").
+Every run fully regenerates and overwrites both subfolders' contents for every season
+it processes — stale files from a since-changed cluster set are deleted, not left
+behind (data-model.md § Local Data Repository, "Idempotency").
 
 ## Filename grammar
 

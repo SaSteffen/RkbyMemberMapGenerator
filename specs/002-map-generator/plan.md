@@ -15,10 +15,11 @@ two PNG map variants per season — role-colored pins and circular member photos
 an in-house-fetched OpenStreetMap raster basemap. It detects marker overlaps at each
 map's rendered scale and spawns additional zoomed-in detail maps for crowded areas
 (down to a configurable minimum covered width), falling back to a merged/offset
-rendering where even that minimum can't fully separate a group. All output lands in one
-flat, gitignored `maps/` folder inside the same `RKBY_DATA_DIR` the scraper already
-uses. See research.md for every technical decision and data-model.md/contracts/ for the
-extended record shape and the CLI/output interfaces.
+rendering where even that minimum can't fully separate a group. All output lands in a
+gitignored `maps/` folder, split into `pins/`/`photos/` variant subfolders, inside the
+same `RKBY_DATA_DIR` the scraper already uses. See research.md for every technical
+decision and data-model.md/contracts/ for the extended record shape and the
+CLI/output interfaces.
 
 ## Technical Context
 
@@ -37,9 +38,10 @@ Nominatim + tile HTTP, research.md §13).
 
 **Storage**: Local filesystem only, under the same `RKBY_DATA_DIR` the scraper uses —
 extends 001's `seasons/<label>/applicants/*.yaml` with two new optional fields
-(`latitude`, `longitude`, data-model.md), adds a flat `maps/` folder of generated PNGs
-(FR-015) and a `.tile_cache/` folder of cached OSM raster tiles (research.md §2), both
-gitignored. No database (Constitution IV).
+(`latitude`, `longitude`, data-model.md), adds a `maps/` folder of generated PNGs split
+into `pins/`/`photos/` variant subfolders (FR-015) and a `.tile_cache/` folder of
+cached OSM raster tiles (research.md §2), both gitignored. No database (Constitution
+IV).
 
 **Testing**: `pytest`, with `responses` intercepting all Nominatim/tile HTTP calls
 against synthetic fixtures — no real network calls, no real member data (research.md

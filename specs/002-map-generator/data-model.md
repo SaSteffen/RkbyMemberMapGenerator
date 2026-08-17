@@ -94,12 +94,15 @@ Extends 001's layout with two new top-level siblings of `seasons/`:
 │                               #  adds "maps/" and ".tile_cache/" entries
 ├── .tile_cache/                # NEW — OSM raster tile cache, gitignored, no expiry
 │   └── <z>/<x>/<y>.png
-├── maps/                       # NEW — flat, all seasons' generated PNGs together (FR-015), gitignored
-│   ├── 2025_26_overview_pins.png
-│   ├── 2025_26_overview_photos.png
-│   ├── 2025_26_detail_pins_verden.png
-│   ├── 2025_26_detail_photos_verden.png
-│   └── ...
+├── maps/                       # NEW — split by variant subfolder (FR-015), gitignored
+│   ├── pins/
+│   │   ├── 2025_26_overview_pins.png
+│   │   ├── 2025_26_detail_pins_verden.png
+│   │   └── ...
+│   └── photos/
+│       ├── 2025_26_overview_photos.png
+│       ├── 2025_26_detail_photos_verden.png
+│       └── ...
 └── seasons/                    # unchanged from 001, except applicants/*.yaml now may
     └── <season-label>/         #   also carry latitude/longitude
         ├── applicants/

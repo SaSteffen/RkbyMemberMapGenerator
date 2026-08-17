@@ -29,8 +29,9 @@ uv run scripts/generate_member_maps.py
 
 **Expect**:
 
-- `$RKBY_DATA_DIR/maps/2025_26_overview_pins.png` and
-  `2025_26_overview_photos.png` created (one pair per season present).
+- `$RKBY_DATA_DIR/maps/pins/2025_26_overview_pins.png` and
+  `$RKBY_DATA_DIR/maps/photos/2025_26_overview_photos.png` created (one pair per
+  season present).
 - Every geocoded member's YAML record now has non-null `latitude`/`longitude`.
 - Any member with no address, an unresolvable address, or (photo variant only) no
   photo is named in that season's `logs/<timestamp>.log`, and the run still exits `0`.
@@ -57,7 +58,7 @@ that their overview-scale markers would overlap (e.g. same small town).
 
 ```bash
 uv run scripts/generate_member_maps.py
-ls "$RKBY_DATA_DIR"/maps/2025_26_detail_*
+ls "$RKBY_DATA_DIR"/maps/pins/2025_26_detail_* "$RKBY_DATA_DIR"/maps/photos/2025_26_detail_*
 ```
 
 **Expect**: a `2025_26_detail_pins_<slug>.png` and/or
@@ -72,7 +73,7 @@ Use two synthetic records with byte-identical `address` strings.
 
 ```bash
 uv run scripts/generate_member_maps.py
-ls "$RKBY_DATA_DIR"/maps/2025_26_detail_* 2>/dev/null
+ls "$RKBY_DATA_DIR"/maps/pins/2025_26_detail_* "$RKBY_DATA_DIR"/maps/photos/2025_26_detail_* 2>/dev/null
 ```
 
 **Expect**: no detail map is generated for that pair specifically (other, unrelated

@@ -110,7 +110,8 @@ def test_main_creates_maps_and_tile_cache_dirs(monkeypatch, tmp_path):
     exit_code = main([])
 
     assert exit_code == 0
-    assert (tmp_path / "maps").is_dir()
+    assert (tmp_path / "maps" / "pins").is_dir()
+    assert (tmp_path / "maps" / "photos").is_dir()
     assert (tmp_path / ".tile_cache").is_dir()
 
 
@@ -292,7 +293,7 @@ def test_overview_pin_map_end_to_end(monkeypatch, tmp_path):
     assert exit_code == 0
 
     # One overview pin map produced, containing both eligible members' role colors.
-    map_path = tmp_path / "maps" / "2025_26_overview_pins.png"
+    map_path = tmp_path / "maps" / "pins" / "2025_26_overview_pins.png"
     assert map_path.exists()
     image = Image.open(map_path).convert("RGB")
     present_colors = {pixel for pixel in image.getdata()}
@@ -340,14 +341,14 @@ def test_overview_pin_map_regeneration_removes_stale_files(monkeypatch, tmp_path
 
     assert main([]) == 0
 
-    maps_dir = tmp_path / "maps"
-    stale_file = maps_dir / "2025_26_detail_pins_stale-cluster.png"
+    pins_dir = tmp_path / "maps" / "pins"
+    stale_file = pins_dir / "2025_26_detail_pins_stale-cluster.png"
     stale_file.write_bytes(b"stale")
 
     assert main([]) == 0
 
     assert not stale_file.exists()
-    assert (maps_dir / "2025_26_overview_pins.png").exists()
+    assert (pins_dir / "2025_26_overview_pins.png").exists()
 
 
 # --- US2 end-to-end: overview photo map (T020) -------------------------------------
@@ -391,8 +392,8 @@ def test_overview_photo_map_end_to_end(monkeypatch, tmp_path):
 
     assert exit_code == 0
 
-    pin_map_path = tmp_path / "maps" / "2025_26_overview_pins.png"
-    photo_map_path = tmp_path / "maps" / "2025_26_overview_photos.png"
+    pin_map_path = tmp_path / "maps" / "pins" / "2025_26_overview_pins.png"
+    photo_map_path = tmp_path / "maps" / "photos" / "2025_26_overview_photos.png"
     assert pin_map_path.exists()
     assert photo_map_path.exists()
 
@@ -500,11 +501,12 @@ def test_detail_maps_resolve_a_cluster_and_respect_the_fr014_exception(
 
     assert exit_code == 0
 
-    maps_dir = tmp_path / "maps"
+    pins_dir = tmp_path / "maps" / "pins"
+    photos_dir = tmp_path / "maps" / "photos"
 
     # A detail map was generated for the Verden cluster, for both variants.
-    pin_detail_candidates = list(maps_dir.glob("2025_26_detail_pins_verden*.png"))
-    photo_detail_candidates = list(maps_dir.glob("2025_26_detail_photos_verden*.png"))
+    pin_detail_candidates = list(pins_dir.glob("2025_26_detail_pins_verden*.png"))
+    photo_detail_candidates = list(photos_dir.glob("2025_26_detail_photos_verden*.png"))
     assert len(pin_detail_candidates) == 1
     assert len(photo_detail_candidates) == 1
 
@@ -517,13 +519,16 @@ def test_detail_maps_resolve_a_cluster_and_respect_the_fr014_exception(
     assert _hex_to_rgb(role_color("Supporter")) in pin_detail_colors
     assert _hex_to_rgb(role_color("Service Crew")) in pin_detail_colors
 
-    # The FR-014 pair never gets its own detail map (no "bremen"-slugged file).
-    bremen_candidates = list(maps_dir.glob("2025_26_detail_*bremen*.png"))
+    # The FR-014 pair never gets its own detail map (no "bremen"-slugged file)
+    # in either variant's subfolder.
+    bremen_candidates = list(pins_dir.glob("2025_26_detail_*bremen*.png")) + list(
+        photos_dir.glob("2025_26_detail_*bremen*.png")
+    )
     assert bremen_candidates == []
 
     # The overview still exists and shows at least one merged/fallback marker
     # (FR-013) for a group that overlaps at the overview's own coarse scale.
-    overview_path = maps_dir / "2025_26_overview_pins.png"
+    overview_path = pins_dir / "2025_26_overview_pins.png"
     assert overview_path.exists()
     overview_colors = set(Image.open(overview_path).convert("RGB").getdata())
     assert _hex_to_rgb(NEUTRAL_COLOR) in overview_colors
@@ -613,8 +618,8 @@ def test_detail_map_includes_frame_members_and_omits_ones_too_close_to_the_edge(
     exit_code = main(["--min-width-km", str(min_width_km)])
     assert exit_code == 0
 
-    maps_dir = tmp_path / "maps"
-    detail_candidates = list(maps_dir.glob("2025_26_detail_pins_*.png"))
+    pins_dir = tmp_path / "maps" / "pins"
+    detail_candidates = list(pins_dir.glob("2025_26_detail_pins_*.png"))
     assert len(detail_candidates) == 1
 
     detail_colors = set(Image.open(detail_candidates[0]).convert("RGB").getdata())
