@@ -2,6 +2,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { declutterPositions } from "./declutter.js";
 import { defaultSeasonLabel } from "./defaultSeason.js";
+import { isVisible } from "./popupData.js";
 
 // Stripped of its "type=module" deferral by vite.config.js's post-build
 // step (research.md §10: file://-opened Chromium blocks module script
@@ -47,7 +48,16 @@ function main() {
     return L.latLng(imageHeight - y, x);
   }
 
+  // One shared layer group, cleared and rebuilt on every season toggle
+  // (FR-008) -- since renderMarkers always draws from the full, already-
+  // deduped merged member list, a person eligible in 2+ active seasons is
+  // filtered to a single list entry before this ever runs, so it always
+  // renders as exactly one marker no matter how many of their seasons are
+  // active (merge.py, T013).
+  const markersLayer = L.layerGroup().addTo(map);
+
   function renderMarkers(members) {
+    markersLayer.clearLayers();
     const declutteredMembers = declutterPositions(members);
     for (const member of declutteredMembers) {
       const icon = L.divIcon({
@@ -56,17 +66,49 @@ function main() {
         iconSize: [40, 40],
         iconAnchor: [20, 20],
       });
-      L.marker(pixelToLatLng(member.x, member.y), { icon }).addTo(map);
+      L.marker(pixelToLatLng(member.x, member.y), { icon }).addTo(markersLayer);
     }
   }
 
   // FR-007: on load, exactly the season considered "current" as of today
-  // (the viewer's own device clock) is active.
+  // (the viewer's own device clock) is the sole active one; FR-008: any
+  // combination of seasons can be active at once thereafter.
   const defaultSeason = defaultSeasonLabel(new Date(), data.seasons);
-  const defaultSeasonMembers = data.members.filter(
-    (member) => member.seasons[defaultSeason] !== undefined,
-  );
-  renderMarkers(defaultSeasonMembers);
+  const activeSeasons = new Set([defaultSeason]);
+
+  function updateVisibleMarkers() {
+    renderMarkers(data.members.filter((member) => isVisible(member, activeSeasons)));
+  }
+
+  updateVisibleMarkers();
+
+  // FR-006/FR-008, research.md §8: one checkbox per bundled season --
+  // including seasons with zero eligible members (Edge Cases) -- rendered
+  // directly on the map as a Leaflet control (desktop mode).
+  const SeasonControl = L.Control.extend({
+    options: { position: "topright" },
+    onAdd() {
+      const container = L.DomUtil.create("div", "rkby-season-control");
+      for (const season of data.seasons) {
+        const label = L.DomUtil.create("label", "", container);
+        const checkbox = L.DomUtil.create("input", "", label);
+        checkbox.type = "checkbox";
+        checkbox.checked = activeSeasons.has(season);
+        L.DomEvent.on(checkbox, "change", () => {
+          if (checkbox.checked) {
+            activeSeasons.add(season);
+          } else {
+            activeSeasons.delete(season);
+          }
+          updateVisibleMarkers();
+        });
+        label.appendChild(document.createTextNode(` ${season}`));
+      }
+      L.DomEvent.disableClickPropagation(container);
+      return container;
+    },
+  });
+  map.addControl(new SeasonControl());
 
   // FR-014, research.md §8: a small custom four-direction pan control --
   // Leaflet has no built-in equivalent, and scroll-zoom (centered on the
