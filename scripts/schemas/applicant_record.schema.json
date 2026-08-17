@@ -42,6 +42,15 @@
       "format": "date",
       "description": "ISO 8601 date (YYYY-MM-DD), or null if not yet known."
     },
+    "sex": {
+      "type": ["string", "null"],
+      "description": "Raw sex text as scraped from the intranet applicant detail popup's Profile tab (e.g. \"Male\", \"Female\"), or null if not yet known."
+    },
+    "num_previous_seasons": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Number of prior Team Rynkeby seasons participated in, scraped from the \"Participated: N times\" line on the intranet applicant detail popup's Team application tab, or null if not yet known."
+    },
     "status": {
       "type": "string",
       "minLength": 1,

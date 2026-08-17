@@ -308,6 +308,39 @@ def _parse_birthday(html: str) -> str | None:
     return f"{year}-{month}-{day}"
 
 
+_SEX_RE = re.compile(r"Sex:\s*(\S+)")
+
+
+def _parse_sex(html: str) -> str | None:
+    """Parse the raw Sex text out of an applicant detail popup's Profile tab
+    (`<p class="profile_sex">`), next to birthday. Not present in the
+    applicant list view itself, only here."""
+    soup = BeautifulSoup(html, "html.parser")
+    el = soup.find("p", class_="profile_sex")
+    if el is None:
+        return None
+    match = _SEX_RE.search(el.get_text())
+    return match.group(1) if match else None
+
+
+_PARTICIPATED_RE = re.compile(r"Participated:\s*(\d+)")
+
+
+def _parse_num_previous_seasons(html: str) -> int | None:
+    """Parse the "Participated: N times" count out of an applicant detail
+    popup's "Team application" tab (`tabs-applications`). That tab reuses one
+    `<p class="application-role">` class for several unrelated lines (Role,
+    Participated, motivation text), so every such paragraph must be checked
+    for the one carrying "Participated:" rather than selecting by class
+    alone."""
+    soup = BeautifulSoup(html, "html.parser")
+    for el in soup.find_all("p", class_="application-role"):
+        match = _PARTICIPATED_RE.search(el.get_text())
+        if match:
+            return int(match.group(1))
+    return None
+
+
 def full_resolution_photo_url(thumbnail_url: str | None) -> str | None:
     if thumbnail_url is None:
         return None
@@ -351,6 +384,8 @@ def parse_applicant_rows(html: str) -> list[dict]:
                 "address": address,
                 "role": cell["Role"].get_text(strip=True) or None,
                 "birthday": None,  # fetched later from the detail popup if needed
+                "sex": None,  # ditto
+                "num_previous_seasons": None,  # ditto
                 "status": _parse_status(cell["Accept on teams"]),
                 "photo_thumbnail_url": _parse_photo_thumbnail_url(cell["Image"]),
                 "applicant_id": _parse_applicant_id(cell["Accept on teams"]),
@@ -461,24 +496,30 @@ def fetch_photo(
         return None
 
 
-def fetch_birthday(
+def fetch_participant_details(
     client: IntranetClient,
     season_id: int,
     applicant_id: int | None,
     logger: logging.Logger,
     match_key_value: str,
-) -> str | None:
-    """Fetch one applicant's birthday from their detail popup. Never raises
-    -- a failure is logged as a warning and retried on a later run (mirrors
-    fetch_photo's FR-005 handling)."""
+) -> dict | None:
+    """Fetch one applicant's detail popup once and parse out every field it
+    carries (birthday, sex, num_previous_seasons) instead of re-fetching the
+    same popup once per field. Never raises -- a failure is logged as a
+    warning and retried on a later run (mirrors fetch_photo's FR-005
+    handling)."""
     if applicant_id is None:
         return None
     try:
         html = client.fetch_participant_detail(season_id, applicant_id)
     except Exception as exc:  # noqa: BLE001 - intentionally broad, see FR-005
-        logger.warning("Birthday fetch failed for %s: %s", match_key_value, exc)
+        logger.warning("Detail fetch failed for %s: %s", match_key_value, exc)
         return None
-    return _parse_birthday(html)
+    return {
+        "birthday": _parse_birthday(html),
+        "sex": _parse_sex(html),
+        "num_previous_seasons": _parse_num_previous_seasons(html),
+    }
 
 
 # --- Persistence (US1 create + US2 merge/overwrite-protection, FR-009) --------
@@ -548,7 +589,7 @@ def _fetch_photo_if_needed(
     return True
 
 
-def _fetch_birthday_if_needed(
+def _fetch_participant_details_if_needed(
     record: dict,
     row: dict,
     client: IntranetClient,
@@ -556,14 +597,31 @@ def _fetch_birthday_if_needed(
     logger: logging.Logger,
     key: str,
 ) -> bool:
-    """Fetch + set a birthday into `record` (mutated in place) unless one is
-    already recorded. Returns whether a new birthday was fetched."""
-    if record.get("birthday"):
+    """Fetch + fill birthday, sex, and num_previous_seasons into `record`
+    (mutated in place) from a single detail-popup fetch, unless every one of
+    them is already recorded. Each field is filled independently
+    (fill-empty-only) so a popup missing one field doesn't block the others.
+    num_previous_seasons is checked with `is None`, not truthiness -- 0 (a
+    first-time applicant) is a real, meaningful observed value. Returns
+    whether the popup was fetched."""
+    needs_birthday = not record.get("birthday")
+    needs_sex = not record.get("sex")
+    needs_num_previous_seasons = record.get("num_previous_seasons") is None
+    if not (needs_birthday or needs_sex or needs_num_previous_seasons):
         return False
-    birthday = fetch_birthday(client, season_id, row.get("applicant_id"), logger, key)
-    if birthday is None:
+
+    details = fetch_participant_details(
+        client, season_id, row.get("applicant_id"), logger, key
+    )
+    if details is None:
         return False
-    record["birthday"] = birthday
+
+    if needs_birthday and details["birthday"] is not None:
+        record["birthday"] = details["birthday"]
+    if needs_sex and details["sex"] is not None:
+        record["sex"] = details["sex"]
+    if needs_num_previous_seasons and details["num_previous_seasons"] is not None:
+        record["num_previous_seasons"] = details["num_previous_seasons"]
     return True
 
 
@@ -597,7 +655,7 @@ def persist_records(
     created = 0
     updated = 0
     photos_fetched = 0
-    birthdays_fetched = 0
+    details_fetched = 0
     excluded = 0
     validation_errors = 0
 
@@ -621,6 +679,8 @@ def persist_records(
                 "phone": row.get("phone"),
                 "role": row.get("role"),
                 "birthday": row.get("birthday"),
+                "sex": row.get("sex"),
+                "num_previous_seasons": row.get("num_previous_seasons"),
                 "status": row["status"],
                 "excluded": False,
                 "excluded_observed_at": None,
@@ -635,8 +695,10 @@ def persist_records(
                 continue
             if _fetch_photo_if_needed(record, row, client, p_dir, logger, key):
                 photos_fetched += 1
-            if _fetch_birthday_if_needed(record, row, client, season_id, logger, key):
-                birthdays_fetched += 1
+            if _fetch_participant_details_if_needed(
+                record, row, client, season_id, logger, key
+            ):
+                details_fetched += 1
             (a_dir / f"{key}.yaml").write_text(_dump_record_yaml(record))
             created += 1
             continue
@@ -666,8 +728,10 @@ def persist_records(
             record = merge_record(existing, row)
             if _fetch_photo_if_needed(record, row, client, p_dir, logger, key):
                 photos_fetched += 1
-            if _fetch_birthday_if_needed(record, row, client, season_id, logger, key):
-                birthdays_fetched += 1
+            if _fetch_participant_details_if_needed(
+                record, row, client, season_id, logger, key
+            ):
+                details_fetched += 1
 
         if record != existing:
             try:
@@ -684,7 +748,7 @@ def persist_records(
         "created": created,
         "updated": updated,
         "photos_fetched": photos_fetched,
-        "birthdays_fetched": birthdays_fetched,
+        "details_fetched": details_fetched,
         "excluded": excluded,
         "validation_errors": validation_errors,
     }
@@ -774,13 +838,13 @@ def main(argv: list[str] | None = None, today: datetime.date | None = None) -> i
 
     logger.info(
         "Run complete for season %s: %d created, %d updated, %d excluded, "
-        "%d photos fetched, %d birthdays fetched, %d validation errors",
+        "%d photos fetched, %d applicant details fetched, %d validation errors",
         season_label,
         summary["created"],
         summary["updated"],
         summary["excluded"],
         summary["photos_fetched"],
-        summary["birthdays_fetched"],
+        summary["details_fetched"],
         summary["validation_errors"],
     )
 

@@ -94,6 +94,8 @@ _RECORD_FIELD_ORDER = (
     "phone",
     "role",
     "birthday",
+    "sex",
+    "num_previous_seasons",
     "status",
     "excluded",
     "excluded_observed_at",

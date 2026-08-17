@@ -82,6 +82,8 @@ def test_first_run_persists_multi_page_non_no_applicants_with_default_season(
         record = yaml.safe_load(record_file.read_text())
         validate_record(record)  # must not raise -- SC-005
         assert record["birthday"] == "1990-03-15"  # fetched from the detail popup
+        assert record["sex"] == "Female"  # ditto
+        assert record["num_previous_seasons"] == 0  # ditto
 
     max_record = yaml.safe_load((a_dir / "max-mustermann.yaml").read_text())
     assert max_record["role"] == "Rider"  # scraped straight from the Role column
