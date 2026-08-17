@@ -182,6 +182,31 @@ which chunking delivers — but worth revisiting `BASEMAP_LEVELS`/`TILE_PX` if
 generation time against SC-011's budget or `interactive_map/`'s on-disk size becomes a
 real problem in practice.
 
+### 3rd addendum: dropped the 16x level, 8x is now the deepest baked level (post-launch fix)
+
+**Decision**: `BASEMAP_LEVELS` is now `(1, 2, 4, 8)` — the 16x level from the 2nd
+addendum is gone. Zooming in past 8x (the deepest baked level) no longer hides the
+tile layer; `src/main.js` sets the `GridLayer`'s `maxNativeZoom` to 8x's zoom instead
+of its `maxZoom` (which is now the map's own `maxZoom`), so Leaflet's built-in
+GridLayer overzoom behavior keeps reusing and auto-scaling the already-fetched 8x
+chunks for every zoom level beyond it, rather than requesting a level that was never
+generated.
+
+**Rationale**: User-directed follow-up ("the 16x tiles appear to never load" ... "the
+16x is not manageable anyway... let's keep the 8 folder as the most zoomed in
+resolution. and keep showing them as we keep zooming in"). Two separate problems, one
+fix each: (1) the 16x level was ~16950 of the ~22,600 chunks a full run generated (2nd
+addendum's own numbers) for the least-visited zoom level — dropped as not worth its
+share of generation time/disk space, matching the "worth revisiting `BASEMAP_LEVELS`"
+note the 2nd addendum already flagged. (2) Independently, the tile layer's own
+`maxZoom` option (previously set to the deepest baked level) was making Leaflet hide
+the whole `GridLayer` once a viewer zoomed in past it — `GridLayer`'s own
+`_setView` sets `_tileZoom` to `undefined` (no tiles at all) once the map's zoom
+exceeds a layer's `maxZoom`, which is what actually produced "the tiles never load"
+regardless of which multiplier was the deepest. `maxNativeZoom` is the option
+`GridLayer` already ships for exactly this — reuse and auto-scale the deepest
+available level past its own native zoom — so this is config, not new tile logic.
+
 ## 3. Marker positioning: reuse the existing projection math, computed once in Python
 
 **Decision**: Because the whole artifact uses exactly one fixed `(center, zoom,

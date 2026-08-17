@@ -67,10 +67,14 @@ function main() {
   // grid covers).
   L.imageOverlay(data.image.file, bounds).addTo(map);
 
-  // Tiled higher-resolution levels (research.md §2 addenda) layer on top,
-  // only across the zoom range they were actually baked for -- Leaflet
-  // hides a GridLayer entirely outside its own minZoom/maxZoom, so at
-  // zooms below this the base imageOverlay above is what's visible.
+  // Tiled higher-resolution levels (research.md §2 addenda) layer on top.
+  // Below their own minZoom, Leaflet hides the GridLayer entirely and the
+  // base imageOverlay above is what's visible. Above their deepest baked
+  // level (maxNativeZoom, not maxZoom), Leaflet reuses that level's
+  // already-fetched chunks and auto-scales them up rather than hiding the
+  // layer -- setting maxZoom to the deepest baked level (instead of the
+  // map's own maxZoom) previously made the layer disappear entirely once
+  // a viewer zoomed in past it, which looked like "the tiles never load".
   //
   // pane: "overlayPane" is required, not cosmetic -- L.imageOverlay
   // defaults to Leaflet's own "overlayPane" (z-index 400), while a plain
@@ -86,7 +90,8 @@ function main() {
       tileLevels: data.image.tileLevels,
       tileSize: data.image.tileSize,
       minZoom: Math.min(...tileZooms),
-      maxZoom: Math.max(...tileZooms),
+      maxZoom: map.getMaxZoom(),
+      maxNativeZoom: Math.max(...tileZooms),
       bounds,
       pane: "overlayPane",
     }).addTo(map);

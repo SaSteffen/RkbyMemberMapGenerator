@@ -42,24 +42,30 @@ DEFAULT_ZOOM = 6
 # basemap looks less blurry once a viewer zooms in past the base level.
 # Every level beyond the base is written as a grid of small TILE_PX chunk
 # images rather than one giant flattened file -- a single image covering
-# the whole 16x level's resolution would be a multi-gigapixel file that
-# can't even be held in memory while generating it, let alone downloaded
-# by a browser (research.md §2 2nd addendum has the numbers). Chunking
-# means the frontend's custom Leaflet GridLayer (src/basemapTiles.js) only
-# ever fetches the handful of chunks actually on screen, however deep the
-# zoom goes. Each chunk is still a cropped/re-encoded composite of the
-# underlying OSM tiles (never one passed through unmodified) in the
-# general case -- the same "derived picture, not a re-servable OSM tile"
-# distinction §2 leans on -- though because a chunk is the same pixel size
-# as OSM's own native tile, a chunk that happens to land exactly on a tile
-# boundary is close to indistinguishable from one. Baking this many levels
-# is closer to the tile usage policy's own "pre-seeding... multiple zoom
-# levels in advance" language than the original single-image decision was
-# -- an accepted trade-off, confirmed by the user. Multipliers must be
-# powers of two: one extra multiplier step == exactly one extra integer
-# OSM tile zoom, which is what keeps every level's canvas covering the
-# identical bounding box (research.md §2's zoom_for_bounding_box math).
-BASEMAP_LEVELS = (1, 2, 4, 8, 16)
+# the whole deepest level's resolution would be a multi-gigapixel file
+# that can't even be held in memory while generating it, let alone
+# downloaded by a browser (research.md §2 2nd addendum has the numbers).
+# Chunking means the frontend's custom Leaflet GridLayer
+# (src/basemapTiles.js) only ever fetches the handful of chunks actually
+# on screen, however deep the zoom goes. Each chunk is still a
+# cropped/re-encoded composite of the underlying OSM tiles (never one
+# passed through unmodified) in the general case -- the same "derived
+# picture, not a re-servable OSM tile" distinction §2 leans on -- though
+# because a chunk is the same pixel size as OSM's own native tile, a
+# chunk that happens to land exactly on a tile boundary is close to
+# indistinguishable from one. Baking this many levels is closer to the
+# tile usage policy's own "pre-seeding... multiple zoom levels in
+# advance" language than the original single-image decision was -- an
+# accepted trade-off, confirmed by the user. Multipliers must be powers
+# of two: one extra multiplier step == exactly one extra integer OSM tile
+# zoom, which is what keeps every level's canvas covering the identical
+# bounding box (research.md §2's zoom_for_bounding_box math). Stops at 8x
+# -- a 16x level was tried and dropped as unmanageable (its chunk count
+# and OSM fetch volume were too steep for too little visible benefit);
+# zoom levels past 8x reuse its chunks, auto-scaled up by Leaflet's own
+# GridLayer `maxNativeZoom` overzoom support (main.js), rather than
+# requesting a level that was never baked.
+BASEMAP_LEVELS = (1, 2, 4, 8)
 # OSM's own highest tile zoom -- a bounding box whose base zoom is already
 # here (very tightly clustered members) has no higher-resolution tiles to
 # fetch, so higher multipliers are skipped rather than re-fetching and
