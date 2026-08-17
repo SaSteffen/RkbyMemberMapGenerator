@@ -32,8 +32,14 @@
 ## Notes
 
 - No [NEEDS CLARIFICATION] markers were needed: every ambiguity in the source request
-  (popup field mapping, one-map-per-season scope, photo-only variant, no forced
-  non-overlap logic, offline bundling mechanism) had a reasonable default directly
-  supported by the sibling `002-map-generator` feature's established precedent and
-  this project's constitution, and is documented in spec.md's Assumptions section.
+  (popup field mapping, single combined artifact scope, photo-only variant, no forced
+  non-overlap logic, offline bundling mechanism, cross-season merge/"latest wins"
+  precedence, default-season rule) had a reasonable default directly supported by the
+  sibling `002-map-generator`/`001-scraper-persistence` features' established
+  precedent and this project's constitution, and is documented in spec.md's
+  Assumptions section.
 - All items pass on first validation pass.
+- **2026-08-17 amendment**: revalidated after the spec was reworked from "one
+  interactive map per season" to "one combined artifact spanning all seasons, with
+  in-browser season selection and cross-season person merging by match_key." All
+  checklist items still pass; no new [NEEDS CLARIFICATION] markers were introduced.
