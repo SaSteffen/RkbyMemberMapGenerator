@@ -119,7 +119,7 @@ function main() {
   // active (merge.py, T013).
   const markersLayer = L.layerGroup().addTo(map);
 
-  // FR-015/FR-016, research.md §6: name + previous-season count shown once,
+  // FR-015/FR-016, research.md §6: name + total-season count shown once,
   // one role entry per currently-active season the member belongs to;
   // missing data points render as an explicit "unknown" rather than blank.
   // The popup also shows the member's full (uncropped) photo -- unlike the
@@ -127,8 +127,8 @@ function main() {
   // (`member.photo`, bundle.py's HOVER_PHOTO_MAX_PX-capped `photo_full`).
   function renderPopupContent(member) {
     const data = popupData(member, activeSeasons);
-    const previousSeasonsText =
-      data.numPreviousSeasons === null ? "unknown" : String(data.numPreviousSeasons);
+    const totalSeasonsText =
+      data.totalSeasons === null ? "unknown" : String(data.totalSeasons);
     const seasonItems = data.seasons
       .map((season) => {
         const roleText = season.role === null ? "unknown" : season.role;
@@ -141,7 +141,7 @@ function main() {
     return (
       `<img class="rkby-popup-photo" src="${data.photoFull}" alt="${data.name}" />` +
       `<div class="rkby-popup-name">${data.name}</div>` +
-      `<div>Previous seasons: ${previousSeasonsText}</div>` +
+      `<div>Total Seasons: ${totalSeasonsText}</div>` +
       `<ul class="rkby-popup-seasons">${seasonItems}</ul>`
     );
   }

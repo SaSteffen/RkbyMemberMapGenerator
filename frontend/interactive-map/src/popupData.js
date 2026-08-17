@@ -20,7 +20,11 @@ export function popupData(member, activeSeasons) {
     }));
   return {
     name: member.name,
-    numPreviousSeasons: member.num_previous_seasons,
+    // Raw `num_previous_seasons` counts seasons *before* the member's own
+    // latest one, which reads as confusing/incomplete in the popup on its
+    // own -- +1 folds in that latest season itself so it's a plain total.
+    totalSeasons:
+      member.num_previous_seasons === null ? null : member.num_previous_seasons + 1,
     photoFull: member.photo_full,
     seasons,
   };

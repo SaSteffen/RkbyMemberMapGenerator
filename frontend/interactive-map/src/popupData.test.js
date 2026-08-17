@@ -42,7 +42,7 @@ describe("popupData", () => {
     };
     expect(popupData(member, new Set(["2025-26", "2023-24"]))).toEqual({
       name: "Jane Doe",
-      numPreviousSeasons: 3,
+      totalSeasons: 4,
       photoFull: "photos/jane-doe-full.jpg",
       seasons: [
         { label: "2023-24", role: "Rider", additionalRoles: ["Steering Committee"] },
@@ -60,7 +60,7 @@ describe("popupData", () => {
     };
     expect(popupData(member, new Set(["2024-25", "2025-26"]))).toEqual({
       name: "Jane Doe",
-      numPreviousSeasons: 1,
+      totalSeasons: 2,
       photoFull: "photos/jane-doe-full.jpg",
       seasons: [{ label: "2024-25", role: "Rider", additionalRoles: [] }],
     });
@@ -75,20 +75,20 @@ describe("popupData", () => {
     };
     expect(popupData(member, new Set(["2025-26"]))).toEqual({
       name: "Jane Doe",
-      numPreviousSeasons: 1,
+      totalSeasons: 2,
       photoFull: "photos/jane-doe-full.jpg",
       seasons: [],
     });
   });
 
-  it("passes num_previous_seasons through as null when not on file", () => {
+  it("passes total seasons through as null when num_previous_seasons is not on file", () => {
     const member = {
       name: "Jane Doe",
       num_previous_seasons: null,
       photo_full: "photos/jane-doe-full.jpg",
       seasons: { "2024-25": { role: "Rider", additional_roles: [] } },
     };
-    expect(popupData(member, new Set(["2024-25"])).numPreviousSeasons).toBeNull();
+    expect(popupData(member, new Set(["2024-25"])).totalSeasons).toBeNull();
   });
 
   it("passes role through as null when not on file", () => {
