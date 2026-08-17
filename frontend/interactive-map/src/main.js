@@ -1,9 +1,36 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { pickBasemapLevel } from "./basemapLevel.js";
+import { chunkRowForTileY, isTileInLevel, levelForZoom, tileUrl } from "./basemapTiles.js";
 import { declutterPositions } from "./declutter.js";
 import { defaultSeasonLabel } from "./defaultSeason.js";
 import { isVisible, popupData } from "./popupData.js";
+
+// Renders the tiled higher-resolution basemap levels (research.md §2
+// addenda): each `createTile` call resolves to one small, independently
+// cached/lazily-loaded chunk file instead of one giant per-level image, so
+// however deep the zoom goes only the handful of chunks actually on
+// screen are ever fetched. The base (1x) level stays a single always-
+// mounted L.imageOverlay underneath this layer -- small enough (research.md
+// §2) that it needs no chunking, and it's what's visible at zoom levels
+// below this layer's own minZoom (no baked tiles exist that far out).
+const BasemapTileLayer = L.GridLayer.extend({
+  createTile(coords, done) {
+    const img = document.createElement("img");
+    const level = levelForZoom(this.options.tileLevels, coords.z);
+    const row = chunkRowForTileY(coords.y);
+    if (!level || !isTileInLevel(level, coords.x, row)) {
+      // Past the baked grid's edge (the user panned beyond map bounds) or
+      // this zoom has no tiled level -- a blank tile, never a request for
+      // a chunk file that was never generated.
+      done(null, img);
+      return img;
+    }
+    img.onload = () => done(null, img);
+    img.onerror = () => done(new Error(`basemap tile failed to load: ${img.src}`), img);
+    img.src = tileUrl(level, coords.x, row);
+    return img;
+  },
+});
 
 // Stripped of its "type=module" deferral by vite.config.js's post-build
 // step (research.md §10: file://-opened Chromium blocks module script
@@ -34,20 +61,26 @@ function main() {
   ];
   map.fitBounds(bounds);
 
-  // Multiple baked basemap resolutions (research.md §2 addendum) all cover
-  // this same bounds rectangle at increasing pixel density -- Leaflet
-  // stretches whichever raster is currently set to fill it regardless of
-  // that raster's own native size, so swapping the overlay's URL on zoom
-  // needs no change to bounds or to any precomputed marker position.
-  let activeLevel = pickBasemapLevel(data.image.levels, map.getZoom());
-  const basemapOverlay = L.imageOverlay(activeLevel.file, bounds).addTo(map);
-  map.on("zoomend", () => {
-    const nextLevel = pickBasemapLevel(data.image.levels, map.getZoom());
-    if (nextLevel.file !== activeLevel.file) {
-      activeLevel = nextLevel;
-      basemapOverlay.setUrl(activeLevel.file);
-    }
-  });
+  // Always-present base layer (research.md §2): one small flattened image,
+  // visible at every zoom, and the only thing shown below the tiled
+  // levels' own minZoom (i.e. zoomed out further than any baked tile
+  // grid covers).
+  L.imageOverlay(data.image.file, bounds).addTo(map);
+
+  // Tiled higher-resolution levels (research.md §2 addenda) layer on top,
+  // only across the zoom range they were actually baked for -- Leaflet
+  // hides a GridLayer entirely outside its own minZoom/maxZoom, so at
+  // zooms below this the base imageOverlay above is what's visible.
+  const tileZooms = data.image.tileLevels.map((level) => Math.log2(level.scale));
+  if (tileZooms.length > 0) {
+    new BasemapTileLayer({
+      tileLevels: data.image.tileLevels,
+      tileSize: data.image.tileSize,
+      minZoom: Math.min(...tileZooms),
+      maxZoom: Math.max(...tileZooms),
+      bounds,
+    }).addTo(map);
+  }
 
   // FR-022, research.md §8: real, always-legible attribution text, never
   // hidden behind a toggle -- Leaflet's own default bottom-right corner.

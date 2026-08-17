@@ -8,8 +8,8 @@ from pathlib import Path
 
 import jsonschema
 
+from scripts.rkby_interactive_map import bundle as bundle_module
 from scripts.rkby_interactive_map.bundle import (
-    CANVAS_SIZE,
     assemble_map_data,
     compute_positions,
     copy_assets,
@@ -95,11 +95,10 @@ def test_assemble_map_data_validates_against_the_schema(tmp_path):
     jsonschema.validate(instance=payload, schema=schema)
 
 
-def test_assemble_map_data_lists_the_base_basemap_level(tmp_path):
-    """Every run bakes at least the base 1x level (research.md §2 addendum);
-    higher-resolution levels are only added when the bounding box has room
-    for them, covered separately in test_rkby_maps... this just checks the
-    always-present base entry's shape."""
+def test_assemble_map_data_describes_the_base_image_and_tile_levels(tmp_path):
+    """The base (1x) image is always a single file (research.md §2); any
+    resolution levels beyond it are described as cols x rows chunk grids,
+    not files, sorted ascending by scale (research.md §2 2nd addendum)."""
     interactive_map_dir = tmp_path / "interactive_map"
     interactive_map_dir.mkdir()
     members = [_member("jane-doe", 53.55, 9.99)]
@@ -107,11 +106,33 @@ def test_assemble_map_data_lists_the_base_basemap_level(tmp_path):
     assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
 
     payload = _load_map_data(interactive_map_dir)
-    levels = payload["image"]["levels"]
-    assert levels[0] == {"file": "basemap.jpg", "scale": 1}
-    assert [level["scale"] for level in levels] == sorted(
-        level["scale"] for level in levels
-    )
+    image = payload["image"]
+    assert image["file"] == "basemap.jpg"
+    assert image["tileSize"] > 0
+    scales = [level["scale"] for level in image["tileLevels"]]
+    assert scales == sorted(scales)
+    for level in image["tileLevels"]:
+        assert level["cols"] > 0
+        assert level["rows"] > 0
+
+
+def test_assemble_map_data_tile_level_grids_cover_the_full_scaled_canvas(tmp_path):
+    """Each tileLevels entry's cols x rows grid, at tileSize per chunk, must
+    cover at least the level's own (base width/height * scale) canvas --
+    the same bounding box as every other level, just chunked instead of one
+    file (research.md §2 2nd addendum)."""
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    members = [_member("jane-doe", 53.55, 9.99)]
+
+    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+
+    payload = _load_map_data(interactive_map_dir)
+    image = payload["image"]
+    for level in image["tileLevels"]:
+        scale = level["scale"]
+        assert level["cols"] * image["tileSize"] >= image["width"] * scale
+        assert level["rows"] * image["tileSize"] >= image["height"] * scale
 
 
 def test_assemble_map_data_never_null_photo_field(tmp_path):
@@ -304,13 +325,20 @@ def test_regeneration_leaves_no_stale_photo_from_a_removed_member(tmp_path):
     assert not (interactive_map_dir / "photos" / "jane-doe.jpg").exists()
 
 
-def test_generate_basemap_writes_a_jpeg_of_canvas_size(tmp_path):
+def test_generate_basemap_writes_a_jpeg_of_canvas_size(tmp_path, monkeypatch):
     """Uses the real stitch_basemap/tile-fetch path against a mocked HTTP
-    tile response, matching the existing map-generator tests' pattern."""
+    tile response, matching the existing map-generator tests' pattern.
+    CANVAS_SIZE is patched tiny so the tiled resolution levels
+    (BASEMAP_LEVELS' scale=2/4/8/16, always generated alongside the base
+    image) stay fast to stitch here -- production runs use the real,
+    much larger CANVAS_SIZE (research.md §2 2nd addendum has the real
+    chunk-count numbers)."""
     import re
 
     import responses
     from PIL import Image
+
+    monkeypatch.setattr(bundle_module, "CANVAS_SIZE", (64, 64))
 
     tile_url_pattern = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.png")
     tile_cache_dir = tmp_path / ".tile_cache"
@@ -329,19 +357,21 @@ def test_generate_basemap_writes_a_jpeg_of_canvas_size(tmp_path):
         generate_basemap(interactive_map_dir, members, tile_cache_dir)
 
     image = Image.open(interactive_map_dir / "basemap.jpg")
-    assert image.size == CANVAS_SIZE
+    assert image.size == bundle_module.CANVAS_SIZE
 
 
-def test_generate_basemap_writes_every_resolution_level_at_the_same_bounding_box(
-    tmp_path,
-):
-    """research.md §2 addendum: basemap@2x.jpg/@4x.jpg cover the identical
-    geographic area as basemap.jpg, just at a proportionally larger canvas
-    -- so each level's own pixel size is an exact multiple of CANVAS_SIZE."""
+def test_generate_basemap_writes_uniformly_sized_tile_chunks(tmp_path, monkeypatch):
+    """research.md §2 2nd addendum: resolution levels beyond the base are
+    written as a grid of tileSize-square chunk files under
+    tiles/<scale>/<x>_<y>.jpg, never one big image -- including the grid's
+    last (partial) row/column, padded out to a full tileSize square so the
+    frontend never needs partial-tile handling."""
     import re
 
     import responses
     from PIL import Image
+
+    monkeypatch.setattr(bundle_module, "CANVAS_SIZE", (64, 64))
 
     tile_url_pattern = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.png")
     tile_cache_dir = tmp_path / ".tile_cache"
@@ -359,6 +389,15 @@ def test_generate_basemap_writes_every_resolution_level_at_the_same_bounding_box
         )
         generate_basemap(interactive_map_dir, members, tile_cache_dir)
 
-    for scale, file_name in ((1, "basemap.jpg"), (2, "basemap@2x.jpg")):
-        image = Image.open(interactive_map_dir / file_name)
-        assert image.size == (CANVAS_SIZE[0] * scale, CANVAS_SIZE[1] * scale)
+    tiles_root = interactive_map_dir / "tiles"
+    scale_dirs = sorted(tiles_root.iterdir(), key=lambda p: int(p.name))
+    assert scale_dirs  # at least one tiled level exists at this bounding box
+
+    first_level_dir = scale_dirs[0]
+    chunk_files = list(first_level_dir.glob("*.jpg"))
+    assert chunk_files
+    for chunk_file in chunk_files:
+        assert Image.open(chunk_file).size == (
+            bundle_module.TILE_PX,
+            bundle_module.TILE_PX,
+        )

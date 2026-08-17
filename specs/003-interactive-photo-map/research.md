@@ -98,6 +98,11 @@ while staying compliant.
 
 ### Addendum: a few extra flattened resolution levels (post-launch perf/UX fix)
 
+**Superseded by the 2nd addendum below** — kept for the historical record of how this
+started. `src/basemapLevel.js` and the single-flattened-image-per-level design it
+describes no longer exist in the code; see the 2nd addendum for why and what replaced
+them.
+
 **Decision**: On top of the base flattened image above, `bundle.py` now bakes up to
 two more flattened rasters of the *exact same* bounding box (`BASEMAP_LEVELS = (1, 2,
 4)`) at correspondingly higher OSM zoom/canvas size, so the basemap looks sharper once
@@ -122,6 +127,60 @@ is deliberately short (3 levels, powers of two only) rather than an arbitrary ti
 pyramid, and `MAX_OSM_ZOOM`-capping (`bundle.py._basemap_levels`) skips levels a
 bounding box has no genuine extra detail for, so a tightly-clustered member set never
 bakes redundant duplicate rasters.
+
+### 2nd addendum: chunked tiling instead of swapping whole images (post-launch fix)
+
+**Decision**: The 1st addendum's "one flattened image per level, swapped on zoom"
+design didn't scale to more resolution levels — a full 16x-scale image would be
+~1.1 gigapixels (~3.3GB uncompressed in memory just to stitch it, before even saving
+a likely-hundreds-of-MB file). Two more levels were added (`BASEMAP_LEVELS = (1, 2, 4,
+8, 16)`), but every level beyond the base is now written as a `cols` x `rows` grid of
+small `TILE_PX` (256px) chunk files — `interactive_map/tiles/<scale>/<x>_<y>.jpg` —
+instead of one image. The base (1x) level is unchanged: one small flattened
+`basemap.jpg`, always shown via a plain `L.imageOverlay` at every zoom. A custom
+Leaflet `GridLayer` (`src/basemapTiles.js`'s pure grid math, wired up in `src/main.js`)
+sits on top of it, active only across the zoom range the tiled levels cover, and
+requests only the chunks intersecting the current viewport — never the whole level at
+once, however deep the zoom goes.
+
+**Rationale**: User-directed follow-up ("i would like to not have all tiles in the
+page at same time... cant we just save the tiles and show the ones that are needed?"),
+after being shown the 1.1-gigapixel/3.3GB number for what "2 more levels" would mean
+under the old swap-one-whole-image design. Leaflet's `GridLayer` already implements
+exactly this — viewport-based tile loading/unloading — so this reuses well-trodden
+Leaflet behavior (`options.minZoom`/`maxZoom` hiding the layer outside its baked
+range) rather than hand-rolling a loading scheme; `createTile` is the only override
+needed, backed by `basemapTiles.js`'s three pure helpers (unit-tested without a
+browser: which level a zoom maps to, whether a chunk coordinate was actually baked,
+and the chunk's URL).
+
+**Compliance note, read together with the two discussions above**: a chunk is still a
+cropped/re-encoded composite of the underlying OSM source tile(s) in the general case
+— the same "derived picture" distinction §2 and the 1st addendum lean on — but because
+`TILE_PX` (256px) matches OSM's own native tile size, a chunk that happens to land
+exactly on a tile boundary is close to indistinguishable from that one source tile
+passed through unmodified. This is a materially thinner version of the same argument
+than the 1st addendum's, on top of an already-accepted trade-off; presented plainly to
+the user as such rather than asserted as clean compliance.
+
+**Known cost, called out explicitly rather than left implicit**: chunking fixes the
+in-browser problem (no single request or in-memory image ever covers a whole
+high-resolution level) but does **not** reduce the total OSM tile-fetch volume,
+generation time, or disk space needed to pre-bake full offline coverage at every
+level — every possible chunk across the whole bounding box still has to be generated
+up front, since there's no live tile server at view time to fetch the rest of the
+world lazily from. Rough chunk counts at `CANVAS_SIZE = (2400, 1800)`: 1x has no
+chunks (single image); 2x ≈ 285; 4x ≈ 1100; 8x ≈ 4275; 16x ≈ 16950 — roughly summing to
+~22,600 chunk files for one full run, most of it from the 16x level alone. The
+underlying OSM tile *download* volume doesn't multiply on top of that (adjacent chunks
+reuse the same cached OSM tiles via `fetch_tile`'s on-disk cache, same total bytes as
+before, just chopped into more output files) — but the sheer number of small
+PIL crop/save calls is real added generation-time and disk-usage cost per run, on top
+of `.tile_cache/`'s existing warm-cache benefit. Not re-scoped down in response to
+this — the user's ask was specifically "more detail, and don't load it all at once,"
+which chunking delivers — but worth revisiting `BASEMAP_LEVELS`/`TILE_PX` if
+generation time against SC-011's budget or `interactive_map/`'s on-disk size becomes a
+real problem in practice.
 
 ## 3. Marker positioning: reuse the existing projection math, computed once in Python
 

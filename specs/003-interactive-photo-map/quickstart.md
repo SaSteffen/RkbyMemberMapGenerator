@@ -32,10 +32,10 @@ uv run scripts/generate_interactive_map.py
 
 **Expect**:
 
-- `$RKBY_DATA_DIR/interactive_map/index.html`, `map-data.js`, `basemap.jpg` (plus
-  `basemap@2x.jpg`/`basemap@4x.jpg` when the member set's bounding box has room for
-  the extra resolution, research.md §2 addendum), and `photos/` created — one
-  artifact, not per season (FR-002, FR-018).
+- `$RKBY_DATA_DIR/interactive_map/index.html`, `map-data.js`, `basemap.jpg`,
+  `photos/`, and `tiles/<scale>/` (one subfolder per higher-resolution level the
+  member set's bounding box has room for, each a grid of small chunk images,
+  research.md §2 addenda) created — one artifact, not per season (FR-002, FR-018).
 - Every newly-geocoded eligible member's YAML record now has non-null
   `latitude`/`longitude` (same cache `generate_member_maps.py` writes to — a warm
   cache from a prior run of either script speeds this up, research.md §11).

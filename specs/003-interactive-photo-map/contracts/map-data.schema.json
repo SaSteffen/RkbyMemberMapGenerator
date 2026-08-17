@@ -74,35 +74,49 @@
     "image": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["width", "height", "levels"],
+      "required": ["file", "width", "height", "tileSize", "tileLevels"],
       "properties": {
+        "file": {
+          "type": "string",
+          "description": "Filename of the base (1x) basemap raster relative to interactive_map/, e.g. \"basemap.jpg\" -- always present, shown via a plain Leaflet imageOverlay at every zoom (research.md §2)."
+        },
         "width": {
           "type": "integer",
           "minimum": 1,
-          "description": "Pixel width of the base (1x) level, the coordinate space members[].x/y are expressed in. Every level in `levels` covers this identical geographic area, just at a higher pixel density."
+          "description": "Pixel width of the base (1x) level, the coordinate space members[].x/y are expressed in. Every level in `tileLevels` covers this identical geographic area, just at a higher pixel density."
         },
         "height": {
           "type": "integer",
           "minimum": 1,
           "description": "Pixel height of the base (1x) level, same coordinate space as width."
         },
-        "levels": {
+        "tileSize": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Pixel side length of every chunk file in every tileLevels grid (bundle.py's TILE_PX) -- what the frontend's Leaflet GridLayer is configured with."
+        },
+        "tileLevels": {
           "type": "array",
-          "minItems": 1,
-          "description": "One or more baked basemap resolution levels (research.md §2 addendum), sorted ascending by scale. The frontend swaps which one backs the Leaflet imageOverlay based on the current zoom (src/basemapLevel.js); bounds/marker positions never change between levels.",
+          "description": "Baked higher-resolution basemap levels beyond the base image (research.md §2 addenda), sorted ascending by scale, each rendered as a cols x rows grid of tileSize-square chunk files at interactive_map/tiles/<scale>/<x>_<y>.jpg rather than one giant image -- the frontend's custom GridLayer (src/basemapTiles.js, src/main.js) requests only the chunks intersecting the current viewport. May be empty when the member set's bounding box is too tightly clustered for any level beyond the base to add real detail (bundle.py's MAX_OSM_ZOOM capping).",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["file", "scale"],
+            "required": ["scale", "cols", "rows"],
             "properties": {
-              "file": {
-                "type": "string",
-                "description": "Filename of this level's basemap raster relative to interactive_map/, e.g. \"basemap.jpg\" or \"basemap@2x.jpg\"."
-              },
               "scale": {
                 "type": "integer",
-                "enum": [1, 2, 4],
-                "description": "Pixel-density multiplier relative to the base width/height, e.g. 2 means this raster has 2x the linear pixel resolution over the identical geographic area."
+                "enum": [2, 4, 8, 16],
+                "description": "Pixel-density multiplier relative to the base width/height, e.g. 2 means this level's full (unchunked) canvas would have 2x the linear pixel resolution over the identical geographic area. Doubles as this level's Leaflet zoom index via log2(scale)."
+              },
+              "cols": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of chunk columns in this level's grid -- ceil(base width * scale / tileSize)."
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of chunk rows in this level's grid -- ceil(base height * scale / tileSize)."
               }
             }
           }

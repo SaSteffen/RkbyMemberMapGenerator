@@ -133,23 +133,26 @@ def fetch_tile(z: int, x: int, y: int, cache_dir: Path) -> bytes:
     return tile_bytes
 
 
-def stitch_basemap(
-    center: tuple[float, float],
+def stitch_region(
     zoom: int,
-    canvas_size: tuple[int, int],
+    left: float,
+    top: float,
+    width: int,
+    height: int,
     cache_dir: Path,
 ) -> Image.Image:
-    """Fetch every tile covering `canvas_size` centered on `center` at
-    `zoom`, stitch them together, and crop to exactly `canvas_size`."""
-    canvas_width, canvas_height = canvas_size
-    center_x, center_y = _global_pixel(*center, zoom)
-    left = center_x - canvas_width / 2
-    top = center_y - canvas_height / 2
-
+    """Fetch every tile covering the pixel rectangle `[left, top, left +
+    width, top + height)` in `zoom`'s own world-pixel space, stitch them
+    together, and crop to exactly that rectangle. Parameterized by an
+    arbitrary rectangle (rather than always one centered on a point) so the
+    same fetch-and-crop logic serves both one big canvas (`stitch_basemap`)
+    and one small chunk of a tiled resolution level
+    (`rkby_interactive_map.bundle`'s `generate_basemap`, research.md §2
+    addendum) without duplicating it."""
     first_tile_x = math.floor(left / TILE_SIZE)
     first_tile_y = math.floor(top / TILE_SIZE)
-    last_tile_x = math.floor((left + canvas_width - 1) / TILE_SIZE)
-    last_tile_y = math.floor((top + canvas_height - 1) / TILE_SIZE)
+    last_tile_x = math.floor((left + width - 1) / TILE_SIZE)
+    last_tile_y = math.floor((top + height - 1) / TILE_SIZE)
 
     tiles_per_axis = 2**zoom
     stitched_width = (last_tile_x - first_tile_x + 1) * TILE_SIZE
@@ -167,6 +170,31 @@ def stitch_basemap(
 
     crop_left = round(left - first_tile_x * TILE_SIZE)
     crop_top = round(top - first_tile_y * TILE_SIZE)
-    return stitched.crop(
-        (crop_left, crop_top, crop_left + canvas_width, crop_top + canvas_height)
-    )
+    return stitched.crop((crop_left, crop_top, crop_left + width, crop_top + height))
+
+
+def canvas_origin(
+    center: tuple[float, float], zoom: int, canvas_size: tuple[int, int]
+) -> tuple[float, float]:
+    """Top-left corner, in `zoom`'s own world-pixel space, of a canvas of
+    `canvas_size` centered on `center` -- the same origin `stitch_basemap`
+    derives internally, exposed so a caller needing just one chunk of that
+    canvas (`rkby_interactive_map.bundle`'s tiled resolution levels,
+    research.md §2 addendum) can compute the chunk's absolute pixel
+    rectangle without duplicating this math."""
+    canvas_width, canvas_height = canvas_size
+    center_x, center_y = _global_pixel(*center, zoom)
+    return center_x - canvas_width / 2, center_y - canvas_height / 2
+
+
+def stitch_basemap(
+    center: tuple[float, float],
+    zoom: int,
+    canvas_size: tuple[int, int],
+    cache_dir: Path,
+) -> Image.Image:
+    """`stitch_region` for the rectangle of `canvas_size` centered on
+    `center` at `zoom`."""
+    left, top = canvas_origin(center, zoom, canvas_size)
+    canvas_width, canvas_height = canvas_size
+    return stitch_region(zoom, left, top, canvas_width, canvas_height, cache_dir)

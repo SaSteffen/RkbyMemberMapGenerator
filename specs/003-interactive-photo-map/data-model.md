@@ -85,11 +85,13 @@ for exactly which fields are deliberately excluded and why.
     }
   ],
   "image": {
+    "file": "basemap.jpg",
     "width": 4800,
     "height": 3600,
-    "levels": [
-      { "file": "basemap.jpg", "scale": 1 },
-      { "file": "basemap@2x.jpg", "scale": 2 }
+    "tileSize": 256,
+    "tileLevels": [
+      { "scale": 2, "cols": 38, "rows": 29 },
+      { "scale": 4, "cols": 75, "rows": 57 }
     ]
   }
 }
@@ -98,10 +100,10 @@ for exactly which fields are deliberately excluded and why.
 | Field | Type | Notes |
 |---|---|---|
 | `seasons` | list of string | **Every** season `discover_seasons` finds, sorted — including a season with zero eligible members (Edge Cases: still a selectable, empty control). Drives the season-toggle UI and the FR-007 default/fallback computation (research.md §5). |
-| `members[].x`, `.y` | number | Precomputed pixel position (research.md §3) in the single fixed `(center, zoom, canvas_size)` the base (1x) basemap level was rendered at — every other level in `image.levels` covers the identical geographic area at a higher pixel density, so the frontend never re-projects for any of them. |
+| `members[].x`, `.y` | number | Precomputed pixel position (research.md §3) in the single fixed `(center, zoom, canvas_size)` the base (1x) basemap level was rendered at — every level in `image.tileLevels` covers the identical geographic area at a higher pixel density, so the frontend never re-projects for any of them. |
 | `members[].photo` | string | Always set — `"photos/placeholder.png"` when the person has no photo on file (research.md §9); never `null`, unlike the intermediate Merged Member shape, so the frontend has no null-check branch here. Real photos are a server-side-downscaled square JPEG thumbnail, not the original source file (perf fix: the browser only ever renders it at a fixed marker size). |
 | `members[].seasons` | object | Same shape as Merged Member's `seasons` field, carried through unminimized — the frontend's `popupData()` (research.md §6) filters this live by the active season set; it is *not* pre-filtered at generation time. |
-| `image` | object | Metadata the frontend needs to size the `L.imageOverlay`/`CRS.Simple` bounds (research.md §3) — `width`/`height` in the same pixel space `x`/`y` are expressed in. `levels` (research.md §2 addendum) lists every baked resolution level; `src/basemapLevel.js` picks which one backs the overlay based on the current Leaflet zoom. |
+| `image` | object | Metadata the frontend needs to render the basemap (research.md §3, §2 addenda). `file`/`width`/`height` describe the always-present base (1x) image, shown via a plain `L.imageOverlay` at every zoom. `tileLevels` lists every baked higher-resolution level as a `cols` x `rows` grid of `tileSize`-square chunk files (`interactive_map/tiles/<scale>/<x>_<y>.jpg`); `src/basemapTiles.js` + `src/main.js`'s custom Leaflet `GridLayer` request only the chunks intersecting the current viewport, so no single request or in-memory image ever covers the whole map at high resolution. |
 
 **Not a source of truth**: this file is a pure export. Re-running the generator
 always rebuilds it from the season YAMLs from scratch; nothing ever reads it back
