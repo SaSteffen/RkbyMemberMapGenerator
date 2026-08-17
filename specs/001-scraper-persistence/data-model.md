@@ -23,6 +23,7 @@ One YAML file per retained applicant, at
 | Field | Type | Required | Write rule |
 |---|---|---|---|
 | `match_key` | string | yes | Set once at creation from `normalize(first_name)-normalize(last_name)` (research.md §9). Immutable — it's also the filename, so it is never rewritten in place; renaming a record is a manual human action (rename the file + edit the field together). |
+| `alias_match_keys` | array\<string\> \| null | no | Exclusively human-set (like `ignore`). Other `match_key` value(s) — typically from an earlier season — that identify this same person after the intranet recomputed the key (spelling/married-name change). Not read by this feature; consumed only by 003-interactive-photo-map's cross-season merge to fold that season's record into this same person instead of a separate one. The scraper never writes it. |
 | `first_name` | string | yes | Frozen once non-empty (FR-009). |
 | `last_name` | string | yes | Frozen once non-empty (FR-009). |
 | `address` | string \| null | no | Frozen once non-empty (FR-009). `null`/absent until first observed. |

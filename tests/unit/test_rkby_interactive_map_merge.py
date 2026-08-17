@@ -258,6 +258,84 @@ def test_ineligible_season_record_never_contributes_position_or_role(tmp_path):
     assert set(member["seasons"]) == {"2024-25"}
 
 
+def test_alias_match_keys_merges_a_renamed_person_into_one_entry(tmp_path):
+    _write_record(
+        tmp_path,
+        "2024-25",
+        "erika-mustermann",
+        first_name="Erika",
+        last_name="Mustermann",
+        address="Old address",
+        latitude=53.0,
+        longitude=9.0,
+        role="Rider",
+    )
+    _write_record(
+        tmp_path,
+        "2025-26",
+        "erika-schmidt",
+        first_name="Erika",
+        last_name="Schmidt",
+        address="New address",
+        latitude=53.5,
+        longitude=10.0,
+        role="Service Crew",
+        alias_match_keys=["erika-mustermann"],
+    )
+    loggers = _loggers_for(tmp_path, ["2024-25", "2025-26"])
+
+    merged = merge_seasons(tmp_path, ["2024-25", "2025-26"], loggers)
+
+    assert len(merged) == 1
+    member = merged[0]
+    assert member["match_key"] == "erika-schmidt"  # the declaring record's own key
+    assert member["last_name"] == "Schmidt"  # still latest-eligible-record wins
+    assert member["seasons"] == {
+        "2024-25": {"role": "Rider", "additional_roles": []},
+        "2025-26": {"role": "Service Crew", "additional_roles": []},
+    }
+
+
+def test_alias_match_keys_resolves_transitively_across_a_rename_chain(tmp_path):
+    _write_record(
+        tmp_path,
+        "2023-24",
+        "erika-mustermann",
+        address="Oldest address",
+        latitude=52.0,
+        longitude=8.0,
+        role="Rider",
+    )
+    _write_record(
+        tmp_path,
+        "2024-25",
+        "erika-schmidt",
+        address="Middle address",
+        latitude=53.0,
+        longitude=9.0,
+        role="Service Crew",
+        alias_match_keys=["erika-mustermann"],
+    )
+    _write_record(
+        tmp_path,
+        "2025-26",
+        "erika-schmidt-meyer",
+        address="New address",
+        latitude=53.5,
+        longitude=10.0,
+        role="Supporter",
+        alias_match_keys=["erika-schmidt"],
+    )
+    loggers = _loggers_for(tmp_path, ["2023-24", "2024-25", "2025-26"])
+
+    merged = merge_seasons(tmp_path, ["2023-24", "2024-25", "2025-26"], loggers)
+
+    assert len(merged) == 1
+    member = merged[0]
+    assert member["match_key"] == "erika-schmidt-meyer"
+    assert set(member["seasons"]) == {"2023-24", "2024-25", "2025-26"}
+
+
 def test_person_excluded_in_every_season_never_appears(tmp_path):
     _write_record(
         tmp_path,

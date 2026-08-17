@@ -21,6 +21,12 @@ back, using the exact same code path `generate_member_maps.py` already uses:
 false`, `ignore == false`, `address` non-null, and successfully geocoded
 (`latitude`/`longitude` both non-null after this run's geocode pass).
 
+**Addendum**: `alias_match_keys` (array\<string\> | null, manual-only like `ignore`)
+was added to the shared schema after this feature originally shipped, specifically
+for this feature's cross-season merge — see `specs/001-scraper-persistence/data-model.md`
+for the field definition and `_canonical_match_keys` in merge.py below for how it's
+resolved.
+
 ## Merged Member (generation-time, ephemeral — not persisted as its own file)
 
 Computed once per run by `scripts/rkby_interactive_map/merge.py` (research.md §4):
@@ -45,6 +51,15 @@ season-records wins (research.md §4). Ineligible season-records for that same
 person are skipped when picking "latest" (never contribute position/name/photo),
 matching spec's Assumptions ("skips over any of that person's own season-records
 that are ineligible").
+
+**Cross-season key aliasing**: before grouping eligible season-records by
+`match_key`, merge.py resolves each record's `alias_match_keys` into an
+old-key → canonical-key mapping (followed transitively, so a chain of
+renames across more than two seasons still collapses onto one final key) and
+regroups every season-record — including the record that itself declares the
+alias — under that canonical key. This is how a person whose `match_key`
+changed between seasons (e.g. the intranet recomputed it after a spelling or
+married-name correction) still produces one Merged Member instead of two.
 
 ## Bundled Map Data (`map-data.js` payload — the artifact's one exported dataset)
 

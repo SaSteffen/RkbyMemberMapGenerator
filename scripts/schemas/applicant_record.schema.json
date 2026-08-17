@@ -19,6 +19,14 @@
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
       "description": "normalize(first_name)-normalize(last_name); also the filename stem. Immutable once created."
     },
+    "alias_match_keys": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "description": "Manual-only, like `ignore`. Other match_key value(s) -- typically from an earlier season -- that identify this same person, e.g. after the intranet recomputed the key from a spelling or married-name change. Used only by the interactive map's cross-season merge (scripts/rkby_interactive_map/merge.py) to fold that season's record into this one merged identity instead of showing up as a separate person; the scraper never reads or writes it. Null/absent means no aliases."
+    },
     "first_name": {
       "type": "string",
       "minLength": 1

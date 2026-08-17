@@ -88,6 +88,7 @@ class InvalidExistingRecordError(Exception):
 
 _RECORD_FIELD_ORDER = (
     "match_key",
+    "alias_match_keys",
     "first_name",
     "last_name",
     "address",
