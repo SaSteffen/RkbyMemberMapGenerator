@@ -1,7 +1,8 @@
 """Assembles the interactive map's one shared artifact: precomputed pixel
 positions (research.md §3), the flattened basemap image (research.md §2),
 `map-data.js` (research.md §10, §12; data-model.md § Bundled Map Data), and
-the photo/index.html asset copy (research.md §9, §11)."""
+the photo (downscaled to a thumbnail, research.md §9)/index.html asset
+copy (research.md §11)."""
 
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from scripts.rkby_maps.basemap import (
     stitch_basemap,
     zoom_for_bounding_box,
 )
-from scripts.rkby_maps.rendering import PLACEHOLDER_PHOTO_PATH
+from scripts.rkby_maps.rendering import PLACEHOLDER_PHOTO_PATH, crop_square_thumbnail
 from scripts.rkby_records import season_dir
 
 # Combined-bounding-box canvas: one flattened image covering every merged
@@ -29,6 +30,24 @@ PADDING_KM = 1.0
 # members to bound (mirrors generate_member_maps.py's DEFAULT_CENTER).
 DEFAULT_CENTER = (51.1657, 10.4515)
 DEFAULT_ZOOM = 6
+
+# research.md §2 addendum: on top of the base flattened image, bake a few
+# extra resolution levels of the *same* geographic bounding box so the
+# basemap looks less blurry once a viewer zooms in past the base level --
+# each level is still fetched once and immediately flattened (never
+# re-served as raw OSM tiles), the same distinction §2 leans on, but baking
+# more than one such level is closer to the tile usage policy's own
+# "pre-seeding... multiple zoom levels in advance" language than the
+# original single-image decision was, an accepted trade-off. Multipliers
+# must be powers of two: one extra multiplier step == exactly one extra
+# integer OSM tile zoom, which is what keeps every level's canvas covering
+# the identical bounding box (research.md §2's zoom_for_bounding_box math).
+BASEMAP_LEVELS = (1, 2, 4)
+# OSM's own highest tile zoom -- a bounding box whose base zoom is already
+# here (very tightly clustered members) has no higher-resolution tiles to
+# fetch, so higher multipliers are skipped rather than re-fetching and
+# re-flattening an identical raster under a different name.
+MAX_OSM_ZOOM = 19
 
 
 def compute_positions(
@@ -64,18 +83,37 @@ def compute_positions(
     return positions, center, zoom
 
 
+def _basemap_levels(base_zoom: int) -> list[dict]:
+    """Which `BASEMAP_LEVELS` multipliers are actually distinct at this
+    bounding box's own `base_zoom` -- shared by `assemble_map_data` (which
+    only needs the file/scale list for map-data.js) and `generate_basemap`
+    (which renders each one), so the two can never drift out of sync on
+    what files exist."""
+    levels = []
+    seen_zoom: set[int] = set()
+    for scale in BASEMAP_LEVELS:
+        zoom = min(base_zoom + (scale.bit_length() - 1), MAX_OSM_ZOOM)
+        if zoom in seen_zoom:
+            break
+        seen_zoom.add(zoom)
+        file_name = "basemap.jpg" if scale == 1 else f"basemap@{scale}x.jpg"
+        levels.append({"file": file_name, "scale": scale, "zoom": zoom})
+    return levels
+
+
 def _resolve_photo(data_dir: Path, member: dict) -> tuple[str, Path]:
     """Output-relative photo path + its real source file, or the Team
     Rynkeby mascot placeholder when the member has no photo on file
     (research.md §9) -- the same fallback rule as generate_member_maps.py's
     own `_photo_path`, applied to the merged member's own latest-eligible
-    season's photo."""
+    season's photo. Real photos are always re-encoded to a `.jpg` thumbnail
+    by `copy_assets` regardless of their source extension, so the output
+    name is always `.jpg` too."""
     relative = member.get("photo_relative_path")
     if relative:
         source_path = season_dir(data_dir, member["photo_season_label"]) / relative
         if source_path.exists():
-            ext = Path(relative).suffix or ".jpg"
-            return f"photos/{member['match_key']}{ext}", source_path
+            return f"photos/{member['match_key']}.jpg", source_path
     return "photos/placeholder.png", PLACEHOLDER_PHOTO_PATH
 
 
@@ -89,7 +127,7 @@ def assemble_map_data(
     map-data.js`, matching contracts/map-data.schema.json exactly -- never
     address/phone/email/birthday/etc. (Principle I minimization, research.md
     §12)."""
-    positions, _center, _zoom = compute_positions(merged_members)
+    positions, _center, base_zoom = compute_positions(merged_members)
 
     members_payload = []
     for member in merged_members:
@@ -111,9 +149,12 @@ def assemble_map_data(
         "seasons": sorted(seasons),
         "members": members_payload,
         "image": {
-            "file": "basemap.jpg",
             "width": CANVAS_SIZE[0],
             "height": CANVAS_SIZE[1],
+            "levels": [
+                {"file": level["file"], "scale": level["scale"]}
+                for level in _basemap_levels(base_zoom)
+            ],
         },
     }
 
@@ -126,14 +167,24 @@ def assemble_map_data(
 def generate_basemap(
     interactive_map_dir: Path, merged_members: list[dict], tile_cache_dir: Path
 ) -> None:
-    """Render `interactive_map_dir / basemap.jpg` at the same combined
-    `(center, zoom, CANVAS_SIZE)` `compute_positions()` used, reusing the
-    shared OSM tile cache (research.md §2, §11)."""
-    _positions, center, zoom = compute_positions(merged_members)
-    canvas = stitch_basemap(
-        center=center, zoom=zoom, canvas_size=CANVAS_SIZE, cache_dir=tile_cache_dir
-    )
-    canvas.convert("RGB").save(interactive_map_dir / "basemap.jpg", quality=90)
+    """Render one basemap raster per `_basemap_levels` entry, every one
+    covering the same combined bounding box `compute_positions()` used --
+    only the OSM zoom and canvas size scale up per level, never the
+    geographic area covered (research.md §2 addendum) -- reusing the shared
+    OSM tile cache (research.md §2, §11)."""
+    _positions, center, base_zoom = compute_positions(merged_members)
+    for level in _basemap_levels(base_zoom):
+        canvas_size = (
+            CANVAS_SIZE[0] * level["scale"],
+            CANVAS_SIZE[1] * level["scale"],
+        )
+        canvas = stitch_basemap(
+            center=center,
+            zoom=level["zoom"],
+            canvas_size=canvas_size,
+            cache_dir=tile_cache_dir,
+        )
+        canvas.convert("RGB").save(interactive_map_dir / level["file"], quality=90)
 
 
 def copy_assets(
@@ -144,7 +195,11 @@ def copy_assets(
 ) -> None:
     """Copy each merged member's own photo (or the placeholder mascot) into
     `interactive_map_dir/photos/`, and the built frontend's `index.html`
-    verbatim (research.md §9, §11)."""
+    verbatim (research.md §9, §11). Real photos are square-cropped and
+    downscaled to `crop_square_thumbnail`'s fixed thumbnail size before
+    being written -- shipping/decoding full-resolution originals for a
+    marker the browser only ever renders at 40 CSS-px was the main cause of
+    a slow-loading map with many members."""
     photos_dir = interactive_map_dir / "photos"
     photos_dir.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(PLACEHOLDER_PHOTO_PATH, photos_dir / "placeholder.png")
@@ -154,6 +209,7 @@ def copy_assets(
         target_name = Path(photo_path).name
         if target_name == "placeholder.png":
             continue
-        shutil.copyfile(source_path, photos_dir / target_name)
+        thumbnail = crop_square_thumbnail(source_path)
+        thumbnail.save(photos_dir / target_name, "JPEG", quality=85)
 
     shutil.copyfile(dist_index_html_path, interactive_map_dir / "index.html")

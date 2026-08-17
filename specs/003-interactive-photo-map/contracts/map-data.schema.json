@@ -74,21 +74,38 @@
     "image": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "width", "height"],
+      "required": ["width", "height", "levels"],
       "properties": {
-        "file": {
-          "type": "string",
-          "description": "Filename of the basemap raster relative to interactive_map/, e.g. \"basemap.jpg\"."
-        },
         "width": {
           "type": "integer",
           "minimum": 1,
-          "description": "Pixel width, same coordinate space members[].x/y are expressed in."
+          "description": "Pixel width of the base (1x) level, the coordinate space members[].x/y are expressed in. Every level in `levels` covers this identical geographic area, just at a higher pixel density."
         },
         "height": {
           "type": "integer",
           "minimum": 1,
-          "description": "Pixel height, same coordinate space members[].x/y are expressed in."
+          "description": "Pixel height of the base (1x) level, same coordinate space as width."
+        },
+        "levels": {
+          "type": "array",
+          "minItems": 1,
+          "description": "One or more baked basemap resolution levels (research.md §2 addendum), sorted ascending by scale. The frontend swaps which one backs the Leaflet imageOverlay based on the current zoom (src/basemapLevel.js); bounds/marker positions never change between levels.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "scale"],
+            "properties": {
+              "file": {
+                "type": "string",
+                "description": "Filename of this level's basemap raster relative to interactive_map/, e.g. \"basemap.jpg\" or \"basemap@2x.jpg\"."
+              },
+              "scale": {
+                "type": "integer",
+                "enum": [1, 2, 4],
+                "description": "Pixel-density multiplier relative to the base width/height, e.g. 2 means this raster has 2x the linear pixel resolution over the identical geographic area."
+              }
+            }
+          }
         }
       }
     }

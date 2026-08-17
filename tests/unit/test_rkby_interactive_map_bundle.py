@@ -95,6 +95,25 @@ def test_assemble_map_data_validates_against_the_schema(tmp_path):
     jsonschema.validate(instance=payload, schema=schema)
 
 
+def test_assemble_map_data_lists_the_base_basemap_level(tmp_path):
+    """Every run bakes at least the base 1x level (research.md §2 addendum);
+    higher-resolution levels are only added when the bounding box has room
+    for them, covered separately in test_rkby_maps... this just checks the
+    always-present base entry's shape."""
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    members = [_member("jane-doe", 53.55, 9.99)]
+
+    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+
+    payload = _load_map_data(interactive_map_dir)
+    levels = payload["image"]["levels"]
+    assert levels[0] == {"file": "basemap.jpg", "scale": 1}
+    assert [level["scale"] for level in levels] == sorted(
+        level["scale"] for level in levels
+    )
+
+
 def test_assemble_map_data_never_null_photo_field(tmp_path):
     interactive_map_dir = tmp_path / "interactive_map"
     interactive_map_dir.mkdir()
@@ -157,11 +176,48 @@ def test_copy_assets_copies_a_members_own_photo(tmp_path):
 
     copied = interactive_map_dir / "photos" / "jane-doe.jpg"
     assert copied.exists()
-    assert copied.read_bytes() == (FIXTURES_DIR / "sample_photo.jpg").read_bytes()
     assert (interactive_map_dir / "photos" / "placeholder.png").exists()
     assert (
         interactive_map_dir / "index.html"
     ).read_text() == "<html>fake build output</html>"
+
+
+def test_copy_assets_downscales_a_members_photo_to_a_square_thumbnail(tmp_path):
+    """Perf fix: full-resolution source photos must never ship as-is -- the
+    browser only ever renders the marker at a fixed 40 CSS-px, so shipping
+    (and decoding) full-size originals for hundreds of members was the main
+    cause of a slow-loading map."""
+    from PIL import Image
+
+    from scripts.rkby_maps.rendering import INTERACTIVE_MAP_THUMBNAIL_PX
+
+    season_photos_dir = tmp_path / "seasons" / "2025-26" / "photos"
+    season_photos_dir.mkdir(parents=True)
+    (season_photos_dir / "jane-doe.jpg").write_bytes(
+        (FIXTURES_DIR / "sample_photo.jpg").read_bytes()
+    )
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    dist_index = tmp_path / "dist_index.html"
+    dist_index.write_text("<html></html>")
+
+    members = [
+        _member(
+            "jane-doe",
+            53.55,
+            9.99,
+            photo_relative_path="photos/jane-doe.jpg",
+            photo_season_label="2025-26",
+        )
+    ]
+
+    copy_assets(tmp_path, interactive_map_dir, members, dist_index)
+
+    thumbnail = Image.open(interactive_map_dir / "photos" / "jane-doe.jpg")
+    assert thumbnail.size == (
+        INTERACTIVE_MAP_THUMBNAIL_PX,
+        INTERACTIVE_MAP_THUMBNAIL_PX,
+    )
 
 
 def test_copy_assets_falls_back_to_placeholder_when_no_photo_on_file(tmp_path):
@@ -274,3 +330,35 @@ def test_generate_basemap_writes_a_jpeg_of_canvas_size(tmp_path):
 
     image = Image.open(interactive_map_dir / "basemap.jpg")
     assert image.size == CANVAS_SIZE
+
+
+def test_generate_basemap_writes_every_resolution_level_at_the_same_bounding_box(
+    tmp_path,
+):
+    """research.md §2 addendum: basemap@2x.jpg/@4x.jpg cover the identical
+    geographic area as basemap.jpg, just at a proportionally larger canvas
+    -- so each level's own pixel size is an exact multiple of CANVAS_SIZE."""
+    import re
+
+    import responses
+    from PIL import Image
+
+    tile_url_pattern = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.png")
+    tile_cache_dir = tmp_path / ".tile_cache"
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    members = [_member("jane-doe", 53.55, 9.99)]
+
+    with responses.RequestsMock() as mocked:
+        mocked.add(
+            responses.GET,
+            tile_url_pattern,
+            body=(FIXTURES_DIR / "osm_tile_fixture.png").read_bytes(),
+            status=200,
+            content_type="image/png",
+        )
+        generate_basemap(interactive_map_dir, members, tile_cache_dir)
+
+    for scale, file_name in ((1, "basemap.jpg"), (2, "basemap@2x.jpg")):
+        image = Image.open(interactive_map_dir / file_name)
+        assert image.size == (CANVAS_SIZE[0] * scale, CANVAS_SIZE[1] * scale)

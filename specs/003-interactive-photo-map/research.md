@@ -96,6 +96,33 @@ to "looks very similar to the map with the pictures," which already uses real OS
 raster imagery; the flattened-composite-image approach preserves that look exactly
 while staying compliant.
 
+### Addendum: a few extra flattened resolution levels (post-launch perf/UX fix)
+
+**Decision**: On top of the base flattened image above, `bundle.py` now bakes up to
+two more flattened rasters of the *exact same* bounding box (`BASEMAP_LEVELS = (1, 2,
+4)`) at correspondingly higher OSM zoom/canvas size, so the basemap looks sharper once
+a viewer zooms in past the base level. `src/basemapLevel.js` swaps which raster backs
+the Leaflet `imageOverlay` based on the current zoom; bounds and every precomputed
+marker `x`/`y` stay unchanged across levels since all of them cover the identical
+geographic area, just at higher pixel density.
+
+**Rationale**: User-directed follow-up ("we need to change map resolution when
+zooming in/out"), explicitly choosing this over two more-conservative options offered
+(bump the single base image's own resolution/quality; or a live OSM `TileLayer`) after
+being shown the trade-off below.
+
+**Compliance note, read together with the policy discussion above**: each level is
+still fetched once and immediately flattened into a plain raster, never re-served as
+raw OSM tiles — the same distinction the base design leans on. But baking *more than
+one* such level is closer to the tile usage policy's literal "pre-seeding large areas
+or **multiple zoom levels** in advance" language than the original single-image
+decision was. This was surfaced to and accepted by the user as a real, if small,
+compliance-risk trade-off — not a novel exemption discovered here. `BASEMAP_LEVELS`
+is deliberately short (3 levels, powers of two only) rather than an arbitrary tile
+pyramid, and `MAX_OSM_ZOOM`-capping (`bundle.py._basemap_levels`) skips levels a
+bounding box has no genuine extra detail for, so a tightly-clustered member set never
+bakes redundant duplicate rasters.
+
 ## 3. Marker positioning: reuse the existing projection math, computed once in Python
 
 **Decision**: Because the whole artifact uses exactly one fixed `(center, zoom,
@@ -267,6 +294,25 @@ literally, not just visually.
 circular PNG per member — rejected; adds Pillow work with no visual benefit over CSS,
 and produces a lower, fixed resolution that looks worse than the source photo once
 zoomed in.
+
+### Addendum: server-side square downscale after all (post-launch perf fix)
+
+**Decision reversed, partially**: real photos are no longer copied as-is. `bundle.py`
+now crops each to a centered square and downscales it to a small fixed thumbnail
+(`rkby_maps.rendering.crop_square_thumbnail`, 120px) before writing it into
+`photos/`; the browser still does the *circular* crop via CSS exactly as decided
+above — only the "copy as-is" half of the original decision is reversed.
+
+**Rationale**: The "no visual benefit, worse once zoomed in" argument against
+pre-processing assumed the photo would be displayed larger as the *map* zooms in.
+It never is — the marker `<img>` is a fixed 40 CSS-px `L.divIcon` (`main.js`
+`iconSize`) regardless of the map's own zoom level (research.md §3's marker
+positioning is independent of the basemap's zoom-swapping addendum above). Shipping
+and decoding full-resolution originals for hundreds of members at that fixed display
+size was the main cause of a slow-loading map — bandwidth and per-image decode cost
+that scale with the *source* photo's resolution, not the (constant) display size. A
+small fixed-size thumbnail has no measurable quality cost at 40px and removes that
+cost entirely.
 
 ## 10. Local `file://` compatibility (FR-019, Story 4, SC-003)
 

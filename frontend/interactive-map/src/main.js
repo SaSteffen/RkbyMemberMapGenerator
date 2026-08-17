@@ -1,5 +1,6 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { pickBasemapLevel } from "./basemapLevel.js";
 import { declutterPositions } from "./declutter.js";
 import { defaultSeasonLabel } from "./defaultSeason.js";
 import { isVisible, popupData } from "./popupData.js";
@@ -31,8 +32,22 @@ function main() {
     [0, 0],
     [imageHeight, imageWidth],
   ];
-  L.imageOverlay(data.image.file, bounds).addTo(map);
   map.fitBounds(bounds);
+
+  // Multiple baked basemap resolutions (research.md §2 addendum) all cover
+  // this same bounds rectangle at increasing pixel density -- Leaflet
+  // stretches whichever raster is currently set to fill it regardless of
+  // that raster's own native size, so swapping the overlay's URL on zoom
+  // needs no change to bounds or to any precomputed marker position.
+  let activeLevel = pickBasemapLevel(data.image.levels, map.getZoom());
+  const basemapOverlay = L.imageOverlay(activeLevel.file, bounds).addTo(map);
+  map.on("zoomend", () => {
+    const nextLevel = pickBasemapLevel(data.image.levels, map.getZoom());
+    if (nextLevel.file !== activeLevel.file) {
+      activeLevel = nextLevel;
+      basemapOverlay.setUrl(activeLevel.file);
+    }
+  });
 
   // FR-022, research.md §8: real, always-legible attribution text, never
   // hidden behind a toggle -- Leaflet's own default bottom-right corner.

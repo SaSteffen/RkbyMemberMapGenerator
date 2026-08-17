@@ -132,21 +132,25 @@ def draw_attribution(image: Image.Image, margin: int = 10 * RESOLUTION_SCALE) ->
     )
 
 
-def crop_circular_photo(
-    source: Image.Image | Path, diameter: int = PHOTO_DIAMETER_PX
-) -> Image.Image:
-    """Centered square crop of the source photo, resized to `diameter`, then
-    masked to a circle (research.md §8) -- matches the intranet table's own
-    avatar presentation."""
+def _centered_square_crop(source: Image.Image | Path, size: int) -> Image.Image:
+    """Centered square crop of the source photo, resized to `size`x`size`,
+    RGB (research.md §8) -- shared by `crop_circular_photo` and
+    `crop_square_thumbnail`."""
     image = source if isinstance(source, Image.Image) else Image.open(source)
     image = image.convert("RGB")
     width, height = image.size
     side = min(width, height)
     left = (width - side) // 2
     top = (height - side) // 2
-    square = image.crop((left, top, left + side, top + side)).resize(
-        (diameter, diameter)
-    )
+    return image.crop((left, top, left + side, top + side)).resize((size, size))
+
+
+def crop_circular_photo(
+    source: Image.Image | Path, diameter: int = PHOTO_DIAMETER_PX
+) -> Image.Image:
+    """`_centered_square_crop`, then masked to a circle (research.md §8) --
+    matches the intranet table's own avatar presentation."""
+    square = _centered_square_crop(source, diameter)
 
     mask = Image.new("L", (diameter, diameter), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, diameter, diameter), fill=255)
@@ -154,6 +158,23 @@ def crop_circular_photo(
     circular = Image.new("RGBA", (diameter, diameter))
     circular.paste(square, (0, 0), mask=mask)
     return circular
+
+
+# Interactive photo map marker thumbnails: the browser only ever displays a
+# member's photo at a fixed 40 CSS-px marker (main.js divIcon iconSize),
+# unaffected by the map's own zoom level -- so 120px (3x for high-DPI
+# screens) is ample and keeps shipped photo bytes/decode cost small
+# regardless of the original photo's resolution.
+INTERACTIVE_MAP_THUMBNAIL_PX = 120
+
+
+def crop_square_thumbnail(
+    source: Image.Image | Path, size: int = INTERACTIVE_MAP_THUMBNAIL_PX
+) -> Image.Image:
+    """`_centered_square_crop` with no circular mask -- the interactive map
+    crops to a circle itself via CSS (styles.css `.rkby-marker-photo`), so
+    only the square crop + downscale needs doing server-side."""
+    return _centered_square_crop(source, size)
 
 
 def draw_photo_circle(
