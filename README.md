@@ -9,6 +9,9 @@ scraped from the Team Rynkeby Intranet into things that help the team connect:
 - **Rider pairings** — suggest experienced/inexperienced rider pairs based on location
   and number of seasons ridden.
 - **Birthday calendar** — an importable `.ics` file with everyone's birthdays.
+- **Season stats report** — aggregate stats across all scraped seasons: median age,
+  male/female split, and member turnover (who left, who's new — accounting for people
+  who skip a season and return) broken down by role.
 
 See [REQUIREMENTS.md](REQUIREMENTS.md) for the full background and
 [.specify/memory/constitution.md](.specify/memory/constitution.md) for the project's
@@ -16,7 +19,8 @@ governing principles (privacy, data handling, script structure).
 
 > **Status:** `scripts/scrape_applicants.py` (applicant scraper & data persistence) and
 > `scripts/generate_member_maps.py` (member map generator) are implemented. The
-> rider-pairing suggester and birthday calendar are not built yet.
+> rider-pairing suggester, birthday calendar, and season stats report are not built
+> yet.
 
 ## Privacy first
 
