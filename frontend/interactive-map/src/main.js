@@ -71,6 +71,15 @@ function main() {
   // only across the zoom range they were actually baked for -- Leaflet
   // hides a GridLayer entirely outside its own minZoom/maxZoom, so at
   // zooms below this the base imageOverlay above is what's visible.
+  //
+  // pane: "overlayPane" is required, not cosmetic -- L.imageOverlay
+  // defaults to Leaflet's own "overlayPane" (z-index 400), while a plain
+  // GridLayer defaults to "tilePane" (z-index 200), a *lower* stacking
+  // context. Without this, the always-present base image silently paints
+  // over every tile regardless of zoom or how correctly the tiles
+  // themselves load -- exactly what happened here (only ever "the
+  // overview" was visible) until caught in a real browser, since a
+  // same-content test fixture made the two layers visually identical.
   const tileZooms = data.image.tileLevels.map((level) => Math.log2(level.scale));
   if (tileZooms.length > 0) {
     new BasemapTileLayer({
@@ -79,6 +88,7 @@ function main() {
       minZoom: Math.min(...tileZooms),
       maxZoom: Math.max(...tileZooms),
       bounds,
+      pane: "overlayPane",
     }).addTo(map);
   }
 
