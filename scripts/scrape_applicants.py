@@ -37,6 +37,7 @@ from scripts.rkby_records import (  # noqa: F401
     _dump_record_yaml,
     applicants_dir,
     auto_commit,
+    discover_seasons,
     load_existing_records,
     load_schema,
     logs_dir,
@@ -791,35 +792,35 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Scrape the Team Rynkeby intranet's applicant list for one season."
     )
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         "--season",
         help="Season to scrape, e.g. 2025-26 or 2025/26. Defaults based on today's date.",
+    )
+    group.add_argument(
+        "--update-data",
+        action="store_true",
+        help=(
+            "Re-scrape every season that already has data under RKBY_DATA_DIR, "
+            "instead of a single --season. Shortcut for running this script once "
+            "per existing season."
+        ),
     )
     return parser
 
 
-def main(argv: list[str] | None = None, today: datetime.date | None = None) -> int:
+def _run_one_season(client: IntranetClient, data_dir: Path, season_label: str) -> int:
+    """Scrape + persist one already-logged-in season, mirroring what a
+    single-season `main()` run does from season resolution onward. Never
+    raises -- a fetch/persist failure here is logged and turned into exit
+    code 1 so a multi-season --update-data run keeps going onto the next
+    season instead of aborting the whole batch."""
+    logger, _log_file = setup_run_logger(logs_dir(data_dir, season_label))
+
     try:
-        config = load_config()
-    except ConfigError as exc:
-        print(f"Configuration error: {exc}", file=sys.stderr)
-        return 1
-
-    args = build_arg_parser().parse_args(argv)
-    season_label = (
-        parse_season_arg(args.season)
-        if args.season
-        else default_season_label(today or datetime.datetime.now().astimezone().date())
-    )
-
-    logger, _log_file = setup_run_logger(logs_dir(config.data_dir, season_label))
-
-    client = IntranetClient()
-    try:
-        client.login(config.username, config.password)
         team_id, season_id = client.resolve_season(season_label)
         rows = fetch_all_pages(client, team_id, season_id)
-    except (AuthenticationError, FetchError, requests.RequestException) as exc:
+    except (FetchError, requests.RequestException) as exc:
         logger.error("Run aborted before any data was written: %s", exc)
         return 1
 
@@ -830,7 +831,7 @@ def main(argv: list[str] | None = None, today: datetime.date | None = None) -> i
     # existing record excluded rather than dropping it).
     try:
         summary = persist_records(
-            config.data_dir, season_label, season_id, rows, client, logger
+            data_dir, season_label, season_id, rows, client, logger
         )
     except InvalidExistingRecordError as exc:
         logger.error("Run aborted, existing data left untouched: %s", exc)
@@ -848,12 +849,62 @@ def main(argv: list[str] | None = None, today: datetime.date | None = None) -> i
         summary["validation_errors"],
     )
 
-    auto_commit_season(config.data_dir, season_label, summary, logger)
+    auto_commit_season(data_dir, season_label, summary, logger)
 
     # Non-zero exit even though we didn't abort: some applicants were
     # silently skipped this run (already logged above with full details)
     # and need a human to look at the log, not just a clean-looking exit.
     return 1 if summary["validation_errors"] else 0
+
+
+def main(argv: list[str] | None = None, today: datetime.date | None = None) -> int:
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        return 1
+
+    args = build_arg_parser().parse_args(argv)
+
+    if args.update_data:
+        season_labels = discover_seasons(config.data_dir)
+        if not season_labels:
+            print(
+                "No previously-scraped seasons found under RKBY_DATA_DIR; "
+                "--update-data has nothing to do.",
+                file=sys.stderr,
+            )
+            return 0
+    else:
+        season_labels = [
+            parse_season_arg(args.season)
+            if args.season
+            else default_season_label(
+                today or datetime.datetime.now().astimezone().date()
+            )
+        ]
+
+    client = IntranetClient()
+    try:
+        client.login(config.username, config.password)
+    except (AuthenticationError, requests.RequestException) as exc:
+        # Login is shared across every season in this run -- if it fails,
+        # every requested season's run would have failed the same way, so
+        # log the abort to each season's own log (FR-016) rather than
+        # picking one arbitrarily.
+        for season_label in season_labels:
+            logger, _log_file = setup_run_logger(
+                logs_dir(config.data_dir, season_label)
+            )
+            logger.error("Run aborted before any data was written: %s", exc)
+        return 1
+
+    exit_code = 0
+    for season_label in season_labels:
+        exit_code = max(
+            exit_code, _run_one_season(client, config.data_dir, season_label)
+        )
+    return exit_code
 
 
 if __name__ == "__main__":

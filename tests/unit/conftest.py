@@ -59,7 +59,9 @@ def register_season_selector() -> None:
     )
 
 
-def register_ajax_page(page: int, body: str, status: int = 200) -> None:
+def register_ajax_page(
+    page: int, body: str, status: int = 200, season: int = 1181
+) -> None:
     responses.add(
         responses.GET,
         AJAX_URL,
@@ -70,7 +72,7 @@ def register_ajax_page(page: int, body: str, status: int = 200) -> None:
                 {
                     "tableSettings": "true",
                     "teamid": "740",
-                    "season": "1181",
+                    "season": str(season),
                     "filter_status": "",
                     "page": str(page),
                 }
