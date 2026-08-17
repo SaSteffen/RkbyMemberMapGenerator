@@ -223,6 +223,14 @@ def _write_level_tiles(
     synthetic `level` dict instead of `BASEMAP_LEVELS`' real (large,
     slow-to-stitch) grids.
 
+    A chunk file already on disk is left untouched and never re-stitched --
+    `tiles/` is never deleted (see `_ensure_interactive_map_dir`), so a
+    chunk baked by an earlier run is reused rather than re-fetched/re-
+    rendered here. Note this means a chunk whose filename is unchanged but
+    whose *content* should differ -- e.g. after the combined bounding box
+    shifts enough to change `center`/`zoom` -- is not detected and will not
+    be refreshed; only genuinely new/missing chunks get written.
+
     Row numbering is bottom-anchored (row 0 = the chunk nearest the
     image's *bottom* edge, increasing upward) to match Leaflet's own
     `CRS.Simple` tile grid exactly: `main.js`'s `pixelToLatLng` puts
@@ -247,6 +255,9 @@ def _write_level_tiles(
         chunk_bottom = level_height - row * TILE_PX
         chunk_height = chunk_bottom - chunk_top
         for col in range(level["cols"]):
+            chunk_path = tiles_dir / f"{col}_{row}.jpg"
+            if chunk_path.exists():
+                continue
             chunk_width = min(TILE_PX, level_width - col * TILE_PX)
             chunk = stitch_region(
                 zoom=level["zoom"],
@@ -263,7 +274,7 @@ def _write_level_tiles(
                 # topmost row is ever partial under this numbering).
                 padded.paste(chunk, (0, TILE_PX - chunk_height))
                 chunk = padded
-            chunk.convert("RGB").save(tiles_dir / f"{col}_{row}.jpg", quality=85)
+            chunk.convert("RGB").save(chunk_path, quality=85)
 
 
 def generate_basemap(

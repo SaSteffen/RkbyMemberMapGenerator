@@ -171,3 +171,19 @@ def test_ensure_interactive_map_dir_removes_stale_files_from_a_prior_run(tmp_pat
 
     assert not stale_file.exists()
     assert (tmp_path / "interactive_map").is_dir()
+
+
+def test_ensure_interactive_map_dir_never_deletes_tiles(tmp_path):
+    """tiles/ (baked basemap chunks) must survive every run, unlike every
+    other interactive_map/ artifact -- regenerating them is slow/network-
+    bound, and generate_basemap relies on already-present chunk files being
+    left alone (bundle._write_level_tiles skips them)."""
+    _ensure_interactive_map_dir(tmp_path)
+    baked_tile = tmp_path / "interactive_map" / "tiles" / "2" / "0_0.jpg"
+    baked_tile.parent.mkdir(parents=True)
+    baked_tile.write_bytes(b"already-baked")
+
+    _ensure_interactive_map_dir(tmp_path)
+
+    assert baked_tile.exists()
+    assert baked_tile.read_bytes() == b"already-baked"

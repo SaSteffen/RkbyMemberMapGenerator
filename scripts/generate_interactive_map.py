@@ -82,14 +82,26 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def _ensure_interactive_map_dir(data_dir: Path) -> Path:
-    """Delete `<data_dir>/interactive_map/` if present, recreate it, and add
-    an `interactive_map/` entry to `<data_dir>/.gitignore` if not already
-    there. Called only after `build_frontend()` succeeds (contracts/cli-and-
-    env.md: pnpm failures are checked before any RKBY_DATA_DIR write)."""
+    """Delete everything under `<data_dir>/interactive_map/` except `tiles/`
+    if present, recreate the dir, and add an `interactive_map/` entry to
+    `<data_dir>/.gitignore` if not already there. Called only after
+    `build_frontend()` succeeds (contracts/cli-and-env.md: pnpm failures are
+    checked before any RKBY_DATA_DIR write).
+
+    `tiles/` (the stitched basemap chunk grid) is exempt from this wipe --
+    it must never be deleted, and `generate_basemap` skips re-stitching any
+    chunk file already on disk, so previously baked tiles survive every
+    later run (data-model.md § Idempotency exception, tiles/)."""
     interactive_map_dir = data_dir / "interactive_map"
     if interactive_map_dir.exists():
-        shutil.rmtree(interactive_map_dir)
-    interactive_map_dir.mkdir(parents=True)
+        for entry in interactive_map_dir.iterdir():
+            if entry.name == "tiles":
+                continue
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+    interactive_map_dir.mkdir(parents=True, exist_ok=True)
 
     gitignore_path = data_dir / ".gitignore"
     existing_lines = (

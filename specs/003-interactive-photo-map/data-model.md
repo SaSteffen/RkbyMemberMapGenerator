@@ -143,18 +143,33 @@ Extends the existing layout with one new top-level sibling of `seasons/` and
 │   ├── index.html               # copied verbatim from frontend/interactive-map/dist/
 │   ├── map-data.js              # generated fresh every run
 │   ├── basemap.jpg              # generated fresh every run
-│   └── photos/
-│       ├── placeholder.png
-│       └── <match_key>.<ext>
+│   ├── photos/
+│   │   ├── placeholder.png
+│   │   └── <match_key>.<ext>
+│   └── tiles/                   # baked chunk grid — NEVER deleted, see below
+│       └── <scale>/<x>_<y>.jpg
 └── seasons/                    # unchanged; latitude/longitude fill-empty-only shared with 002
 ```
 
 **Idempotency**: every run fully regenerates and overwrites `interactive_map/`'s
 contents — no stale `photos/<match_key>.<ext>` left behind for someone no longer
-eligible in any season, no stale `map-data.js`. Concrete rule: delete
-`interactive_map/` (if present) at the start of a run, before writing anything new
-into it — simpler than 002's glob-based partial deletion since this feature has
-exactly one artifact, not per-season files to selectively prune.
+eligible in any season, no stale `map-data.js`. Concrete rule: delete everything
+under `interactive_map/` (if present) at the start of a run, before writing
+anything new into it — simpler than 002's glob-based partial deletion since this
+feature has exactly one artifact, not per-season files to selectively prune.
+
+**Exception — `tiles/` is never deleted.** Unlike every other artifact above,
+`interactive_map/tiles/<scale>/<x>_<y>.jpg` is exempt from the wipe
+(`generate_interactive_map._ensure_interactive_map_dir` skips it explicitly), and
+`generate_basemap`/`_write_level_tiles` skip re-stitching any chunk file that's
+already on disk. A chunk, once baked, is downloaded/rendered exactly once and
+reused by every later run — not regenerated even if the underlying OSM source
+tiles or member set change. Trade-off, confirmed by the user: baking chunk grids
+is slow and the top priority is that a run must never throw away already-baked
+tiles, even at the cost of a chunk going stale (wrong imagery for its filename)
+if the combined bounding box ever shifts enough to change `center`/`zoom`. No
+staleness-detection/invalidation exists yet — if that trade-off ever bites,
+clearing the affected `tiles/<scale>/` folder by hand is the escape hatch.
 
 ## Frontend Build (generated per-run, not source-controlled)
 

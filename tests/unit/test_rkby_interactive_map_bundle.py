@@ -401,3 +401,52 @@ def test_generate_basemap_writes_uniformly_sized_tile_chunks(tmp_path, monkeypat
             bundle_module.TILE_PX,
             bundle_module.TILE_PX,
         )
+
+
+def test_generate_basemap_never_rewrites_an_already_baked_tile_chunk(
+    tmp_path, monkeypatch
+):
+    """A chunk file already on disk (baked by an earlier run) is reused as
+    -- is: generate_basemap must not re-stitch it or re-fetch the OSM tiles
+    under it, so a fully-baked tiles/ tree makes later runs a no-network
+    no-op for tiles (tiles/ is also never deleted -- see
+    generate_interactive_map._ensure_interactive_map_dir)."""
+    import re
+
+    import responses
+
+    monkeypatch.setattr(bundle_module, "CANVAS_SIZE", (64, 64))
+
+    tile_url_pattern = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.png")
+    tile_cache_dir = tmp_path / ".tile_cache"
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    members = [_member("jane-doe", 53.55, 9.99)]
+
+    with responses.RequestsMock() as mocked:
+        mocked.add(
+            responses.GET,
+            tile_url_pattern,
+            body=(FIXTURES_DIR / "osm_tile_fixture.png").read_bytes(),
+            status=200,
+            content_type="image/png",
+        )
+        generate_basemap(interactive_map_dir, members, tile_cache_dir)
+
+    tiles_root = interactive_map_dir / "tiles"
+    scale_dirs = sorted(tiles_root.iterdir(), key=lambda p: int(p.name))
+    first_chunk = min((scale_dirs[0]).glob("*.jpg"))
+    sentinel = b"already-baked-sentinel-bytes"
+    first_chunk.write_bytes(sentinel)
+
+    with responses.RequestsMock(assert_all_requests_are_fired=False) as mocked:
+        mocked.add(
+            responses.GET,
+            tile_url_pattern,
+            body=(FIXTURES_DIR / "osm_tile_fixture.png").read_bytes(),
+            status=200,
+            content_type="image/png",
+        )
+        generate_basemap(interactive_map_dir, members, tile_cache_dir)
+
+    assert first_chunk.read_bytes() == sentinel
