@@ -106,23 +106,30 @@ This project uses [uv](https://docs.astral.sh/uv/) for Python dependency and
 environment management, and — for `scripts/generate_interactive_map.py`, which
 builds its frontend on every run (see
 [specs/003-interactive-photo-map/](specs/003-interactive-photo-map/)) — Node.js
-(via [nvm](https://github.com/nvm-sh/nvm), version pinned in
-[.nvmrc](.nvmrc)) and [pnpm](https://pnpm.io/) (via Node's bundled
-[Corepack](https://nodejs.org/api/corepack.html)). Every other script is
-Python-only and doesn't need Node at all.
+(version pinned in [.nvmrc](.nvmrc)) and [pnpm](https://pnpm.io/) (via Node's
+bundled [Corepack](https://nodejs.org/api/corepack.html)). Every other script
+is Python-only and doesn't need Node at all.
 
-Run the setup script to install/verify both toolchains in one go:
+### Option A: dev container (recommended)
 
-```bash
-./setup.sh
-```
+[.devcontainer/](.devcontainer/) defines a container with Python, Node, uv,
+and pnpm preinstalled — open the repo in it (e.g. VS Code's "Reopen in
+Container", or the standalone [`devcontainer` CLI](https://github.com/devcontainers/cli))
+and it runs `uv sync`, installs the git hooks, and activates `pnpm` for you.
 
-It installs `uv` and `nvm` if they're missing, runs `uv sync`, installs the
-Node version pinned in `.nvmrc` and activates `pnpm` via Corepack, and installs
-the git hooks (see "Git hooks" below). Safe to re-run any time.
+It also bind-mounts your local `RKBY_DATA_DIR` into the container at the same
+path, so `.env` (see below) works unchanged on both sides. That means
+`RKBY_DATA_DIR` must already be set **in the host shell/session you open the
+container from** — e.g. via `direnv` (this repo ships an `.envrc` that
+`source`s `.env`) if you launch VS Code with `code .` from a terminal in this
+repo, or by exporting it in your shell profile. If it's unset, the container
+mount fails on creation.
 
-Equivalent manual steps, if you'd rather not run the script (or need to debug
-one piece of it):
+Real member data never leaves your machine this way — the container runs
+locally, and the mount is a local bind mount, not a copy (constitution
+Principle I).
+
+### Option B: local toolchain
 
 ```bash
 # Python deps (creates .venv/ automatically)
@@ -132,7 +139,9 @@ uv sync
 # on commit message) — see "Git hooks" below
 uv run pre-commit install --install-hooks
 
-# Node, pinned to the version in .nvmrc (only needed for the interactive map)
+# Node, pinned to the version in .nvmrc (only needed for the interactive map;
+# install via nvm — https://github.com/nvm-sh/nvm — or any Node version
+# manager that reads .nvmrc)
 nvm install
 nvm use
 corepack enable

@@ -1,0 +1,23 @@
+{
+  "name": "rkby-member-map-generator",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bookworm",
+  "features": {
+    // Keep in sync with .nvmrc — no nvm needed here, the container only
+    // ever runs this one pinned Node version.
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" }
+  },
+  "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/postCreate.sh ${containerWorkspaceFolder}",
+  // Bind-mounts your local RKBY_DATA_DIR at the same path inside the
+  // container, so .env's RKBY_DATA_DIR value works unchanged on both sides.
+  // Requires RKBY_DATA_DIR to be set in the host shell/session that opens
+  // this dev container (e.g. `code .` from a terminal where direnv has
+  // already loaded it from .env) — see README "Getting started".
+  "mounts": [
+    "source=${localEnv:RKBY_DATA_DIR},target=${localEnv:RKBY_DATA_DIR},type=bind,consistency=cached"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "charliermarsh.ruff"]
+    }
+  }
+}
