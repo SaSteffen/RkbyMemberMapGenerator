@@ -163,3 +163,21 @@ def test_compute_additional_roles_returns_the_full_list_when_primary_role_unknow
 
 def test_compute_additional_roles_passes_through_none_when_roles_list_unknown():
     assert _compute_additional_roles(None, "Rider") is None
+
+
+def test_compute_additional_roles_drops_the_unknown_placeholder():
+    # The Roles box sometimes lists the literal text "Unknown" for a role
+    # that hasn't been assigned -- not a real role, must never surface here.
+    assert _compute_additional_roles(
+        ["Rider", "Unknown", "Finance Manager"], "Rider"
+    ) == ["Finance Manager"]
+
+
+def test_compute_additional_roles_drops_the_unknown_placeholder_case_insensitively():
+    assert _compute_additional_roles(["Rider", "UNKNOWN"], "Rider") == []
+
+
+def test_compute_additional_roles_drops_unknown_even_without_a_known_primary_role():
+    assert _compute_additional_roles(["Unknown", "Finance Manager"], None) == [
+        "Finance Manager"
+    ]

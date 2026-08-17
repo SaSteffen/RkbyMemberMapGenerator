@@ -159,6 +159,26 @@ def test_merge_record_backfills_role_on_a_pre_existing_record_missing_the_key():
     assert merged["role"] == "Rider"
 
 
+def test_merge_record_drops_a_stale_unknown_placeholder_from_additional_roles():
+    # A record persisted before "Unknown" filtering existed -- must self-heal
+    # on the next scrape run rather than needing a one-off data migration.
+    existing = _base_record(additional_roles=["Unknown", "Finance Manager"])
+    scraped = {"address": None, "phone": None, "birthday": None}
+
+    merged = merge_record(existing, scraped)
+
+    assert merged["additional_roles"] == ["Finance Manager"]
+
+
+def test_merge_record_leaves_additional_roles_alone_when_none():
+    existing = _base_record(additional_roles=None)
+    scraped = {"address": None, "phone": None, "birthday": None}
+
+    merged = merge_record(existing, scraped)
+
+    assert merged["additional_roles"] is None
+
+
 def test_merge_record_never_rewrites_the_frozen_status_field():
     existing = _base_record(status="yes")
     scraped = {"address": None, "phone": None, "birthday": None, "status": "no"}

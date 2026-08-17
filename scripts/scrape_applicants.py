@@ -371,26 +371,37 @@ def _parse_roles(html: str) -> list[str] | None:
     return [part.strip() for part in el.get_text().split(",") if part.strip()]
 
 
+def _is_unknown_role(role: str) -> bool:
+    """The intranet's Roles box sometimes emits the literal placeholder text
+    "Unknown" for an applicant whose additional-role assignment hasn't been
+    made yet -- not a real role, so it must never surface in
+    `additional_roles`."""
+    return role.strip().lower() == "unknown"
+
+
 def _compute_additional_roles(
     all_roles: list[str] | None, primary_role: str | None
 ) -> list[str] | None:
-    """Every role from `_parse_roles` except the primary one. The Roles box
-    spells the primary role out in full (e.g. "Service Crew") while the
-    applicant table/Team-application tab abbreviate it (e.g. "Service"), so
-    the primary role is dropped by case-insensitive substring match rather
-    than an exact one -- the first matching entry is dropped, the rest kept.
-    Without a known primary role (e.g. a never-set `role` field) nothing can
-    be safely excluded, so the full list is returned unchanged."""
+    """Every role from `_parse_roles` except the primary one and any
+    "Unknown" placeholder (see `_is_unknown_role`). The Roles box spells the
+    primary role out in full (e.g. "Service Crew") while the applicant
+    table/Team-application tab abbreviate it (e.g. "Service"), so the primary
+    role is dropped by case-insensitive substring match rather than an exact
+    one -- the first matching entry is dropped, the rest kept. Without a
+    known primary role (e.g. a never-set `role` field) the primary role can't
+    be safely excluded, so only "Unknown" is filtered."""
     if all_roles is None:
         return None
     if not primary_role:
-        return list(all_roles)
+        return [role for role in all_roles if not _is_unknown_role(role)]
     primary_lower = primary_role.strip().lower()
     additional: list[str] = []
     dropped_primary = False
     for role in all_roles:
         if not dropped_primary and primary_lower in role.lower():
             dropped_primary = True
+            continue
+        if _is_unknown_role(role):
             continue
         additional.append(role)
     return additional
@@ -662,11 +673,21 @@ def _guess_photo_extension(thumbnail_url: str | None) -> str:
 def merge_record(existing: dict, scraped: dict) -> dict:
     """Fill-empty-only merge (FR-009): a field already holding a value is
     never overwritten by a new scrape; `status` is frozen at creation and
-    never touched here. Returns a new dict; does not mutate `existing`."""
+    never touched here. Returns a new dict; does not mutate `existing`.
+
+    `additional_roles` is the one exception to fill-empty-only: it's always
+    re-filtered to drop any "Unknown" placeholder (see `_is_unknown_role`)
+    even when already populated, so records persisted before that filtering
+    existed self-heal on their next scrape run instead of needing a one-off
+    migration."""
     merged = dict(existing)
     for field in ("address", "phone", "birthday", "role"):
         if not merged.get(field) and scraped.get(field):
             merged[field] = scraped[field]
+    if merged.get("additional_roles"):
+        merged["additional_roles"] = [
+            role for role in merged["additional_roles"] if not _is_unknown_role(role)
+        ]
     return merged
 
 
