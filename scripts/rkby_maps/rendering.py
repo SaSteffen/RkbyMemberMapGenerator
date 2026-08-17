@@ -6,16 +6,33 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
-PIN_RADIUS_PX = 10
-PHOTO_DIAMETER_PX = 48
+# Linear pixel multiplier applied to the canvas (generate_member_maps.py) and
+# every marker/font size drawn on it, so the output is 4x the total pixel
+# count of the original design (2x per axis) without changing any map's
+# real-world framing or the proportions of what's drawn on it.
+RESOLUTION_SCALE = 2
+
+PIN_RADIUS_PX = 10 * RESOLUTION_SCALE
+PHOTO_DIAMETER_PX = 48 * RESOLUTION_SCALE
 PHOTO_RADIUS_PX = PHOTO_DIAMETER_PX // 2
 # Fraction of the photo diameter each additional overlapping member's circle
 # is offset by (research.md §8: "offset... so faces stay individually
 # visible instead of fully stacking"). Higher = less overlap between
 # adjacent circles.
 PHOTO_OFFSET_FRACTION = 0.8
+
+# Matches the ~8px cap-height of PIL's fixed default bitmap font at
+# RESOLUTION_SCALE == 1, so text keeps the same on-map proportions as before
+# scaling -- just crisper, since this loads Pillow's bundled scalable font
+# instead of the fixed-size bitmap one.
+_FONT_SIZE = round(11 * RESOLUTION_SCALE)
+
+
+def _default_font() -> ImageFont.FreeTypeFont:
+    return ImageFont.load_default(size=_FONT_SIZE)
+
 
 # Team Rynkeby mascot, used on the photo map in place of any member with no
 # photo on file (FR-004: every plottable member appears on the photo map).
@@ -66,7 +83,7 @@ def _pick_scale_bar_km(meters_per_pixel: float, canvas_width_px: int) -> float:
 
 
 def draw_scale_bar(
-    image: Image.Image, meters_per_pixel: float, margin: int = 20
+    image: Image.Image, meters_per_pixel: float, margin: int = 20 * RESOLUTION_SCALE
 ) -> None:
     """Draw a labeled ruler bar in the bottom-right corner reflecting this
     map's actual rendered scale (FR-008, research.md §6)."""
@@ -78,30 +95,41 @@ def draw_scale_bar(
     x_end = canvas_width - margin
     x_start = x_end - bar_px
     y = canvas_height - margin
-    tick_half_height = 6
+    tick_half_height = 6 * RESOLUTION_SCALE
+    line_width = 3 * RESOLUTION_SCALE
 
-    draw.line((x_start, y, x_end, y), fill="black", width=3)
+    draw.line((x_start, y, x_end, y), fill="black", width=line_width)
     draw.line(
         (x_start, y - tick_half_height, x_start, y + tick_half_height),
         fill="black",
-        width=3,
+        width=line_width,
     )
     draw.line(
         (x_end, y - tick_half_height, x_end, y + tick_half_height),
         fill="black",
-        width=3,
+        width=line_width,
     )
 
     label = f"{bar_km:g} km"
-    draw.text((x_start, y - tick_half_height - 16), label, fill="black")
+    draw.text(
+        (x_start, y - tick_half_height - 16 * RESOLUTION_SCALE),
+        label,
+        fill="black",
+        font=_default_font(),
+    )
 
 
-def draw_attribution(image: Image.Image, margin: int = 10) -> None:
+def draw_attribution(image: Image.Image, margin: int = 10 * RESOLUTION_SCALE) -> None:
     """Draw the required OSM attribution text in the bottom-left corner
     (research.md §2) -- always present, never affected by --no-scale-bar."""
     _canvas_width, canvas_height = image.size
     draw = ImageDraw.Draw(image)
-    draw.text((margin, canvas_height - margin - 12), ATTRIBUTION_TEXT, fill="black")
+    draw.text(
+        (margin, canvas_height - margin - 12 * RESOLUTION_SCALE),
+        ATTRIBUTION_TEXT,
+        fill="black",
+        font=_default_font(),
+    )
 
 
 def crop_circular_photo(
@@ -164,7 +192,7 @@ def draw_merged_pin(
     draw_pin(image, position, color=color, radius=radius)
 
     x, y = position
-    badge_radius = max(round(radius * 0.7), 6)
+    badge_radius = max(round(radius * 0.7), 6 * RESOLUTION_SCALE)
     badge_center = (x + radius + badge_radius, y - radius - badge_radius)
     draw = ImageDraw.Draw(image)
     draw.ellipse(
@@ -177,13 +205,18 @@ def draw_merged_pin(
         fill="black",
     )
     label = str(count)
-    text_bbox = draw.textbbox((0, 0), label)
+    font = _default_font()
+    text_bbox = draw.textbbox((0, 0), label, font=font)
     text_width = text_bbox[2] - text_bbox[0]
     text_height = text_bbox[3] - text_bbox[1]
     draw.text(
-        (badge_center[0] - text_width / 2, badge_center[1] - text_height / 2 - 2),
+        (
+            badge_center[0] - text_width / 2,
+            badge_center[1] - text_height / 2 - 2 * RESOLUTION_SCALE,
+        ),
         label,
         fill="white",
+        font=font,
     )
 
 

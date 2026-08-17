@@ -223,8 +223,10 @@ def test_draw_merged_pin_draws_a_distinguishable_badge_near_the_pin():
 
     # The badge sits offset to the pin's upper-right (research.md §8) -- some
     # pixel there must differ from both the background and the pin's own
-    # fill color, proving a distinct badge shape was drawn.
-    region = canvas.crop((100, 55, 130, 75))
+    # fill color, proving a distinct badge shape was drawn. The region below
+    # is the whole upper-right quadrant relative to the pin center, generous
+    # enough to contain the badge at any PIN_RADIUS_PX.
+    region = canvas.crop((100, 0, 200, 75))
     region_colors = {pixel for pixel in region.getdata()}
     assert region_colors - {BACKGROUND, _hex_to_rgb("#4C8C86")}
 

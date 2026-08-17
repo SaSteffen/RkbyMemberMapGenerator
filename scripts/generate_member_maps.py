@@ -38,6 +38,7 @@ from scripts.rkby_maps.rendering import (
     PHOTO_RADIUS_PX,
     PIN_RADIUS_PX,
     PLACEHOLDER_PHOTO_PATH,
+    RESOLUTION_SCALE,
     crop_circular_photo,
     draw_attribution,
     draw_merged_pin,
@@ -59,7 +60,7 @@ from scripts.rkby_records import (
 )
 
 DEFAULT_MIN_WIDTH_KM = 15
-CANVAS_SIZE = (1600, 1200)
+CANVAS_SIZE = (1600 * RESOLUTION_SCALE, 1200 * RESOLUTION_SCALE)
 # Geographic center of Germany -- used only as the overview map's center for
 # a season with zero plottable members (Assumptions: "Empty/degenerate
 # seasons" still produce a near-empty overview rather than being skipped).
@@ -75,7 +76,7 @@ DETAIL_MAP_PADDING_KM = 0.5
 # canvas edge is left off that specific map instead: a marker clipped by (or
 # crowding right up against) the border reads worse than one member simply not
 # appearing on this particular detail map -- they still appear on the overview.
-DETAIL_MAP_EDGE_MARGIN_PX = 50
+DETAIL_MAP_EDGE_MARGIN_PX = 50 * RESOLUTION_SCALE
 
 _GITIGNORE_ENTRIES = ("maps/", ".tile_cache/")
 
