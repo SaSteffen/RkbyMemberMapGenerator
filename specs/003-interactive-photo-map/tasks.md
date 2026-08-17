@@ -265,24 +265,24 @@ every season off, confirm an empty (not erroring) map.
 
 ### Tests for User Story 2 (write first, confirm it fails)
 
-- [ ] T030 [P] [US2] `frontend/interactive-map/src/popupData.test.js`:
+- [X] T030 [P] [US2] `frontend/interactive-map/src/popupData.test.js`:
   `isVisible(member, activeSeasons)` is `true` iff at least one key of
   `member.seasons` is in `activeSeasons`, `false` otherwise (FR-006) — against the
   not-yet-existing `popupData.js`.
 
 ### Implementation for User Story 2
 
-- [ ] T031 [US2] `frontend/interactive-map/src/popupData.js`:
+- [X] T031 [US2] `frontend/interactive-map/src/popupData.js`:
   `isVisible(member, activeSeasons)` pure function. Makes T030 pass.
-- [ ] T032 [US2] `main.js`: one checkbox/toggle per entry in `map-data.js`'s
+- [X] T032 [US2] `main.js`: one checkbox/toggle per entry in `map-data.js`'s
   `seasons` list, rendered directly on the map (desktop) — including a season
   with zero eligible members, still present and selectable (Edge Cases). Same
   file as US1's `main.js` edits — sequential.
-- [ ] T033 [US2] `main.js`: wire checkbox state changes to `isVisible()` (T031) +
+- [X] T033 [US2] `main.js`: wire checkbox state changes to `isVisible()` (T031) +
   Leaflet `LayerGroup.addLayer`/`removeLayer`, re-syncing visible markers
   immediately with no reload (FR-008); zero active seasons shows an empty map, not
   an error (Edge Cases). Same file — sequential.
-- [ ] T034 [US2] `main.js`: on load, activate exactly the `defaultSeasonLabel()`
+- [X] T034 [US2] `main.js`: on load, activate exactly the `defaultSeasonLabel()`
   (or its fallback, T022) season as the sole initially-checked control (FR-007),
   every other season control present but unchecked. Same file — sequential.
 
