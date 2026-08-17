@@ -132,10 +132,23 @@ eligible in any season, no stale `map-data.js`. Concrete rule: delete
 into it — simpler than 002's glob-based partial deletion since this feature has
 exactly one artifact, not per-season files to selectively prune.
 
-## Frontend Build Output (source-controlled, not generated per-run)
+## Frontend Build (generated per-run, not source-controlled)
 
-`frontend/interactive-map/dist/index.html` — produced by `npm run build` inside
-`frontend/interactive-map/` (Vite + `vite-plugin-singlefile`, research.md §1, §10),
-committed to git like any other vendored asset. `scripts/generate_interactive_map.py`
-treats this file as a required, read-only input — it errors clearly if `dist/` is
-missing rather than trying to build it itself.
+`frontend/interactive-map/dist/index.html` — produced fresh, every run, by
+`scripts/generate_interactive_map.py` itself shelling out to `pnpm install
+--frozen-lockfile` then `pnpm run build` inside `frontend/interactive-map/` (Vite +
+`vite-plugin-singlefile`, research.md §1, §10) before doing anything else. `dist/`
+is gitignored — nothing built ever lands in this repo's git history; only
+`frontend/interactive-map/src/`, `package.json`, and `pnpm-lock.yaml` are
+source-controlled. The script errors clearly (non-zero exit, before any
+`RKBY_DATA_DIR` write) if `pnpm` isn't on `PATH` or either subprocess fails.
+
+## View Mode (client-side, ephemeral — not part of the generated data)
+
+Not written into `map-data.js` at all — purely a runtime UI state living in the
+browser tab for as long as the page stays loaded (research.md §13). `"desktop"` or
+`"mobile"`, chosen once at load by `shouldDefaultToMobile(viewportWidth,
+isCoarsePointer)`, thereafter changed only by the settings control. Determines
+*how* the same `popupData()` result (§ Bundled Map Data, unchanged either way) is
+displayed — a Leaflet hover popup in desktop mode, a bottom drawer in mobile mode —
+never what data is available.

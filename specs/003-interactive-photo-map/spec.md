@@ -22,6 +22,16 @@ need to merge records. use the match_key for this. information is taken from the
 latest record/season available for that person. since roles change: show them
 separately for each season in the hover."
 
+**Amendment (2026-08-17) #2**: "i need a 'mobile' version of the page, so it can be
+viewed on a mobile phone. mode shall be auto-detected by the page, shall be
+switchable via a button in the settings." Follow-up clarifications: tapping a photo
+opens a bottom drawer with that member's popup information (scrollable, at most half
+the viewport height, with a close control), closing on its own close control or on
+tapping elsewhere on the map — mobile-only, replacing hover; the settings control
+houses both the mode switch and season selection on mobile (desktop keeps season
+controls directly visible, unchanged); auto-detection considers both viewport width
+and touch/pointer capability.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Explore the current season on one navigable map (Priority: P1)
@@ -155,6 +165,51 @@ the generating machine.
 
 ---
 
+### User Story 5 - View and interact with the map from a mobile phone (Priority: P5)
+
+As a team organizer or member opening the shared map on a phone, I want the map to
+automatically switch to a touch-friendly layout — tapping a photo instead of
+hovering it, and season/mode controls tucked into settings instead of crowding a
+small screen — so the map stays fully usable without a mouse, with no separate
+mobile build to generate or share.
+
+**Why this priority**: Builds on every other story — mobile mode changes *how*
+Stories 1-4's capabilities are reached on a touchscreen, it doesn't add a new
+capability of its own. Lowest priority since the map is already fully functional
+and shareable without it, but many recipients of a shared folder will first open it
+on a phone.
+
+**Independent Test**: Open the generated map in a narrow-viewport or touch-primary
+browsing context and confirm mobile mode is active by default; tap a member's photo
+and confirm a bottom drawer opens with that member's popup information; confirm the
+drawer closes via its own close control or by tapping elsewhere on the map; and
+confirm a settings control lets the viewer switch to desktop mode and back at will.
+
+**Acceptance Scenarios**:
+
+1. **Given** the map is opened in a narrow-viewport or touch-primary browsing
+   context, **When** the page finishes loading, **Then** mobile mode is active by
+   default, without the viewer choosing anything.
+2. **Given** mobile mode is active, **When** the viewer taps a member's photo,
+   **Then** a drawer opens from the bottom of the screen, covering at most half the
+   viewport's height, showing that member's popup information (the same fields as
+   the desktop hover popup — FR-015/FR-016), scrolling internally if its content
+   doesn't fit.
+3. **Given** the drawer is open, **When** the viewer taps its close control, or taps
+   anywhere else on the map, **Then** the drawer closes.
+4. **Given** either mode is active, **When** the viewer opens the settings control,
+   **Then** they can switch to the other mode; switching back is available the same
+   way at any time.
+5. **Given** the map is opened in a wide, mouse-primary browsing context, **When**
+   the page finishes loading, **Then** desktop mode (hover popups, as already
+   specified) is active by default.
+6. **Given** either mode was reached via the settings control (not auto-detection),
+   **When** the viewer continues using the map, **Then** that manual choice is
+   respected for the rest of that viewing session — the page does not silently
+   revert to the auto-detected mode.
+
+---
+
 ### Edge Cases
 
 - A member has no address on file, or an address that cannot be resolved to a
@@ -195,6 +250,13 @@ the generating machine.
   it.
 - A viewer opens the shared folder on a machine with no network access at all → the
   map still fully loads and every interaction still works (Story 4).
+- The viewer resizes the browser window, or rotates the device, after the map has
+  already loaded → the active mode does not silently change; auto-detection only
+  decides the mode at initial load (Story 5), and thereafter only the settings
+  control changes it.
+- The drawer is open on mobile and the viewer taps a *different* member's photo
+  (rather than closing it first) → the drawer's content switches to that member,
+  it does not stack a second drawer or require closing first.
 
 ## Requirements *(mandatory)*
 
@@ -283,6 +345,29 @@ the generating machine.
 - **FR-022**: If the interactive map bundles third-party geographic imagery, the
   system MUST comply with that imagery source's usage and attribution requirements,
   consistent with how the existing map generator already attributes its basemap.
+- **FR-023**: On first load, before the viewer changes anything, the system MUST
+  automatically select mobile mode when the viewing context is narrow-viewport or
+  touch-primary, and desktop mode otherwise.
+- **FR-024**: The system MUST provide a settings control that lets the viewer switch
+  between mobile and desktop mode at any time, regardless of which mode was
+  auto-detected; once manually chosen, that choice MUST persist for the rest of that
+  viewing session rather than being overridden by auto-detection again.
+- **FR-025**: In mobile mode, tapping a member's photo MUST open a bottom drawer —
+  in place of the desktop hover popup — containing that member's popup information
+  (the same fields FR-015/FR-016 require), constrained to at most half the
+  viewport's height and scrollable if its content exceeds that.
+- **FR-026**: In mobile mode, the drawer MUST close when the viewer taps its own
+  close control or taps anywhere else on the map, and MUST switch to a different
+  member's information (without requiring a separate close-then-reopen step) when
+  the viewer taps another member's photo while it's open.
+- **FR-027**: In mobile mode, the season-selection controls (FR-006) MUST be
+  reachable from the same settings control as the mode switch rather than needing
+  to stay permanently visible on a small screen; in desktop mode, they remain
+  directly visible on the map as already specified.
+- **FR-028**: Every interaction already required in desktop mode (pan, zoom, the
+  on-screen zoom/pan buttons, season selection, member identification) MUST also be
+  available in mobile mode, adapted for touch input where the desktop equivalent
+  (hover) doesn't apply.
 
 ### Key Entities
 
@@ -297,7 +382,14 @@ the generating machine.
   person has eligible records in more than one currently active season.
 - **Popup Detail**: The name and previous-season count (each single-valued, from the
   person's latest eligible record) plus a per-active-season list of role entries,
-  shown when a marker is hovered (FR-015/FR-016).
+  shown when a marker is hovered (FR-015/FR-016) on desktop, or tapped open in the
+  mobile drawer (FR-025/FR-026) on mobile — same fields, two different display
+  mechanisms.
+- **View Mode**: Either "desktop" (hover popups, season controls directly visible)
+  or "mobile" (tap-to-open bottom drawer, season controls under settings) —
+  auto-detected once at load from viewport/pointer characteristics (FR-023), and
+  overridable via the settings control for the rest of that viewing session
+  (FR-024).
 
 ## Success Criteria *(mandatory)*
 
@@ -335,6 +427,10 @@ the generating machine.
 - **SC-011**: Generating the single interactive-map artifact across all of this
   team's current seasons (several seasons, roughly 200 member records each) completes
   in under 15 minutes on a typical laptop.
+- **SC-012**: A viewer opening the shared map in a narrow-viewport or touch-primary
+  browsing context sees mobile mode active without taking any action, can identify
+  any member via tap-to-open drawer, and can switch to desktop mode and back via
+  settings at any time.
 
 ## Assumptions
 
@@ -385,5 +481,15 @@ the generating machine.
   an image) — deciding who receives the folder remains a human/organizational
   decision outside this tool's scope.
 - **Browser support**: "Standard, current web browser" means a recent version of a
-  mainstream desktop browser (e.g. Chrome, Firefox, Edge, Safari); older or niche
-  browsers are out of scope.
+  mainstream browser (e.g. Chrome, Firefox, Edge, Safari) on desktop *or* mobile;
+  older or niche browsers are out of scope.
+- **Mode-switch scope**: FR-024's "persist for the rest of that viewing session"
+  means for as long as the page stays open/loaded — a manual mode choice is not
+  required to survive a page reload or a later re-opening of the same artifact
+  (mirrors FR-007's default-season rule also being re-evaluated fresh each time the
+  map is opened, not remembered from a prior visit).
+- **Auto-detection thresholds**: the exact viewport-width and pointer-capability
+  thresholds that decide "narrow-viewport or touch-primary" (FR-023) are a technical
+  decision left to planning, the same way the existing map generator's clustering
+  radius was — any reasonable, standard responsive-design breakpoint satisfies the
+  requirement's intent.

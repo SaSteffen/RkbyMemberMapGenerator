@@ -2,12 +2,14 @@
 
 Validation guide for this feature once implemented. Assumes `uv sync` has already
 been run in the repo root, that `specs/001-scraper-persistence`'s scraper has
-populated at least one season of local data, and — new for this feature — that the
-frontend has been built at least once (its output is committed to git, so a fresh
-checkout already has it; only rebuild after editing `frontend/interactive-map/src/`).
+populated at least one season of local data, and that **Node.js + `pnpm`** are
+installed and on `PATH` — `generate_interactive_map.py` builds
+`frontend/interactive-map/` itself on every run (research.md §1); there's no
+separate "build the frontend first" step to remember.
 
 ## Prerequisites
 
+- Node.js and `pnpm` available: `node --version && pnpm --version`.
 - A local data directory with at least one (ideally two, for Scenario 3) seasons
   already scraped:
 
@@ -21,13 +23,6 @@ checkout already has it; only rebuild after editing `frontend/interactive-map/sr
   copy real member data, per Constitution I), including at least one `match_key`
   present in two different seasons with different `role` values (to exercise the
   cross-season merge, Story 2/3).
-
-- `frontend/interactive-map/dist/index.html` exists (it's committed to git — only
-  regenerate it if you've changed `frontend/interactive-map/src/`):
-
-  ```bash
-  cd frontend/interactive-map && npm install && npm run build && cd -
-  ```
 
 ## Scenario 1 — First run: generate the one artifact (Story 1 + Story 2)
 
@@ -106,11 +101,32 @@ uv run scripts/generate_interactive_map.py
 **Expect**: `interactive_map/` reflects only the current data — no stale photo file
 for a removed member, no stale role text in `map-data.js`.
 
+## Scenario 7 — Mobile mode: auto-detect, drawer, and settings (Story 5)
+
+```bash
+open "$RKBY_DATA_DIR/interactive_map/index.html"
+```
+
+In the browser, open DevTools' device toolbar (or resize the window narrow) to
+simulate a phone-sized, touch-primary viewport, then reload the page.
+
+**Expect**: mobile mode is active by default (FR-023) — no hover popups; season
+checkboxes are no longer directly on the map. Tap a member's photo: a drawer opens
+from the bottom, at most half the viewport tall, scrollable, showing the same
+name/previous-seasons/per-active-season-role fields as the desktop popup (FR-025).
+Tap the drawer's close control, or tap elsewhere on the map: it closes (FR-026).
+Tap a different member's photo while the drawer is open: its content switches in
+place. Open the settings control: season selection is there alongside the mode
+switch (FR-027); switch to desktop mode and confirm hover popups + inline season
+checkboxes return; switch back. Resize/rotate the viewport without touching
+settings: the active mode does not change on its own (Edge Cases).
+
 ## Running the automated test suites
 
 ```bash
-uv run pytest                                            # Python: merge/eligibility/bundling logic
-cd frontend/interactive-map && npm test && cd -           # Vitest: defaultSeasonLabel, popupData, declutterPositions
+uv run pytest                                              # Python: merge/eligibility/bundling logic
+cd frontend/interactive-map && pnpm install && pnpm test && cd -   # Vitest: defaultSeasonLabel,
+                                                             #   popupData, declutterPositions, mode
 ```
 
 **Expect**: all tests pass, entirely offline, none touching real member data or the

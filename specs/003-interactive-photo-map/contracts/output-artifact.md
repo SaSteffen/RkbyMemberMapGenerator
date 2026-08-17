@@ -63,6 +63,21 @@ asset paths, data injected via a classic `<script src="map-data.js">` rather tha
 - **Attribution**: `"© OpenStreetMap contributors"`, always visible via Leaflet's
   built-in bottom-right attribution control, never hidden behind a toggle
   (research.md §8, FR-022).
+- **View mode**: on load, the page auto-selects **desktop mode** (hover popups,
+  season checkboxes directly on the map, as described above) or **mobile mode**
+  (below), based on viewport width and pointer capability (FR-023, research.md
+  §13). A settings control switches between the two at any time; a manual choice
+  holds for the rest of that page load (FR-024) — it is not remembered across a
+  reload.
+- **Mobile mode**: tapping a marker opens a drawer from the bottom of the screen —
+  at most half the viewport's height, scrollable, with its own close control —
+  showing the same popup fields FR-015/FR-016 specify (FR-025). The drawer closes
+  on its own close control or on tapping elsewhere on the map, and switches to a
+  different member's content in place if another marker is tapped while it's open
+  (FR-026). Season selection moves into the settings control alongside the mode
+  switch, rather than staying permanently on-screen (FR-027). Pan, zoom, the
+  on-screen zoom/pan buttons, and member identification all remain available,
+  adapted for touch where hover doesn't apply (FR-028).
 
 ## Skipped members
 

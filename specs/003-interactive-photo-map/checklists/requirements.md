@@ -43,3 +43,9 @@
   interactive map per season" to "one combined artifact spanning all seasons, with
   in-browser season selection and cross-season person merging by match_key." All
   checklist items still pass; no new [NEEDS CLARIFICATION] markers were introduced.
+- **2026-08-17 amendment #2**: revalidated after adding User Story 5 (mobile mode:
+  auto-detected desktop/mobile view, tap-to-open bottom drawer replacing hover,
+  settings-panel mode switch + season selection on mobile). All checklist items
+  still pass; no new [NEEDS CLARIFICATION] markers were introduced — the follow-up
+  clarifications the user gave (drawer behavior, settings panel scope, auto-detect
+  basis) were folded directly into FR-023-FR-028 rather than left open.

@@ -18,7 +18,15 @@ Exit codes:
 | Code | Meaning |
 |---|---|
 | `0` | Run completed. Individual season-record skips (no address, unresolvable address) do **not** change the exit code — logged and expected (FR-005, SC-007), not run failures. A run where every season has zero eligible members still exits `0` and produces a (near-empty) artifact. |
-| non-zero | Run aborted before or during writing: missing/invalid `RKBY_DATA_DIR`, an existing persisted record failing schema validation, or `frontend/interactive-map/dist/index.html` missing (the frontend hasn't been built — see data-model.md § Frontend Build Output). |
+| non-zero | Run aborted before or during writing: missing/invalid `RKBY_DATA_DIR`, an existing persisted record failing schema validation, `pnpm` not found on `PATH`, or `pnpm install`/`pnpm run build` failing inside `frontend/interactive-map/` (data-model.md § Frontend Build) — all checked before any `RKBY_DATA_DIR` write. |
+
+## Prerequisites
+
+Beyond `RKBY_DATA_DIR`, this script requires **Node.js and `pnpm`** on `PATH` — it
+builds `frontend/interactive-map/` itself every run (`pnpm install
+--frozen-lockfile` then `pnpm run build`, research.md §1) rather than reading a
+pre-built bundle. This is new relative to every other script in this repo, which
+are Python-only; see plan.md's Complexity Tracking for why.
 
 ## Environment variables
 
