@@ -4,7 +4,9 @@
   "features": {
     // Keep in sync with .nvmrc — no nvm needed here, the container only
     // ever runs this one pinned Node version.
-    "ghcr.io/devcontainers/features/node:1": { "version": "24" }
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    }
   },
   "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/postCreate.sh ${containerWorkspaceFolder}",
   // Bind-mounts your local RKBY_DATA_DIR at the same path inside the
@@ -17,7 +19,10 @@
   ],
   "customizations": {
     "vscode": {
-      "extensions": ["ms-python.python", "charliermarsh.ruff"]
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff"
+      ]
     }
   }
 }
