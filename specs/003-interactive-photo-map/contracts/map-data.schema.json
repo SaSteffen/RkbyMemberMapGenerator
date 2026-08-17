@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rkby.local/schemas/interactive-map-data.schema.json",
+  "title": "Interactive Map Bundled Data",
+  "description": "The exact shape of window.RKBY_MAP_DATA as written into map-data.js by scripts/generate_interactive_map.py. See specs/003-interactive-photo-map/data-model.md and research.md §12 for the field-minimization rationale (Constitution Principle I).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seasons", "members", "image"],
+  "properties": {
+    "seasons": {
+      "type": "array",
+      "description": "Every season discover_seasons() found, sorted ascending (string sort matches chronological order, e.g. \"2024-25\" < \"2025-26\"). Includes seasons with zero eligible members.",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-[0-9]{2}$"
+      }
+    },
+    "members": {
+      "type": "array",
+      "description": "One entry per distinct match_key eligible in at least one season. Never includes address, phone, email, birthday, sex, motive_for_participation, food_restrictions, status, excluded, or ignore (Principle I minimization).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["match_key", "name", "num_previous_seasons", "photo", "x", "y", "seasons"],
+        "properties": {
+          "match_key": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string",
+            "description": "first_name + last_name from the person's latest eligible season-record (FR-010)."
+          },
+          "num_previous_seasons": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "From the latest eligible season-record; null when not on file (FR-016 renders this as unknown, not blank)."
+          },
+          "photo": {
+            "type": "string",
+            "description": "Path relative to interactive_map/, e.g. \"photos/jane-doe.jpg\" or \"photos/placeholder.png\". Never null (research.md §9)."
+          },
+          "x": {
+            "type": "number",
+            "description": "Precomputed pixel x position in the single fixed (center, zoom, canvas_size) the basemap image was rendered at (research.md §3)."
+          },
+          "y": {
+            "type": "number",
+            "description": "Precomputed pixel y position, same coordinate space as x."
+          },
+          "seasons": {
+            "type": "object",
+            "description": "Every season this person has an eligible record in (not only active ones) -- keys are season labels. The frontend filters this live by the active season set (research.md §6); it is not pre-filtered here.",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["role", "additional_roles"],
+              "properties": {
+                "role": {
+                  "type": ["string", "null"],
+                  "description": "Raw primary role text for that season-record, e.g. \"Rider\", \"Service Crew\", \"Supporter\", or null if not on file."
+                },
+                "additional_roles": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Empty array when known-empty (mirrors the schema's null-vs-empty-array distinction for the source field)."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "width", "height"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Filename of the basemap raster relative to interactive_map/, e.g. \"basemap.jpg\"."
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Pixel width, same coordinate space members[].x/y are expressed in."
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Pixel height, same coordinate space members[].x/y are expressed in."
+        }
+      }
+    }
+  }
+}
