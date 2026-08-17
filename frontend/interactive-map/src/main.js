@@ -2,7 +2,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { declutterPositions } from "./declutter.js";
 import { defaultSeasonLabel } from "./defaultSeason.js";
-import { isVisible } from "./popupData.js";
+import { isVisible, popupData } from "./popupData.js";
 
 // Stripped of its "type=module" deferral by vite.config.js's post-build
 // step (research.md §10: file://-opened Chromium blocks module script
@@ -56,6 +56,29 @@ function main() {
   // active (merge.py, T013).
   const markersLayer = L.layerGroup().addTo(map);
 
+  // FR-015/FR-016, research.md §6: name + previous-season count shown once,
+  // one role entry per currently-active season the member belongs to;
+  // missing data points render as an explicit "unknown" rather than blank.
+  function renderPopupContent(member) {
+    const data = popupData(member, activeSeasons);
+    const previousSeasonsText =
+      data.numPreviousSeasons === null ? "unknown" : String(data.numPreviousSeasons);
+    const seasonItems = data.seasons
+      .map((season) => {
+        const roleText = season.role === null ? "unknown" : season.role;
+        const additionalRolesText = season.additionalRoles.length
+          ? `, ${season.additionalRoles.join(", ")}`
+          : "";
+        return `<li>${season.label}: ${roleText}${additionalRolesText}</li>`;
+      })
+      .join("");
+    return (
+      `<div class="rkby-popup-name">${data.name}</div>` +
+      `<div>Previous seasons: ${previousSeasonsText}</div>` +
+      `<ul class="rkby-popup-seasons">${seasonItems}</ul>`
+    );
+  }
+
   function renderMarkers(members) {
     markersLayer.clearLayers();
     const declutteredMembers = declutterPositions(members);
@@ -66,7 +89,14 @@ function main() {
         iconSize: [40, 40],
         iconAnchor: [20, 20],
       });
-      L.marker(pixelToLatLng(member.x, member.y), { icon }).addTo(markersLayer);
+      const marker = L.marker(pixelToLatLng(member.x, member.y), { icon }).addTo(markersLayer);
+      // bindPopup's content is a function so it's re-evaluated against the
+      // live activeSeasons on every open, not frozen at render time -- a
+      // toggle can change which of this member's seasons are active between
+      // one hover and the next without needing a fresh renderMarkers() call.
+      marker.bindPopup(() => renderPopupContent(member), { className: "rkby-popup" });
+      marker.on("mouseover", () => marker.openPopup());
+      marker.on("mouseout", () => marker.closePopup());
     }
   }
 
