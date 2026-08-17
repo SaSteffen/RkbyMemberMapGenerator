@@ -128,7 +128,11 @@ function main() {
   function renderPopupContent(member) {
     const data = popupData(member, activeSeasons);
     const totalSeasonsText =
-      data.totalSeasons === null ? "unknown" : String(data.totalSeasons);
+      data.totalSeasons === null
+        ? "Total Seasons: unknown"
+        : data.totalSeasons === 1
+          ? "1st Season!"
+          : `Total Seasons: ${data.totalSeasons}`;
     const seasonItems = data.seasons
       .map((season) => {
         const roleText = season.role === null ? "unknown" : season.role;
@@ -141,7 +145,7 @@ function main() {
     return (
       `<img class="rkby-popup-photo" src="${data.photoFull}" alt="${data.name}" />` +
       `<div class="rkby-popup-name">${data.name}</div>` +
-      `<div>Total Seasons: ${totalSeasonsText}</div>` +
+      `<div>${totalSeasonsText}</div>` +
       `<ul class="rkby-popup-seasons">${seasonItems}</ul>`
     );
   }
