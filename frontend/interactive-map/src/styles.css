@@ -1,0 +1,103 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: system-ui, sans-serif;
+}
+
+#map {
+  height: 100vh;
+  width: 100vw;
+  background: #ddd;
+}
+
+/* Circular member photo markers -- CSS crop instead of server-side cropping
+   (research.md §9): resolution-independent, crisp at any zoom level. */
+/* !important on width/height: Leaflet's own
+   .leaflet-container .leaflet-marker-pane img rule (specificity 0,2,1,
+   beating this class selector's 0,1,0) sets width: auto -- without
+   !important here the marker photo renders at its natural aspect ratio
+   instead of the square box object-fit needs to crop within. */
+.rkby-marker-photo {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  background: #fff;
+}
+
+.rkby-popup .leaflet-popup-content {
+  margin: 10px 12px;
+  min-width: 160px;
+}
+
+.rkby-popup-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.rkby-popup-seasons {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* On-screen four-direction pan control (research.md §8, FR-014) */
+.rkby-pan-control {
+  display: grid;
+  grid-template-columns: repeat(3, 26px);
+  grid-template-rows: repeat(3, 26px);
+  background: transparent;
+}
+
+.rkby-pan-control button {
+  width: 26px;
+  height: 26px;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+}
+
+.rkby-pan-control button:hover {
+  background: #f4f4f4;
+}
+
+.rkby-pan-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.rkby-pan-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.rkby-pan-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.rkby-pan-down {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+/* Season toggle control (desktop mode, US2) */
+.rkby-season-control {
+  background: #fff;
+  padding: 8px 10px;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+}
+
+.rkby-season-control label {
+  display: block;
+  white-space: nowrap;
+}

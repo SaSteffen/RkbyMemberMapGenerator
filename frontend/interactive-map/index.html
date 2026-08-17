@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Team Rynkeby Hamburg — Interactive Member Map</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <!--
+      Classic external script, not a module, never fetched dynamically --
+      map-data.js must load before the bundled app script runs, and both
+      must survive being opened via file:// (research.md §10). Do not
+      change this tag's position/type: vite-plugin-singlefile inlines the
+      built JS/CSS around it but leaves this untouched.
+    -->
+    <script src="./map-data.js"></script>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

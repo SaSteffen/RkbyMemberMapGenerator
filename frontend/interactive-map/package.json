@@ -1,0 +1,18 @@
+{
+  "name": "rkby-interactive-map",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "vite": "^8.0.4",
+    "vitest": "^4.0.16",
+    "vite-plugin-singlefile": "^2.3.0"
+  }
+}
