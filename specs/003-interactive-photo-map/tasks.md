@@ -57,16 +57,16 @@ Two-language project, both rooted at the repo root (plan.md § Project Structure
 
 **Purpose**: Scaffold both halves of the project so later tasks have somewhere to add code.
 
-- [ ] T001 Create `frontend/interactive-map/package.json` — `name`, `"private": true`,
+- [X] T001 Create `frontend/interactive-map/package.json` — `name`, `"private": true`,
   `scripts.build` = `"vite build"`, `scripts.test` = `"vitest run"`, dependency
   `leaflet` (^1.9), devDependencies `vite` (^8), `vitest` (^4),
   `vite-plugin-singlefile` (^2.3). Then run `pnpm install` inside
   `frontend/interactive-map/` to generate the committed `pnpm-lock.yaml`
   (research.md §1).
-- [ ] T002 [P] Create `scripts/rkby_interactive_map/__init__.py` (new, empty —
+- [X] T002 [P] Create `scripts/rkby_interactive_map/__init__.py` (new, empty —
   internal package private to `generate_interactive_map.py`, plan.md § Project
   Structure).
-- [ ] T003 [P] Add synthetic multi-season applicant YAML fixtures under
+- [X] T003 [P] Add synthetic multi-season applicant YAML fixtures under
   `tests/fixtures/` for the merge/bundle tests below: at least one `match_key`
   present in two season folders with a different `role`/`additional_roles` (and,
   for Scenario 5 coverage later, a second pair of records sharing one exact
@@ -74,7 +74,7 @@ Two-language project, both rooted at the repo root (plan.md § Project Structure
   `osm_tile_fixture.png`, and `sample_photo.jpg` fixtures rather than adding new
   binary fixtures (quickstart.md Prerequisites, Constitution V: synthetic only,
   never real member data).
-- [ ] T004 Create `frontend/interactive-map/vite.config.js` — `base: "./"` (relative
+- [X] T004 Create `frontend/interactive-map/vite.config.js` — `base: "./"` (relative
   asset base) and the `vite-plugin-singlefile` plugin registered so `pnpm run
   build` inlines JS/CSS into a single non-module `dist/index.html`
   (research.md §10; depends on T001's `package.json` declaring the dependency).
@@ -92,20 +92,20 @@ pixel-position math every user story's implementation sits on top of.
 
 ### Tests for Foundational (write first, confirm they fail)
 
-- [ ] T005 [P] `tests/unit/test_generate_interactive_map_cli.py`: missing/invalid
+- [X] T005 [P] `tests/unit/test_generate_interactive_map_cli.py`: missing/invalid
   `RKBY_DATA_DIR` → `ConfigError`, exit code `1`; invoking with any CLI flag/arg is
   rejected or ignored per FR-002 (no season selector, no variant selector — unlike
   `generate_member_maps.py`'s two tuning flags).
-- [ ] T006 `tests/unit/test_generate_interactive_map_cli.py`: `pnpm` missing from
+- [X] T006 `tests/unit/test_generate_interactive_map_cli.py`: `pnpm` missing from
   `PATH`, `pnpm install --frozen-lockfile` failing, and `pnpm run build` failing
   each produce a non-zero exit and **no** write under `RKBY_DATA_DIR` (mock
   `subprocess.run`; contracts/cli-and-env.md). Same file as T005 — sequential.
-- [ ] T007 `tests/unit/test_generate_interactive_map_cli.py`: a first run creates
+- [X] T007 `tests/unit/test_generate_interactive_map_cli.py`: a first run creates
   `<RKBY_DATA_DIR>/interactive_map/` and adds an `interactive_map/` entry to
   `<RKBY_DATA_DIR>/.gitignore`; a second run is idempotent (no duplicate
   `.gitignore` entry, no stale file from the first run left behind). Same file as
   T005/T006 — sequential.
-- [ ] T008 [P] `tests/unit/test_rkby_interactive_map_merge.py`: per-season-record
+- [X] T008 [P] `tests/unit/test_rkby_interactive_map_merge.py`: per-season-record
   eligibility (drops `excluded`/`ignore`/no-address/ungeocodable-address records,
   logging each skip via the passed-in logger — FR-004/FR-005/SC-007), latest-
   eligible-record tie-break across two seasons for the same `match_key` by season
@@ -114,23 +114,23 @@ pixel-position math every user story's implementation sits on top of.
   `ignore`) in *every* one of their seasons never appears in the merged output
   (SC-010). Mock geocoding via the same `responses`-registered Nominatim fixtures
   002 already uses.
-- [ ] T009 [P] `tests/unit/test_rkby_interactive_map_bundle.py`: a pixel-position
+- [X] T009 [P] `tests/unit/test_rkby_interactive_map_bundle.py`: a pixel-position
   helper produces the same `(x, y)` for the same `(lat, lon)` regardless of call
   order, using one fixed `(center, zoom, canvas_size)` computed from the combined
   bounding box of every merged member across all seasons (research.md §3).
 
 ### Implementation for Foundational
 
-- [ ] T010 `scripts/generate_interactive_map.py`: `ConfigError`, `Config` dataclass
+- [X] T010 `scripts/generate_interactive_map.py`: `ConfigError`, `Config` dataclass
   (`data_dir: Path`), `load_config()` reading `RKBY_DATA_DIR` (mirrors
   `generate_member_maps.py`'s `load_config`), `build_arg_parser()` with **no**
   flags (FR-002), and a `main()` skeleton returning `0`. Makes T005 pass.
-- [ ] T011 [P] `scripts/rkby_interactive_map/frontend_build.py`: `build_frontend()` —
+- [X] T011 [P] `scripts/rkby_interactive_map/frontend_build.py`: `build_frontend()` —
   runs `pnpm install --frozen-lockfile` then `pnpm run build` inside
   `frontend/interactive-map/` via `subprocess`; raises a clear error (caught by
   `main()` to produce a non-zero exit, before any `RKBY_DATA_DIR` write) if `pnpm`
   isn't found on `PATH` or either subprocess exits non-zero. Makes T006 pass.
-- [ ] T012 `scripts/generate_interactive_map.py`: `_ensure_interactive_map_dir()` —
+- [X] T012 `scripts/generate_interactive_map.py`: `_ensure_interactive_map_dir()` —
   delete `<RKBY_DATA_DIR>/interactive_map/` if present, recreate it, and add an
   `interactive_map/` entry to `<RKBY_DATA_DIR>/.gitignore` if not already there
   (data-model.md § Local Data Repository "Idempotency"; mirrors
@@ -138,7 +138,7 @@ pixel-position math every user story's implementation sits on top of.
   *after* `build_frontend()` succeeds (contracts/cli-and-env.md: pnpm failures are
   checked "before any `RKBY_DATA_DIR` write"). Same file as T010 — sequential.
   Makes T007 pass.
-- [ ] T013 [P] `scripts/rkby_interactive_map/merge.py`: for each season label, load
+- [X] T013 [P] `scripts/rkby_interactive_map/merge.py`: for each season label, load
   records (`rkby_records.load_existing_records`), filter to `not excluded and not
   ignore`, `geocode_record_if_needed` (fill-empty-only, writing the record back
   via `_dump_record_yaml` exactly like `generate_member_maps.py` does), and
@@ -149,7 +149,7 @@ pixel-position math every user story's implementation sits on top of.
   `latitude`/`longitude` (FR-010) while keeping a `{season_label: {role,
   additional_roles}}` map built from *every* eligible season-record for that
   person (FR-009, FR-015). Makes T008 pass.
-- [ ] T014 [P] `scripts/rkby_interactive_map/bundle.py`: `compute_positions(merged_members)`
+- [X] T014 [P] `scripts/rkby_interactive_map/bundle.py`: `compute_positions(merged_members)`
   — combined bounding box across every merged member's `(latitude, longitude)` via
   `scripts.rkby_maps.basemap.zoom_for_bounding_box`, then each member's `x`/`y` via
   `scripts.rkby_maps.basemap.lonlat_to_pixel` at that one resulting
@@ -173,17 +173,17 @@ appear at correct positions and every pan/zoom mechanism works.
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T015 [P] [US1] Extend `tests/unit/test_rkby_interactive_map_bundle.py`: the
+- [X] T015 [P] [US1] Extend `tests/unit/test_rkby_interactive_map_bundle.py`: the
   assembled `map-data.js` payload validates against
   `specs/003-interactive-photo-map/contracts/map-data.schema.json`; each merged
   member's photo (or `photos/placeholder.png`) is copied into
   `interactive_map/photos/`; re-running the generator against a changed data set
   leaves no stale file from the previous run (data-model.md "Idempotency").
-- [ ] T016 [P] [US1] `frontend/interactive-map/src/defaultSeason.test.js`: July 31 vs.
+- [X] T016 [P] [US1] `frontend/interactive-map/src/defaultSeason.test.js`: July 31 vs.
   August 1 boundary, a year rollover, and falling back to the lexicographically-
   greatest bundled season label when the computed one isn't present (FR-007, Edge
   Cases) — against the not-yet-existing `defaultSeason.js`.
-- [ ] T017 [P] [US1] `frontend/interactive-map/src/declutter.test.js`: members sharing
+- [X] T017 [P] [US1] `frontend/interactive-map/src/declutter.test.js`: members sharing
   an exactly-equal precomputed `(x, y)` get a small fixed offset applied so each
   stays independently placeable; members at merely-nearby (non-identical)
   positions are left untouched (FR-021, Edge Cases) — against the not-yet-existing
@@ -191,23 +191,23 @@ appear at correct positions and every pan/zoom mechanism works.
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] `scripts/rkby_interactive_map/bundle.py`: `assemble_map_data(...)` —
+- [X] T018 [US1] `scripts/rkby_interactive_map/bundle.py`: `assemble_map_data(...)` —
   build the `{seasons, members[], image}` payload matching
   `map-data.schema.json` from `merge.py`'s merged members and
   `compute_positions()` (T014), and write `window.RKBY_MAP_DATA = {...};` to
   `<RKBY_DATA_DIR>/interactive_map/map-data.js`.
-- [ ] T019 [US1] `bundle.py`: `generate_basemap(...)` — render
+- [X] T019 [US1] `bundle.py`: `generate_basemap(...)` — render
   `interactive_map/basemap.jpg` via `scripts.rkby_maps.basemap.stitch_basemap` at
   the same combined `(center, zoom, canvas_size)` `compute_positions()` used,
   reusing `<RKBY_DATA_DIR>/.tile_cache/`. Same file as T018 — sequential.
-- [ ] T020 [US1] `bundle.py`: `copy_assets(...)` — copy each merged member's own photo
+- [X] T020 [US1] `bundle.py`: `copy_assets(...)` — copy each merged member's own photo
   file (from its season folder) into `interactive_map/photos/<match_key>.<ext>`,
   or `scripts/rkby_maps/assets/rynke.png` into `interactive_map/photos/
   placeholder.png` when none is on file (research.md §9); copy
   `frontend/interactive-map/dist/index.html` verbatim into
   `interactive_map/index.html`. Same file as T018/T019 — sequential. Makes T015
   pass.
-- [ ] T021 [US1] Wire `scripts/generate_interactive_map.py main()`: `load_config()` →
+- [X] T021 [US1] Wire `scripts/generate_interactive_map.py main()`: `load_config()` →
   `frontend_build.build_frontend()` (T011) → `_ensure_interactive_map_dir()`
   (T012) → `discover_seasons()` + per-season `setup_run_logger()` (mirrors
   `generate_member_maps.py`'s loop) → `merge.py`'s merge (T013) → `bundle.py`'s
@@ -215,33 +215,33 @@ appear at correct positions and every pan/zoom mechanism works.
   `rkby_records.auto_commit()` for `seasons/*/applicants` + `.gitignore` (never
   `interactive_map/` itself, contracts/cli-and-env.md) → `return 0`. Same file as
   T010/T012 — sequential.
-- [ ] T022 [P] [US1] `frontend/interactive-map/src/defaultSeason.js`:
+- [X] T022 [P] [US1] `frontend/interactive-map/src/defaultSeason.js`:
   `defaultSeasonLabel(date)` ported from `scrape_applicants.default_season_label`
   (Jan-Jul → previous August's season, Aug-Dec → this August's season), plus a
   fallback to the greatest bundled season label when the computed one is absent
   from `map-data.js`'s `seasons` list (FR-007, Edge Cases). Makes T016 pass.
-- [ ] T023 [P] [US1] `frontend/interactive-map/src/declutter.js`:
+- [X] T023 [P] [US1] `frontend/interactive-map/src/declutter.js`:
   `declutterPositions(members)` — groups members by exactly-equal `(x, y)` and
   applies a small fixed horizontal pixel offset within any group of 2+ (FR-021,
   research.md §7). Makes T017 pass.
-- [ ] T024 [US1] `frontend/interactive-map/index.html`: entry template with
+- [X] T024 [US1] `frontend/interactive-map/index.html`: entry template with
   `<script src="./map-data.js"></script>` loaded *before* the bundled app script
   (research.md §10, never `fetch()`); `frontend/interactive-map/src/styles.css`:
   base map/marker layout (circular photo markers via `border-radius: 50%;
   object-fit: cover`).
-- [ ] T025 [US1] `frontend/interactive-map/src/main.js`: Leaflet bootstrap —
+- [X] T025 [US1] `frontend/interactive-map/src/main.js`: Leaflet bootstrap —
   `L.CRS.Simple` map, `L.imageOverlay("basemap.jpg", bounds)` sized from
   `window.RKBY_MAP_DATA.image.width`/`.height` (research.md §3).
-- [ ] T026 [US1] `main.js`: render one circular photo marker per member at its
+- [X] T026 [US1] `main.js`: render one circular photo marker per member at its
   (`declutterPositions`-adjusted, T023) `x`/`y`, filtered to members visible in
   the `defaultSeasonLabel()` (T022) season. Same file as T025 — sequential.
-- [ ] T027 [US1] `main.js`: confirm/enable Leaflet's default mouse scroll-zoom
+- [X] T027 [US1] `main.js`: confirm/enable Leaflet's default mouse scroll-zoom
   (centered on the cursor) and click-and-drag pan (FR-013). Same file as
   T025/T026 — sequential.
-- [ ] T028 [US1] `main.js`: on-screen zoom-in/zoom-out via Leaflet's built-in
+- [X] T028 [US1] `main.js`: on-screen zoom-in/zoom-out via Leaflet's built-in
   `zoomControl`, plus a small custom four-direction pan control calling
   `map.panBy([dx, dy])` (FR-014, research.md §8). Same file — sequential.
-- [ ] T029 [US1] `main.js`: `attributionControl` set to `"© OpenStreetMap
+- [X] T029 [US1] `main.js`: `attributionControl` set to `"© OpenStreetMap
   contributors"`, always visible bottom-right, never behind a toggle (FR-022,
   research.md §8). Same file — sequential.
 
