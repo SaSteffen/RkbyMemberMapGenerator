@@ -303,7 +303,7 @@ season live-updates the popup to one entry.
 
 ### Tests for User Story 3 (write first, confirm it fails)
 
-- [ ] T035 [P] [US3] Extend `frontend/interactive-map/src/popupData.test.js`:
+- [X] T035 [P] [US3] Extend `frontend/interactive-map/src/popupData.test.js`:
   `popupData(member, activeSeasons)` returns `{name, numPreviousSeasons, seasons:
   [...]}` restricted to the currently-active seasons the member belongs to, sorted
   by season label; `numPreviousSeasons` passes through as `null` when not on file
@@ -311,10 +311,10 @@ season live-updates the popup to one entry.
 
 ### Implementation for User Story 3
 
-- [ ] T036 [US3] `popupData.js`: `popupData(member, activeSeasons)` — `{name,
+- [X] T036 [US3] `popupData.js`: `popupData(member, activeSeasons)` — `{name,
   numPreviousSeasons, seasons: [{label, role, additionalRoles}, ...]}`. Same file
   as T031 — sequential. Makes T035 pass.
-- [ ] T037 [US3] `main.js`: bind a Leaflet hover popup per marker — `mouseover`
+- [X] T037 [US3] `main.js`: bind a Leaflet hover popup per marker — `mouseover`
   renders `popupData()`'s result (name + previous-seasons count with an explicit
   "unknown" label when `null`, one role entry per active season — FR-015/FR-016),
   `mouseout` closes it (FR-015). Same file as US1/US2's `main.js` edits —
