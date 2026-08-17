@@ -1,7 +1,7 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { chunkRowForTileY, isTileInLevel, levelForZoom, tileUrl } from "./basemapTiles.js";
-import { declutterPositions } from "./declutter.js";
+import { ICON_SIZE_PX, declutterPositions } from "./declutter.js";
 import { defaultSeasonLabel } from "./defaultSeason.js";
 import { isVisible, popupData } from "./popupData.js";
 
@@ -139,13 +139,18 @@ function main() {
 
   function renderMarkers(members) {
     markersLayer.clearLayers();
-    const declutteredMembers = declutterPositions(members);
+    // Overlap is a screen-pixel concept (declutter.js), so the current
+    // zoom's world-to-screen scale has to be passed in every time this
+    // runs -- the same members can be non-overlapping at one zoom and
+    // overlapping at another.
+    const scale = map.getZoomScale(map.getZoom(), 0);
+    const declutteredMembers = declutterPositions(members, scale);
     for (const member of declutteredMembers) {
       const icon = L.divIcon({
         className: "",
         html: `<img class="rkby-marker-photo" src="${member.photo}" alt="${member.name}" />`,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
+        iconSize: [ICON_SIZE_PX, ICON_SIZE_PX],
+        iconAnchor: [ICON_SIZE_PX / 2, ICON_SIZE_PX / 2],
       });
       const marker = L.marker(pixelToLatLng(member.x, member.y), { icon }).addTo(markersLayer);
       // bindPopup's content is a function so it's re-evaluated against the
@@ -169,6 +174,14 @@ function main() {
   }
 
   updateVisibleMarkers();
+
+  // FR-021, research.md §7: which members' icons overlap on screen depends
+  // on the current zoom (declutter.js), so a zoom change can both create
+  // new overlaps (zooming out) and resolve old ones (zooming in) -- markers
+  // are re-decluttered from their original coordinates on every zoom change
+  // rather than nudged incrementally, since re-running declutterPositions
+  // is cheap and avoids compounding rounding drift across many zoom steps.
+  map.on("zoomend", updateVisibleMarkers);
 
   // FR-006/FR-008, research.md §8: one checkbox per bundled season --
   // including seasons with zero eligible members (Edge Cases) -- rendered
