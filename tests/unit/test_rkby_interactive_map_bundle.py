@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import jsonschema
+import pytest
 
 from scripts.rkby_interactive_map import bundle as bundle_module
 from scripts.rkby_interactive_map.bundle import (
@@ -438,6 +439,33 @@ def test_regeneration_leaves_no_stale_photo_from_a_removed_member(tmp_path):
 
     assert not (interactive_map_dir / "photos" / "jane-doe.jpg").exists()
     assert not (interactive_map_dir / "photos" / "jane-doe-full.jpg").exists()
+
+
+def test_copy_assets_copied_index_html_has_no_file_protocol_incompatible_markers(
+    tmp_path,
+):
+    """Regression guard for research.md §10/Story 4/SC-003: Chromium blocks
+    fetch() and ES-module <script> loading of local files under file://, so
+    the actually-built frontend bundle -- not a fake stand-in -- must never
+    contain either, or the shared folder silently fails to open for
+    recipients (T038/T039)."""
+    from scripts.generate_interactive_map import FRONTEND_DIR
+
+    dist_index_html_path = FRONTEND_DIR / "dist" / "index.html"
+    if not dist_index_html_path.exists():
+        pytest.skip(
+            "frontend not built -- run `pnpm run build` in "
+            "frontend/interactive-map/ first"
+        )
+
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+
+    copy_assets(tmp_path, interactive_map_dir, [], dist_index_html_path)
+
+    copied_html = (interactive_map_dir / "index.html").read_text()
+    assert "fetch(" not in copied_html
+    assert 'type="module"' not in copied_html
 
 
 def test_generate_basemap_writes_a_jpeg_of_canvas_size(tmp_path, monkeypatch):
