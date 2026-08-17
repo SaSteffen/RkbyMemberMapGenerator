@@ -719,7 +719,7 @@ def persist_records(
             if conflicts:
                 # FR-014: flag for human review; existing value(s) still win
                 # via merge_record's fill-empty-only rule below.
-                logger.warning(
+                logger.debug(
                     "Applicant %s: scraped data conflicts with the existing "
                     "record on %s; existing value(s) kept, new snapshot: %s",
                     key,
