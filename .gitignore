@@ -24,3 +24,4 @@ frontend/*/dist/
 data/
 .env
 *.env
+.pnpm-store
