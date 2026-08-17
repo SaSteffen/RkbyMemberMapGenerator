@@ -9,6 +9,7 @@ from PIL import Image
 
 from scripts.rkby_maps.rendering import (
     ATTRIBUTION_TEXT,
+    HOVER_PHOTO_MAX_PX,
     NEUTRAL_COLOR,
     PHOTO_DIAMETER_PX,
     PHOTO_OFFSET_FRACTION,
@@ -23,6 +24,7 @@ from scripts.rkby_maps.rendering import (
     draw_scale_bar,
     merged_role_color,
     role_color,
+    scale_to_hover_size,
 )
 
 BACKGROUND = (255, 255, 255)
@@ -171,6 +173,46 @@ def test_crop_circular_photo_uses_a_centered_square_crop_of_a_non_square_source(
     r, g, b, a = circular.getpixel((center, center - PHOTO_DIAMETER_PX // 4))
     assert a == 255
     assert (r, g, b) == SAMPLE_PHOTO_COLOR
+
+
+# --- Hover popup's full (uncropped) photo, HD-capped ------------------------------
+
+
+def test_scale_to_hover_size_shrinks_an_oversized_16_9_photo_to_exactly_the_hd_bounds():
+    # 3840x2160 is exactly 2x Full HD at the same 16:9 aspect ratio as
+    # HOVER_PHOTO_MAX_PX, so the scaled-down result lands on that bound
+    # exactly -- no rounding ambiguity to work around in the assertion.
+    oversized = Image.new("RGB", (3840, 2160), color=(10, 20, 30))
+
+    scaled = scale_to_hover_size(oversized)
+
+    assert scaled.size == HOVER_PHOTO_MAX_PX
+
+
+def test_scale_to_hover_size_preserves_a_non_16_9_aspect_ratio():
+    # 4000x2000 (2:1) is wider than HOVER_PHOTO_MAX_PX's own 16:9 box, so
+    # height is the binding constraint: fit to width first would overflow
+    # the box's height, so PIL's own thumbnail() picks the height-bound
+    # scale instead, landing on an exact (1920, 960) with no rounding.
+    wide = Image.new("RGB", (4000, 2000), color=(10, 20, 30))
+
+    scaled = scale_to_hover_size(wide)
+
+    assert scaled.size == (1920, 960)
+
+
+def test_scale_to_hover_size_never_upscales_a_photo_already_smaller_than_hd():
+    # sample_photo.jpg is 120x80 -- nowhere near HOVER_PHOTO_MAX_PX, so it
+    # must come back unchanged rather than blurrily upscaled.
+    scaled = scale_to_hover_size(SAMPLE_PHOTO_PATH)
+
+    assert scaled.size == (120, 80)
+
+
+def test_scale_to_hover_size_returns_rgb():
+    scaled = scale_to_hover_size(SAMPLE_PHOTO_PATH)
+
+    assert scaled.mode == "RGB"
 
 
 # --- Placing a circular photo on the canvas ---------------------------------------

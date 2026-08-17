@@ -21,7 +21,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["match_key", "name", "num_previous_seasons", "photo", "x", "y", "seasons"],
+        "required": ["match_key", "name", "num_previous_seasons", "photo", "photo_full", "x", "y", "seasons"],
         "properties": {
           "match_key": {
             "type": "string",
@@ -38,7 +38,11 @@
           },
           "photo": {
             "type": "string",
-            "description": "Path relative to interactive_map/, e.g. \"photos/jane-doe.jpg\" or \"photos/placeholder.png\". Never null (research.md §9)."
+            "description": "Path relative to interactive_map/, e.g. \"photos/jane-doe.jpg\" or \"photos/placeholder.png\" -- a square-cropped, fixed-size marker thumbnail. Never null (research.md §9)."
+          },
+          "photo_full": {
+            "type": "string",
+            "description": "Path relative to interactive_map/, e.g. \"photos/jane-doe-full.jpg\" or \"photos/placeholder.png\" -- the member's own full (uncropped) photo shown in the hover popup, downscaled to fit within Full HD (1920x1080) bounds with its original aspect ratio preserved, never upscaled. Distinct file from `photo`. Never null (research.md §9)."
           },
           "x": {
             "type": "number",

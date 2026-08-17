@@ -35,6 +35,18 @@ body {
   min-width: 160px;
 }
 
+/* Hover popup's full (uncropped) photo -- displayed at a fixed on-screen
+   size regardless of the underlying file's own resolution (up to Full HD,
+   bundle.py's HOVER_PHOTO_MAX_PX); height: auto keeps its aspect ratio. */
+.rkby-popup-photo {
+  display: block;
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
 .rkby-popup-name {
   font-weight: 600;
   margin-bottom: 4px;

@@ -21,7 +21,11 @@ from scripts.rkby_maps.basemap import (
     stitch_region,
     zoom_for_bounding_box,
 )
-from scripts.rkby_maps.rendering import PLACEHOLDER_PHOTO_PATH, crop_square_thumbnail
+from scripts.rkby_maps.rendering import (
+    PLACEHOLDER_PHOTO_PATH,
+    crop_square_thumbnail,
+    scale_to_hover_size,
+)
 from scripts.rkby_records import season_dir
 
 # Combined-bounding-box canvas: one flattened image covering every merged
@@ -154,19 +158,44 @@ def _tile_levels(base_zoom: int) -> list[dict]:
     return levels
 
 
-def _resolve_photo(data_dir: Path, member: dict) -> tuple[str, Path]:
-    """Output-relative photo path + its real source file, or the Team
-    Rynkeby mascot placeholder when the member has no photo on file
-    (research.md §9) -- the same fallback rule as generate_member_maps.py's
-    own `_photo_path`, applied to the merged member's own latest-eligible
-    season's photo. Real photos are always re-encoded to a `.jpg` thumbnail
-    by `copy_assets` regardless of their source extension, so the output
-    name is always `.jpg` too."""
+def _member_photo_source(data_dir: Path, member: dict) -> Path | None:
+    """The merged member's own real photo file on disk (their latest-
+    eligible season's photo), or None when they have no photo on file or
+    the file is missing -- shared by `_resolve_photo` and
+    `_resolve_full_photo` so the two can never disagree on which source
+    photo a member has."""
     relative = member.get("photo_relative_path")
     if relative:
         source_path = season_dir(data_dir, member["photo_season_label"]) / relative
         if source_path.exists():
-            return f"photos/{member['match_key']}.jpg", source_path
+            return source_path
+    return None
+
+
+def _resolve_photo(data_dir: Path, member: dict) -> tuple[str, Path]:
+    """Output-relative photo path + its real source file, or the Team
+    Rynkeby mascot placeholder when the member has no photo on file
+    (research.md §9) -- the same fallback rule as generate_member_maps.py's
+    own `_photo_path`. Real photos are always re-encoded to a `.jpg`
+    thumbnail by `copy_assets` regardless of their source extension, so the
+    output name is always `.jpg` too."""
+    source_path = _member_photo_source(data_dir, member)
+    if source_path is not None:
+        return f"photos/{member['match_key']}.jpg", source_path
+    return "photos/placeholder.png", PLACEHOLDER_PHOTO_PATH
+
+
+def _resolve_full_photo(data_dir: Path, member: dict) -> tuple[str, Path]:
+    """Same source-resolution rule as `_resolve_photo`, but under its own
+    `-full` output filename -- the hover popup's full (uncropped) photo is a
+    distinct derived file from the marker's square-cropped thumbnail, so the
+    two must never collide on disk. The placeholder mascot is shared
+    unchanged with the marker thumbnail: it's already well within
+    HOVER_PHOTO_MAX_PX bounds and isn't square-cropped, so there's nothing
+    to re-derive for it."""
+    source_path = _member_photo_source(data_dir, member)
+    if source_path is not None:
+        return f"photos/{member['match_key']}-full.jpg", source_path
     return "photos/placeholder.png", PLACEHOLDER_PHOTO_PATH
 
 
@@ -186,12 +215,14 @@ def assemble_map_data(
     for member in merged_members:
         x, y = positions[member["match_key"]]
         photo_path, _source_path = _resolve_photo(data_dir, member)
+        full_photo_path, _full_source_path = _resolve_full_photo(data_dir, member)
         members_payload.append(
             {
                 "match_key": member["match_key"],
                 "name": f"{member['first_name']} {member['last_name']}".strip(),
                 "num_previous_seasons": member["num_previous_seasons"],
                 "photo": photo_path,
+                "photo_full": full_photo_path,
                 "x": x,
                 "y": y,
                 "seasons": member["seasons"],
@@ -324,7 +355,10 @@ def copy_assets(
     downscaled to `crop_square_thumbnail`'s fixed thumbnail size before
     being written -- shipping/decoding full-resolution originals for a
     marker the browser only ever renders at 40 CSS-px was the main cause of
-    a slow-loading map with many members."""
+    a slow-loading map with many members. Each member's own full (uncropped)
+    photo is also written for the hover popup, downscaled to fit within
+    `HOVER_PHOTO_MAX_PX` -- still far smaller than most source photos, but
+    without the marker thumbnail's square crop."""
     photos_dir = interactive_map_dir / "photos"
     photos_dir.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(PLACEHOLDER_PHOTO_PATH, photos_dir / "placeholder.png")
@@ -332,9 +366,14 @@ def copy_assets(
     for member in merged_members:
         photo_path, source_path = _resolve_photo(data_dir, member)
         target_name = Path(photo_path).name
-        if target_name == "placeholder.png":
-            continue
-        thumbnail = crop_square_thumbnail(source_path)
-        thumbnail.save(photos_dir / target_name, "JPEG", quality=85)
+        if target_name != "placeholder.png":
+            thumbnail = crop_square_thumbnail(source_path)
+            thumbnail.save(photos_dir / target_name, "JPEG", quality=85)
+
+        full_photo_path, full_source_path = _resolve_full_photo(data_dir, member)
+        full_target_name = Path(full_photo_path).name
+        if full_target_name != "placeholder.png":
+            full_photo = scale_to_hover_size(full_source_path)
+            full_photo.save(photos_dir / full_target_name, "JPEG", quality=85)
 
     shutil.copyfile(dist_index_html_path, interactive_map_dir / "index.html")

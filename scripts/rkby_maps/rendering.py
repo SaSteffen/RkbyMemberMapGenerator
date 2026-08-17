@@ -177,6 +177,25 @@ def crop_square_thumbnail(
     return _centered_square_crop(source, size)
 
 
+# The interactive map's hover popup shows a member's full, uncropped photo
+# (unlike the marker's square-cropped thumbnail) -- capped at Full HD so an
+# oversized source photo never ships/decodes at its original resolution, but
+# never upscaled either, since a smaller source photo blown up past its own
+# resolution would just look blurry.
+HOVER_PHOTO_MAX_PX = (1920, 1080)
+
+
+def scale_to_hover_size(
+    source: Image.Image | Path, max_size: tuple[int, int] = HOVER_PHOTO_MAX_PX
+) -> Image.Image:
+    """The source photo's own full aspect ratio, downscaled (never upscaled,
+    never cropped) to fit within `max_size`."""
+    image = source if isinstance(source, Image.Image) else Image.open(source)
+    image = image.convert("RGB")
+    image.thumbnail(max_size, Image.LANCZOS)
+    return image
+
+
 def draw_photo_circle(
     image: Image.Image, position: tuple[float, float], circular_photo: Image.Image
 ) -> None:

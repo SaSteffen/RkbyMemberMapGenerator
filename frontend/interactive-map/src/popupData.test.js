@@ -33,6 +33,7 @@ describe("popupData", () => {
     const member = {
       name: "Jane Doe",
       num_previous_seasons: 3,
+      photo_full: "photos/jane-doe-full.jpg",
       seasons: {
         "2025-26": { role: "Service Crew", additional_roles: [] },
         "2023-24": { role: "Rider", additional_roles: ["Steering Committee"] },
@@ -42,6 +43,7 @@ describe("popupData", () => {
     expect(popupData(member, new Set(["2025-26", "2023-24"]))).toEqual({
       name: "Jane Doe",
       numPreviousSeasons: 3,
+      photoFull: "photos/jane-doe-full.jpg",
       seasons: [
         { label: "2023-24", role: "Rider", additionalRoles: ["Steering Committee"] },
         { label: "2025-26", role: "Service Crew", additionalRoles: [] },
@@ -53,11 +55,13 @@ describe("popupData", () => {
     const member = {
       name: "Jane Doe",
       num_previous_seasons: 1,
+      photo_full: "photos/jane-doe-full.jpg",
       seasons: { "2024-25": { role: "Rider", additional_roles: [] } },
     };
     expect(popupData(member, new Set(["2024-25", "2025-26"]))).toEqual({
       name: "Jane Doe",
       numPreviousSeasons: 1,
+      photoFull: "photos/jane-doe-full.jpg",
       seasons: [{ label: "2024-25", role: "Rider", additionalRoles: [] }],
     });
   });
@@ -66,11 +70,13 @@ describe("popupData", () => {
     const member = {
       name: "Jane Doe",
       num_previous_seasons: 1,
+      photo_full: "photos/jane-doe-full.jpg",
       seasons: { "2024-25": { role: "Rider", additional_roles: [] } },
     };
     expect(popupData(member, new Set(["2025-26"]))).toEqual({
       name: "Jane Doe",
       numPreviousSeasons: 1,
+      photoFull: "photos/jane-doe-full.jpg",
       seasons: [],
     });
   });
@@ -79,6 +85,7 @@ describe("popupData", () => {
     const member = {
       name: "Jane Doe",
       num_previous_seasons: null,
+      photo_full: "photos/jane-doe-full.jpg",
       seasons: { "2024-25": { role: "Rider", additional_roles: [] } },
     };
     expect(popupData(member, new Set(["2024-25"])).numPreviousSeasons).toBeNull();
@@ -88,10 +95,23 @@ describe("popupData", () => {
     const member = {
       name: "Jane Doe",
       num_previous_seasons: 1,
+      photo_full: "photos/jane-doe-full.jpg",
       seasons: { "2024-25": { role: null, additional_roles: [] } },
     };
     expect(popupData(member, new Set(["2024-25"])).seasons).toEqual([
       { label: "2024-25", role: null, additionalRoles: [] },
     ]);
+  });
+
+  it("passes photo_full through as photoFull, for the hover popup's full picture", () => {
+    const member = {
+      name: "Jane Doe",
+      num_previous_seasons: 1,
+      photo_full: "photos/jane-doe-full.jpg",
+      seasons: { "2024-25": { role: "Rider", additional_roles: [] } },
+    };
+    expect(popupData(member, new Set(["2024-25"])).photoFull).toBe(
+      "photos/jane-doe-full.jpg"
+    );
   });
 });

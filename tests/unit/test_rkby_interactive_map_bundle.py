@@ -146,6 +146,48 @@ def test_assemble_map_data_never_null_photo_field(tmp_path):
     assert payload["members"][0]["photo"] == "photos/placeholder.png"
 
 
+def test_assemble_map_data_includes_a_never_null_full_photo_field(tmp_path):
+    """The hover popup's full (uncropped) photo (spec addendum: full picture
+    on hover) is a separate field from the marker's square-cropped `photo`,
+    following the same never-null placeholder-fallback rule (research.md
+    §9)."""
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    members = [_member("no-photo-member", 53.55, 9.99, photo_relative_path=None)]
+
+    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+
+    payload = _load_map_data(interactive_map_dir)
+    assert payload["members"][0]["photo_full"] == "photos/placeholder.png"
+
+
+def test_assemble_map_data_full_photo_uses_a_distinct_filename_from_the_marker_thumbnail(
+    tmp_path,
+):
+    season_photos_dir = tmp_path / "seasons" / "2025-26" / "photos"
+    season_photos_dir.mkdir(parents=True)
+    (season_photos_dir / "jane-doe.jpg").write_bytes(
+        (FIXTURES_DIR / "sample_photo.jpg").read_bytes()
+    )
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    members = [
+        _member(
+            "jane-doe",
+            53.55,
+            9.99,
+            photo_relative_path="photos/jane-doe.jpg",
+            photo_season_label="2025-26",
+        )
+    ]
+
+    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+
+    payload = _load_map_data(interactive_map_dir)
+    member_payload = payload["members"][0]
+    assert member_payload["photo"] != member_payload["photo_full"]
+
+
 def test_assemble_map_data_excludes_non_popup_fields(tmp_path):
     """Principle I minimization (research.md §12): the payload must never
     carry address/phone/email/etc -- enforced structurally by
@@ -241,6 +283,77 @@ def test_copy_assets_downscales_a_members_photo_to_a_square_thumbnail(tmp_path):
     )
 
 
+def test_copy_assets_writes_a_full_uncropped_hover_photo_scaled_to_hd_bounds(tmp_path):
+    """The hover popup shows the applicant's full picture, not just the
+    marker's square-cropped thumbnail -- but an oversized source photo must
+    still be downscaled (to HOVER_PHOTO_MAX_PX, aspect ratio preserved) so
+    it never ships/decodes at its original resolution."""
+    from PIL import Image
+
+    from scripts.rkby_maps.rendering import HOVER_PHOTO_MAX_PX
+
+    season_photos_dir = tmp_path / "seasons" / "2025-26" / "photos"
+    season_photos_dir.mkdir(parents=True)
+    # Exactly 2x Full HD at the same 16:9 ratio -- lands on HOVER_PHOTO_MAX_PX
+    # exactly, no rounding ambiguity in the assertion.
+    Image.new("RGB", (3840, 2160), color=(10, 20, 30)).save(
+        season_photos_dir / "jane-doe.jpg", "JPEG"
+    )
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    dist_index = tmp_path / "dist_index.html"
+    dist_index.write_text("<html></html>")
+
+    members = [
+        _member(
+            "jane-doe",
+            53.55,
+            9.99,
+            photo_relative_path="photos/jane-doe.jpg",
+            photo_season_label="2025-26",
+        )
+    ]
+
+    copy_assets(tmp_path, interactive_map_dir, members, dist_index)
+
+    payload_photo_full = "jane-doe-full.jpg"
+    full_photo = Image.open(interactive_map_dir / "photos" / payload_photo_full)
+    assert full_photo.size == HOVER_PHOTO_MAX_PX
+    # Not square-cropped, unlike the marker thumbnail.
+    assert full_photo.size[0] != full_photo.size[1]
+
+
+def test_copy_assets_does_not_upscale_a_smaller_than_hd_photo_for_the_hover_popup(
+    tmp_path,
+):
+    from PIL import Image
+
+    season_photos_dir = tmp_path / "seasons" / "2025-26" / "photos"
+    season_photos_dir.mkdir(parents=True)
+    (season_photos_dir / "jane-doe.jpg").write_bytes(
+        (FIXTURES_DIR / "sample_photo.jpg").read_bytes()
+    )
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    dist_index = tmp_path / "dist_index.html"
+    dist_index.write_text("<html></html>")
+
+    members = [
+        _member(
+            "jane-doe",
+            53.55,
+            9.99,
+            photo_relative_path="photos/jane-doe.jpg",
+            photo_season_label="2025-26",
+        )
+    ]
+
+    copy_assets(tmp_path, interactive_map_dir, members, dist_index)
+
+    full_photo = Image.open(interactive_map_dir / "photos" / "jane-doe-full.jpg")
+    assert full_photo.size == (120, 80)
+
+
 def test_copy_assets_falls_back_to_placeholder_when_no_photo_on_file(tmp_path):
     interactive_map_dir = tmp_path / "interactive_map"
     interactive_map_dir.mkdir()
@@ -311,6 +424,7 @@ def test_regeneration_leaves_no_stale_photo_from_a_removed_member(tmp_path):
     ]
     copy_assets(tmp_path, interactive_map_dir, first_run_members, dist_index)
     assert (interactive_map_dir / "photos" / "jane-doe.jpg").exists()
+    assert (interactive_map_dir / "photos" / "jane-doe-full.jpg").exists()
 
     # Regeneration always starts from a freshly emptied interactive_map/
     # (generate_interactive_map.py's _ensure_interactive_map_dir) -- simulate
@@ -323,6 +437,7 @@ def test_regeneration_leaves_no_stale_photo_from_a_removed_member(tmp_path):
     copy_assets(tmp_path, interactive_map_dir, [], dist_index)
 
     assert not (interactive_map_dir / "photos" / "jane-doe.jpg").exists()
+    assert not (interactive_map_dir / "photos" / "jane-doe-full.jpg").exists()
 
 
 def test_generate_basemap_writes_a_jpeg_of_canvas_size(tmp_path, monkeypatch):

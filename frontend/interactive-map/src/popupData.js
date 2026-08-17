@@ -21,6 +21,7 @@ export function popupData(member, activeSeasons) {
   return {
     name: member.name,
     numPreviousSeasons: member.num_previous_seasons,
+    photoFull: member.photo_full,
     seasons,
   };
 }
