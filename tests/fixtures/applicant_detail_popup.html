@@ -1,11 +1,15 @@
-<!-- Obfuscated/synthetic: shape of a real /Ajax/showparticipant.php response
-     fragment. Empirically (research.md §15 revision), birthday is not present in
-     the applicant list view at all -- only here, in the per-applicant detail popup
-     shown when a row is clicked. The site displays it as dd-mm-yyyy. Sex lives in
-     the same "Profile" tab (`tabs-user`); the number of previously participated
-     seasons lives in the separate "Team application" tab (`tabs-applications`) as
-     a "Participated: N times" line, sharing its paragraph class with the
-     applicant's Role and motivation text on that tab. -->
+<!-- Obfuscated/synthetic example dataset: shape of a real /Ajax/showparticipant.php
+     response fragment, not real member data. Empirically (research.md §15
+     revision), birthday is not present in the applicant list view at all -- only
+     here, in the per-applicant detail popup shown when a row is clicked. The site
+     displays it as dd-mm-yyyy. Sex, e-mail, and the Roles list live in the same
+     "Profile" tab (`tabs-user`); the number of previously participated seasons and
+     the motive for participation live in the separate "Team application" tab
+     (`tabs-applications`) as "Participated: N times" / "Motive for participation:"
+     lines, sharing their paragraph class with the applicant's Role on that tab; food
+     restrictions live in their own "Food restrictions" tab (`tabs-allergies`). This
+     applicant has only their primary role (Rider) and no additional roles, and has
+     declared no food restrictions (rendered by the site as the literal text "None"). -->
 <div id="userPopUp">
 <div class="userPopUp-inner">
 <div class="userPopUpContent">
@@ -16,8 +20,13 @@
 <div class="col-sm-12 col-md-8">
 <div class="col-sm-12 col-md-6">
 <p class="profile_address">Address: Teststr. 1</p>
+<p class="profile_email"><span>E-mail: </span><a href="mailto:jane.doe@example.test">jane.doe@example.test</a></p>
 <p class="profile_sex"><span>Sex: </span>Female</p>
 <p class="profile_birthday"><span>Birthday: </span>15-03-1990</p>
+</div>
+<h2 class="profile_headline">Roles</h2>
+<div class="col-sm-12 col-md-12">
+<h5 class="box font_bold bg_secondary roles_box">Rider</h5>
 </div>
 </div>
 </div>
@@ -28,6 +37,11 @@
 <p class="application-role"><span>Participated: </span>0 times</p>
 <p class="application-role"><span>Motive for participation: </span>Synthetic test motivation text.</p>
 </div>
+</div>
+<div id="tabs-allergies" class="tab-page-view ui-tabs-panel ui-corner-bottom ui-widget-content">
+<h2 class="profile_headline">Food restrictions</h2>
+<div class="col-sm-12 col-md-6">None</div>
+<div class="clear"></div>
 </div>
 </div>
 </div>

@@ -3,7 +3,11 @@ URL resolution, against obfuscated fixtures (no real network calls, FR-021)."""
 
 from pathlib import Path
 
-from scripts.scrape_applicants import full_resolution_photo_url, parse_applicant_rows
+from scripts.scrape_applicants import (
+    _compute_additional_roles,
+    full_resolution_photo_url,
+    parse_applicant_rows,
+)
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 
@@ -125,3 +129,37 @@ def test_parse_applicant_rows_treats_a_single_token_name_as_first_name_only():
 
     assert single_row["first_name"] == "Prinz"
     assert single_row["last_name"] == ""
+
+
+# --- _compute_additional_roles: separating the primary role out of the ------
+# --- popup's combined Roles list (real-site wording abbreviates the primary
+# --- role differently between the applicant table and the Roles box) -------
+
+
+def test_compute_additional_roles_drops_an_exact_match():
+    assert _compute_additional_roles(["Rider"], "Rider") == []
+
+
+def test_compute_additional_roles_drops_a_case_insensitive_substring_match():
+    # Real-site wording: the table/Team-application tab say "Service", the
+    # Roles box spells it out as "Service Crew".
+    assert _compute_additional_roles(
+        ["Steering Committee", "Service Crew", "Finance Manager"], "Service"
+    ) == ["Steering Committee", "Finance Manager"]
+
+
+def test_compute_additional_roles_drops_only_the_first_matching_entry():
+    assert _compute_additional_roles(["Rider", "Ride Captain"], "Rider") == [
+        "Ride Captain"
+    ]
+
+
+def test_compute_additional_roles_returns_the_full_list_when_primary_role_unknown():
+    assert _compute_additional_roles(["Rider", "Finance Manager"], None) == [
+        "Rider",
+        "Finance Manager",
+    ]
+
+
+def test_compute_additional_roles_passes_through_none_when_roles_list_unknown():
+    assert _compute_additional_roles(None, "Rider") is None

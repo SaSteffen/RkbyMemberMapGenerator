@@ -1,6 +1,13 @@
-<!-- Obfuscated/synthetic: same popup shape as applicant_detail_popup.html but for
-     a returning applicant (Participated > 0), to guard against a parser that only
-     happens to work for the "0 times" case. -->
+<!-- Obfuscated/synthetic example dataset: same popup shape as
+     applicant_detail_popup.html but for a returning applicant (Participated > 0)
+     who also holds additional roles beyond their primary one, to guard against a
+     parser that only happens to work for the single-role/first-time-applicant
+     case. The Roles box spells the primary role out in full ("Service Crew")
+     while the Team-application tab's own "Role:" line abbreviates it ("Service")
+     -- both are observed real-site wording, not a typo -- so additional-role
+     extraction must match by substring, not exact string equality. The motive
+     text spans two lines separated by a real <br>, including the literal
+     newline the site's own template leaves in the source right after it. -->
 <div id="userPopUp">
 <div class="userPopUp-inner">
 <div class="userPopUpContent">
@@ -11,18 +18,29 @@
 <div class="col-sm-12 col-md-8">
 <div class="col-sm-12 col-md-6">
 <p class="profile_address">Address: Teststr. 2</p>
+<p class="profile_email"><span>E-mail: </span><a href="mailto:john.smith@example.test">john.smith@example.test</a></p>
 <p class="profile_sex"><span>Sex: </span>Male</p>
 <p class="profile_birthday"><span>Birthday: </span>22-11-1985</p>
+</div>
+<h2 class="profile_headline">Roles</h2>
+<div class="col-sm-12 col-md-12">
+<h5 class="box font_bold bg_secondary roles_box">Steering Committee, Service Crew, Finance Manager</h5>
 </div>
 </div>
 </div>
 </div>
 <div id="tabs-applications" class="tab-page-view ui-tabs-panel ui-corner-bottom ui-widget-content">
 <div class="col-sm-12 col-md-12">
-<p class="application-role"><span>Role: </span>Rider</p>
+<p class="application-role"><span>Role: </span>Service</p>
 <p class="application-role"><span>Participated: </span>3 times</p>
-<p class="application-role"><span>Motive for participation: </span>Synthetic test motivation text.</p>
+<p class="application-role"><span>Motive for participation: </span>Synthetic first line,<br>
+synthetic second line of test motivation text.</p>
 </div>
+</div>
+<div id="tabs-allergies" class="tab-page-view ui-tabs-panel ui-corner-bottom ui-widget-content">
+<h2 class="profile_headline">Food restrictions</h2>
+<div class="col-sm-12 col-md-6">Synthetic test restriction: no nuts.</div>
+<div class="clear"></div>
 </div>
 </div>
 </div>

@@ -342,6 +342,102 @@ def _parse_num_previous_seasons(html: str) -> int | None:
     return None
 
 
+_EMAIL_RE = re.compile(r"E-mail:\s*(\S+)")
+
+
+def _parse_email(html: str) -> str | None:
+    """Parse the raw e-mail text out of an applicant detail popup's Profile
+    tab (`<p class="profile_email">`), next to birthday and sex."""
+    soup = BeautifulSoup(html, "html.parser")
+    el = soup.find("p", class_="profile_email")
+    if el is None:
+        return None
+    match = _EMAIL_RE.search(el.get_text())
+    return match.group(1) if match else None
+
+
+def _parse_roles(html: str) -> list[str] | None:
+    """Parse the applicant detail popup's Profile tab "Roles" section
+    (`<h5 class="roles_box">`), a single comma-separated list holding every
+    role the applicant has -- the primary one (Rider/Service Crew/Supporter)
+    together with any additional ones (e.g. "Steering Committee", "Finance
+    Manager"). None if the popup carries no Roles section at all; an empty
+    list is not a real observed shape here (the box always holds at least
+    the primary role) but is handled the same as any other empty result."""
+    soup = BeautifulSoup(html, "html.parser")
+    el = soup.find("h5", class_="roles_box")
+    if el is None:
+        return None
+    return [part.strip() for part in el.get_text().split(",") if part.strip()]
+
+
+def _compute_additional_roles(
+    all_roles: list[str] | None, primary_role: str | None
+) -> list[str] | None:
+    """Every role from `_parse_roles` except the primary one. The Roles box
+    spells the primary role out in full (e.g. "Service Crew") while the
+    applicant table/Team-application tab abbreviate it (e.g. "Service"), so
+    the primary role is dropped by case-insensitive substring match rather
+    than an exact one -- the first matching entry is dropped, the rest kept.
+    Without a known primary role (e.g. a never-set `role` field) nothing can
+    be safely excluded, so the full list is returned unchanged."""
+    if all_roles is None:
+        return None
+    if not primary_role:
+        return list(all_roles)
+    primary_lower = primary_role.strip().lower()
+    additional: list[str] = []
+    dropped_primary = False
+    for role in all_roles:
+        if not dropped_primary and primary_lower in role.lower():
+            dropped_primary = True
+            continue
+        additional.append(role)
+    return additional
+
+
+_MOTIVE_PREFIX_RE = re.compile(r"^Motive for participation:\s*", re.IGNORECASE)
+
+
+def _parse_motive(html: str) -> str | None:
+    """Parse the free-text "Motive for participation: ..." line out of an
+    applicant detail popup's "Team application" tab. Shares the
+    `application-role` paragraph class with Role and Participated (see
+    `_parse_num_previous_seasons`), and its value can span multiple lines
+    separated by `<br>` in the source -- those are converted to "\\n" before
+    extracting text so line breaks in the applicant's own writing survive."""
+    soup = BeautifulSoup(html, "html.parser")
+    for el in soup.find_all("p", class_="application-role"):
+        if "Motive for participation" not in el.get_text():
+            continue
+        for br in el.find_all("br"):
+            br.replace_with("\n")
+        text = _MOTIVE_PREFIX_RE.sub("", el.get_text(), count=1)
+        lines = [line.strip() for line in text.splitlines()]
+        cleaned = "\n".join(line for line in lines if line)
+        return cleaned or None
+    return None
+
+
+def _parse_food_restrictions(html: str) -> str | None:
+    """Parse the applicant detail popup's "Food restrictions" tab
+    (`#tabs-allergies`). The page renders the literal text "None" when the
+    applicant has declared no restrictions -- that's normalized to None here
+    rather than persisted as the string "None", matching every other optional
+    field's "nothing to report" convention."""
+    soup = BeautifulSoup(html, "html.parser")
+    tab = soup.find(id="tabs-allergies")
+    if tab is None:
+        return None
+    el = tab.select_one("div.col-sm-12.col-md-6")
+    if el is None:
+        return None
+    text = el.get_text(strip=True)
+    if not text or text.lower() == "none":
+        return None
+    return text
+
+
 def full_resolution_photo_url(thumbnail_url: str | None) -> str | None:
     if thumbnail_url is None:
         return None
@@ -501,12 +597,17 @@ def fetch_participant_details(
     client: IntranetClient,
     season_id: int,
     applicant_id: int | None,
+    primary_role: str | None,
     logger: logging.Logger,
     match_key_value: str,
 ) -> dict | None:
     """Fetch one applicant's detail popup once and parse out every field it
-    carries (birthday, sex, num_previous_seasons) instead of re-fetching the
-    same popup once per field. Never raises -- a failure is logged as a
+    carries (birthday, sex, num_previous_seasons, email, additional_roles,
+    motive_for_participation, food_restrictions) instead of re-fetching the
+    same popup once per field. `primary_role` is the record's already-known
+    Role column value, needed to tell the primary role apart from any
+    additional ones in the popup's combined Roles list (see
+    `_compute_additional_roles`). Never raises -- a failure is logged as a
     warning and retried on a later run (mirrors fetch_photo's FR-005
     handling)."""
     if applicant_id is None:
@@ -520,6 +621,10 @@ def fetch_participant_details(
         "birthday": _parse_birthday(html),
         "sex": _parse_sex(html),
         "num_previous_seasons": _parse_num_previous_seasons(html),
+        "email": _parse_email(html),
+        "additional_roles": _compute_additional_roles(_parse_roles(html), primary_role),
+        "motive_for_participation": _parse_motive(html),
+        "food_restrictions": _parse_food_restrictions(html),
     }
 
 
@@ -598,21 +703,35 @@ def _fetch_participant_details_if_needed(
     logger: logging.Logger,
     key: str,
 ) -> bool:
-    """Fetch + fill birthday, sex, and num_previous_seasons into `record`
-    (mutated in place) from a single detail-popup fetch, unless every one of
-    them is already recorded. Each field is filled independently
-    (fill-empty-only) so a popup missing one field doesn't block the others.
-    num_previous_seasons is checked with `is None`, not truthiness -- 0 (a
-    first-time applicant) is a real, meaningful observed value. Returns
-    whether the popup was fetched."""
+    """Fetch + fill birthday, sex, num_previous_seasons, email,
+    additional_roles, motive_for_participation, and food_restrictions into
+    `record` (mutated in place) from a single detail-popup fetch, unless
+    every one of them is already recorded. Each field is filled
+    independently (fill-empty-only) so a popup missing one field doesn't
+    block the others. num_previous_seasons and additional_roles are checked
+    with `is None`, not truthiness -- 0 previous seasons / an empty
+    additional-roles list are real, meaningful observed values, not "not yet
+    known". Returns whether the popup was fetched."""
     needs_birthday = not record.get("birthday")
     needs_sex = not record.get("sex")
     needs_num_previous_seasons = record.get("num_previous_seasons") is None
-    if not (needs_birthday or needs_sex or needs_num_previous_seasons):
+    needs_email = not record.get("email")
+    needs_additional_roles = record.get("additional_roles") is None
+    needs_motive = not record.get("motive_for_participation")
+    needs_food_restrictions = not record.get("food_restrictions")
+    if not (
+        needs_birthday
+        or needs_sex
+        or needs_num_previous_seasons
+        or needs_email
+        or needs_additional_roles
+        or needs_motive
+        or needs_food_restrictions
+    ):
         return False
 
     details = fetch_participant_details(
-        client, season_id, row.get("applicant_id"), logger, key
+        client, season_id, row.get("applicant_id"), record.get("role"), logger, key
     )
     if details is None:
         return False
@@ -623,6 +742,14 @@ def _fetch_participant_details_if_needed(
         record["sex"] = details["sex"]
     if needs_num_previous_seasons and details["num_previous_seasons"] is not None:
         record["num_previous_seasons"] = details["num_previous_seasons"]
+    if needs_email and details["email"] is not None:
+        record["email"] = details["email"]
+    if needs_additional_roles and details["additional_roles"] is not None:
+        record["additional_roles"] = details["additional_roles"]
+    if needs_motive and details["motive_for_participation"] is not None:
+        record["motive_for_participation"] = details["motive_for_participation"]
+    if needs_food_restrictions and details["food_restrictions"] is not None:
+        record["food_restrictions"] = details["food_restrictions"]
     return True
 
 
@@ -678,10 +805,14 @@ def persist_records(
                 "last_name": row["last_name"],
                 "address": row.get("address"),
                 "phone": row.get("phone"),
+                "email": row.get("email"),
                 "role": row.get("role"),
+                "additional_roles": row.get("additional_roles"),
                 "birthday": row.get("birthday"),
                 "sex": row.get("sex"),
                 "num_previous_seasons": row.get("num_previous_seasons"),
+                "motive_for_participation": row.get("motive_for_participation"),
+                "food_restrictions": row.get("food_restrictions"),
                 "status": row["status"],
                 "excluded": False,
                 "excluded_observed_at": None,

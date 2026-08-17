@@ -33,9 +33,18 @@
     "phone": {
       "type": ["string", "null"]
     },
+    "email": {
+      "type": ["string", "null"],
+      "description": "Scraped from the intranet applicant detail popup's Profile tab, or null if not yet known."
+    },
     "role": {
       "type": ["string", "null"],
       "description": "Raw participation role text as scraped from the intranet applicant table's Role column (e.g. \"Rider\", \"Service Crew\", \"Supporter\"), or null if not yet known."
+    },
+    "additional_roles": {
+      "type": ["array", "null"],
+      "items": { "type": "string" },
+      "description": "Every role beyond the primary one (e.g. \"Steering Committee\", \"Finance Manager\"), scraped from the detail popup's Profile tab \"Roles\" list. An empty array means the popup was fetched and no additional roles were found; null means not yet known -- mirrors num_previous_seasons' 0-vs-null distinction."
     },
     "birthday": {
       "type": ["string", "null"],
@@ -50,6 +59,14 @@
       "type": ["integer", "null"],
       "minimum": 0,
       "description": "Number of prior Team Rynkeby seasons participated in, scraped from the \"Participated: N times\" line on the intranet applicant detail popup's Team application tab, or null if not yet known."
+    },
+    "motive_for_participation": {
+      "type": ["string", "null"],
+      "description": "Free-text \"Motive for participation\" answer, scraped from the intranet applicant detail popup's Team application tab, or null if not yet known."
+    },
+    "food_restrictions": {
+      "type": ["string", "null"],
+      "description": "Free-text food restrictions, scraped from the intranet applicant detail popup's Food restrictions tab. Null both if not yet known and if the applicant declared none (the page's literal \"None\" is normalized to null)."
     },
     "status": {
       "type": "string",
