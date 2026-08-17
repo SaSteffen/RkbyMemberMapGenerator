@@ -337,18 +337,18 @@ network requests and every US1-3 interaction still works.
 
 ### Tests for User Story 4 (write first, confirm it fails)
 
-- [ ] T038 [P] [US4] Extend `tests/unit/test_rkby_interactive_map_bundle.py`: the
+- [X] T038 [P] [US4] Extend `tests/unit/test_rkby_interactive_map_bundle.py`: the
   copied `interactive_map/index.html` contains neither `"fetch("` nor
   `'type="module"'` (regression guard for research.md §10's `file://`
   compatibility constraints).
 
 ### Implementation for User Story 4
 
-- [ ] T039 [US4] Audit `frontend/interactive-map/dist/index.html` (built via T001/
+- [X] T039 [US4] Audit `frontend/interactive-map/dist/index.html` (built via T001/
   T004/T011's config) against T038: confirm the single-file non-module bundle and
   that every emitted asset URL is relative to `index.html`'s own folder; fix
   `vite.config.js` if either check fails. Makes T038 pass.
-- [ ] T040 [US4] Manual validation — quickstart.md Scenario 2: copy
+- [X] T040 [US4] Manual validation — quickstart.md Scenario 2: copy
   `interactive_map/` to a machine/profile with networking disabled, open
   `index.html` in Chrome and Firefox, confirm zero pending/failed requests in each
   browser's Network tab and that pan, zoom, buttons, season toggles, and hover
