@@ -207,6 +207,34 @@ regardless of which multiplier was the deepest. `maxNativeZoom` is the option
 `GridLayer` already ships for exactly this — reuse and auto-scale the deepest
 available level past its own native zoom — so this is config, not new tile logic.
 
+### 4th addendum: reinstated the 16x level by doubling TILE_PX instead (post-launch fix)
+
+**Decision**: `BASEMAP_LEVELS` is `(1, 2, 4, 8, 16)` again and `TILE_PX` is now 512
+(was 256). 16x is a real Leaflet zoom level once more — `maxNativeZoom` in
+`src/main.js` again tracks whatever the deepest baked level is (now 16x), with
+overzoom kicking in only past that.
+
+**Rationale**: User-directed follow-up asking for "a bit more resolution" than the
+3rd addendum's 8x-and-overzoom ceiling. First checked whether a true in-between
+level (e.g. a 12x tier) was possible: it isn't — `src/basemapTiles.js`'s
+`levelForZoom` matches a level to a Leaflet zoom via `Math.log2(level.scale)`, and
+`GridLayer` only ever requests tiles at an integer native zoom, so any level's
+`scale` must be a power of two or it's simply never requested. The only two real
+options were "reinstate 16x" or "sharpen the existing levels via a bigger
+`CANVAS_SIZE`"; the user chose reinstating 16x.
+
+The 3rd addendum dropped 16x specifically because it was ~16,950 of ~22,600 total
+chunk files (2nd addendum's numbers) at `TILE_PX = 256`. Chunk count per level is
+`ceil(CANVAS_SIZE * scale / TILE_PX)` in each dimension, so it scales with
+`1/TILE_PX²` — doubling `TILE_PX` to 512 quarters every level's chunk count,
+including a reinstated 16x's. At the real `CANVAS_SIZE = (2400, 1800)`: 2x ≈ 80
+chunks, 4x ≈ 285, 8x ≈ 1102, 16x ≈ 4275 — the reinstated 16x level now costs about
+what 8x alone cost before, and the whole pyramid's total (~5,742 chunks) is close
+to the old 8x-only total (~5,660), not the ~22,600 the original 16x attempt cost.
+Trade-off: each chunk file is ~4x the pixel area of before, so panning/zooming
+downloads fewer but bigger files — not revisited, since the whole point was more
+visible detail per chunk.
+
 ## 3. Marker positioning: reuse the existing projection math, computed once in Python
 
 **Decision**: Because the whole artifact uses exactly one fixed `(center, zoom,

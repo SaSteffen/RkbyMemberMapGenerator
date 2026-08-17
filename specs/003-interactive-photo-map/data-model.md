@@ -88,10 +88,12 @@ for exactly which fields are deliberately excluded and why.
     "file": "basemap.jpg",
     "width": 4800,
     "height": 3600,
-    "tileSize": 256,
+    "tileSize": 512,
     "tileLevels": [
-      { "scale": 2, "cols": 38, "rows": 29 },
-      { "scale": 4, "cols": 75, "rows": 57 }
+      { "scale": 2, "cols": 19, "rows": 15 },
+      { "scale": 4, "cols": 38, "rows": 29 },
+      { "scale": 8, "cols": 75, "rows": 57 },
+      { "scale": 16, "cols": 150, "rows": 113 }
     ]
   }
 }

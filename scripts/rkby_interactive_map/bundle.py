@@ -50,31 +50,37 @@ DEFAULT_ZOOM = 6
 # on screen, however deep the zoom goes. Each chunk is still a
 # cropped/re-encoded composite of the underlying OSM tiles (never one
 # passed through unmodified) in the general case -- the same "derived
-# picture, not a re-servable OSM tile" distinction §2 leans on -- though
-# because a chunk is the same pixel size as OSM's own native tile, a
-# chunk that happens to land exactly on a tile boundary is close to
-# indistinguishable from one. Baking this many levels is closer to the
+# picture, not a re-servable OSM tile" distinction §2 leans on. Baking this many levels is closer to the
 # tile usage policy's own "pre-seeding... multiple zoom levels in
 # advance" language than the original single-image decision was -- an
 # accepted trade-off, confirmed by the user. Multipliers must be powers
 # of two: one extra multiplier step == exactly one extra integer OSM tile
 # zoom, which is what keeps every level's canvas covering the identical
-# bounding box (research.md §2's zoom_for_bounding_box math). Stops at 8x
-# -- a 16x level was tried and dropped as unmanageable (its chunk count
-# and OSM fetch volume were too steep for too little visible benefit);
-# zoom levels past 8x reuse its chunks, auto-scaled up by Leaflet's own
-# GridLayer `maxNativeZoom` overzoom support (main.js), rather than
-# requesting a level that was never baked.
-BASEMAP_LEVELS = (1, 2, 4, 8)
+# bounding box (research.md §2's zoom_for_bounding_box math) -- Leaflet's
+# GridLayer only ever requests tiles at an integer native zoom
+# (basemapTiles.js's `levelForZoom` matches on `log2(scale)`), so there is
+# no such thing as an in-between, non-power-of-two level to bake instead.
+# 16x was tried, dropped as unmanageable (research.md §2 3rd addendum: its
+# ~16,950 chunk files at TILE_PX=256 dwarfed every other level combined),
+# then reinstated once TILE_PX was doubled to 512 (research.md §2 4th
+# addendum) -- at the larger chunk size 16x's file count drops back down to
+# roughly what 8x cost before, so the full pyramid's total chunk count is
+# essentially unchanged from the 8x-only baseline while adding real
+# resolution past it. Zoom levels past 16x reuse its chunks, auto-scaled up
+# by Leaflet's own GridLayer `maxNativeZoom` overzoom support (main.js),
+# rather than requesting a level that was never baked.
+BASEMAP_LEVELS = (1, 2, 4, 8, 16)
 # OSM's own highest tile zoom -- a bounding box whose base zoom is already
 # here (very tightly clustered members) has no higher-resolution tiles to
 # fetch, so higher multipliers are skipped rather than re-fetching and
 # re-flattening an identical raster under a different name.
 MAX_OSM_ZOOM = 19
-# Chunk size for every tiled resolution level (scale > 1) -- matches OSM's
-# own native raster tile size, and is Leaflet's own GridLayer default, a
-# sensible lazy-load granularity either way.
-TILE_PX = 256
+# Chunk size for every tiled resolution level (scale > 1). Deliberately
+# larger than OSM's own native raster tile size (256px) -- research.md §2
+# 4th addendum: doubling it to 512px roughly quarters the chunk-file count
+# at every existing level, which is what makes reinstating the 16x level
+# affordable again without growing the pyramid's total file count.
+TILE_PX = 512
 # Fills the last (partial) row/column of a level's chunk grid out to a full
 # TILE_PX square, matching styles.css's #map background -- keeps every
 # chunk file uniformly sized so the frontend never needs partial-tile
