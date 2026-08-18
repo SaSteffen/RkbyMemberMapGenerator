@@ -869,9 +869,12 @@ def persist_records(
         else:
             conflicts = _conflicting_fields(existing, row)
             if conflicts:
-                # FR-014: flag for human review; existing value(s) still win
-                # via merge_record's fill-empty-only rule below.
-                logger.debug(
+                # FR-014: flag for human review in the run log; existing
+                # value(s) still win via merge_record's fill-empty-only rule
+                # below. Must be warning, not debug -- setup_run_logger sets
+                # the logger's own level to INFO, so a debug call here would
+                # never reach any handler at all, silently defeating FR-014.
+                logger.warning(
                     "Applicant %s: scraped data conflicts with the existing "
                     "record on %s; existing value(s) kept, new snapshot: %s",
                     key,
