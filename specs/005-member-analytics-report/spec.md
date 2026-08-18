@@ -13,6 +13,16 @@ gender distribution, distance from hamburg city center, number of riders, number
 service, from season to season. you get the picture i suppose. member retention. (also:
 split over gender, age, distance form hamburg)."
 
+## Clarifications
+
+### Session 2026-08-18
+
+- Q: What file format should the exported, shareable report use? → A: HTML
+- Q: When a member is missing data a chart needs (no birthday, no sex, no
+  coordinates), should the report help the maintainer identify who they are so the
+  record can be corrected? → A: Yes, but only within the notebook itself — a list of
+  affected members, excluded from the exported HTML file.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See this season's team makeup at a glance (Priority: P1)
@@ -42,6 +52,10 @@ age, gender, distance-from-Hamburg) match a manual count of that season's record
    file, **When** the report is run, **Then** that member is still counted, shown under
    an explicit "unknown" category for the field that's missing, rather than being
    silently dropped or misreported.
+4. **Given** one or more members missing a birthday, sex, or coordinates, **When**
+   the report is run, **Then** the notebook itself (not the exported file) also shows
+   a list identifying which members are missing which field, so the maintainer can
+   locate and correct the underlying record.
 
 ---
 
@@ -111,25 +125,25 @@ matches that known outcome.
 ### User Story 4 - Share the finished report (Priority: P3)
 
 As the team organizer, I want to export the finished set of charts and summary
-numbers to a single file, so I can hand it to someone else on the team without them
-needing to install or run anything themselves.
+numbers to a single HTML file, so I can hand it to someone else on the team without
+them needing to install or run anything themselves.
 
 **Why this priority**: Valuable but secondary — the analysis in User Stories 1-3 is
 useful to the organizer even before it can be shared with anyone else.
 
 **Independent Test**: After running the report, trigger the export step and confirm a
-single output file is produced that opens and displays every chart and summary table
+single HTML file is produced that opens and displays every chart and summary table
 without re-running any analysis.
 
 **Acceptance Scenarios**:
 
 1. **Given** a completed report run, **When** the export step is triggered, **Then**
-   a single shareable file is produced containing every chart and summary table from
-   that run.
-2. **Given** that exported file, **When** it is opened by someone without the
-   analysis tool set up, **Then** every chart and table is visible without needing to
-   re-run anything, and no per-member roster of names is exposed — only the aggregated
-   counts, rates, and distributions.
+   a single shareable HTML file is produced containing every chart and summary table
+   from that run.
+2. **Given** that exported file, **When** it is opened in a web browser by someone
+   without the analysis tool set up, **Then** every chart and table is visible without
+   needing to re-run anything, and no per-member roster of names is exposed — only the
+   aggregated counts, rates, and distributions.
 
 ---
 
@@ -198,14 +212,23 @@ without re-running any analysis.
   with no manual data wrangling beyond pointing it at that data, and MUST reflect newly
   added season data on a re-run without any code changes.
 - **FR-014**: System MUST be able to export a completed run's charts and summary
-  tables to a single file that can be opened and read without re-running any analysis.
+  tables to a single HTML file that opens in any web browser and can be read without
+  re-running any analysis or installing the analysis tool.
 - **FR-015**: Exported/shareable output MUST show only aggregated counts, rates, and
   distributions — never a per-member roster of names alongside personal fields — per
-  the project's rule that shareable artifacts expose the minimum data necessary.
+  the project's rule that shareable artifacts expose the minimum data necessary. This
+  applies to the FR-014 export specifically; it does not forbid the notebook-only
+  data-gap list in FR-017, which never leaves the notebook.
 - **FR-016**: System MUST NOT read from, write to, or commit anything under the
   project's gitignored member-data or credential locations beyond loading the existing
   local records it analyzes, and MUST NOT transmit any member data to a third-party or
   cloud service.
+- **FR-017**: System MUST show, within the notebook itself only, a list identifying
+  (by their existing internal identifier, not by printing name/address/phone/birthday
+  together) which members are missing a field needed for at least one view — no
+  birthday, no sex, or no coordinates — so the maintainer can locate and correct the
+  underlying record. This list MUST NOT appear in the FR-014 export; FR-015's
+  aggregate-only rule applies to everything that leaves the notebook.
 
 ### Key Entities
 
@@ -234,10 +257,14 @@ without re-running any analysis.
 - **SC-004**: A viewer can see the season-over-season retention rate for every
   consecutive season pair available, plus that same rate split by gender, age bracket,
   and distance bracket.
-- **SC-005**: A completed report run can be exported to one shareable file, in a
-  single step, that a person without the analysis tool installed can open and read.
+- **SC-005**: A completed report run can be exported to one shareable HTML file, in a
+  single step, that a person without the analysis tool installed can open in any web
+  browser.
 - **SC-006**: No exported file contains a per-member list of names or other personal
   fields — only aggregated statistics.
+- **SC-007**: From within the notebook, a maintainer can tell exactly which members
+  are missing a field needed for a chart, without that list appearing anywhere in the
+  exported file.
 
 ## Assumptions
 
@@ -267,3 +294,7 @@ without re-running any analysis.
 - This report is read-only with respect to the local data store: it does not write,
   correct, or geocode any member record — it only reads what earlier scraper/map-
   generator runs have already produced.
+- The FR-017 data-gap list identifies members by `match_key` (the same identifier
+  other scripts already log when skipping an incomplete member), not by printing
+  name/address/phone/birthday — consistent with keeping personal fields out of
+  anything beyond the maintainer's own read of the notebook.
