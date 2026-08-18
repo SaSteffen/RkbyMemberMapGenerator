@@ -39,10 +39,10 @@ not rewritten). Tests under `tests/unit/`, fixtures under `tests/fixtures/`.
 
 **Purpose**: Project scaffolding this feature needs before any code is written.
 
-- [ ] T001 Add `pandas`, `matplotlib`, `jupyterlab`, `ipykernel`, and `nbconvert` as runtime dependencies in `pyproject.toml` (`[project.dependencies]`) and run `uv sync` (plan.md § Technical Context)
-- [ ] T002 [P] Add `nbstripout` as a dev-only dependency in `pyproject.toml` (`[dependency-groups.dev]`) and run `uv sync`
-- [ ] T003 [P] Add an `nbstripout` pre-commit hook entry to `.pre-commit-config.yaml` so `scripts/report_member_analytics.ipynb`'s cell outputs are stripped before every commit (research.md §4)
-- [ ] T004 [P] Create the new internal package `scripts/rkby_report/__init__.py` (empty) and a minimal `scripts/report_member_analytics.ipynb` skeleton (a title markdown cell plus a cell that reads and validates `RKBY_DATA_DIR` is set, per contracts/cli-and-env.md) per plan.md § Project Structure
+- [X] T001 Add `pandas`, `matplotlib`, `jupyterlab`, `ipykernel`, and `nbconvert` as runtime dependencies in `pyproject.toml` (`[project.dependencies]`) and run `uv sync` (plan.md § Technical Context)
+- [X] T002 [P] Add `nbstripout` as a dev-only dependency in `pyproject.toml` (`[dependency-groups.dev]`) and run `uv sync`
+- [X] T003 [P] Add an `nbstripout` pre-commit hook entry to `.pre-commit-config.yaml` so `scripts/report_member_analytics.ipynb`'s cell outputs are stripped before every commit (research.md §4)
+- [X] T004 [P] Create the new internal package `scripts/rkby_report/__init__.py` (empty) and a minimal `scripts/report_member_analytics.ipynb` skeleton (a title markdown cell plus a cell that reads and validates `RKBY_DATA_DIR` is set, per contracts/cli-and-env.md) per plan.md § Project Structure
 
 ---
 
@@ -55,13 +55,13 @@ shared cross-season identity resolution it depends on. None of this is independe
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 [P] Write failing tests in `tests/unit/test_rkby_records_canonical_match_keys.py` for `canonical_match_keys()`: direct alias resolution, transitive multi-hop alias chains, and cycle-safety — the same coverage `rkby_interactive_map/merge.py`'s private `_canonical_match_keys` already had, now targeting the shared public function (research.md §7)
-- [ ] T006 Promote `_canonical_match_keys` out of `scripts/rkby_interactive_map/merge.py` into `scripts/rkby_records.py` as public `canonical_match_keys()` (unchanged behavior); update `merge.py` to import and call the shared function instead of defining its own copy; confirm `merge.py`'s existing tests still pass unmodified in behavior — makes T005 pass (research.md §7, plan.md § Structure Decision)
-- [ ] T007 [P] Add synthetic multi-season applicant YAML fixtures under `tests/fixtures/report_seasons/<season-label>/applicants/*.yaml` (at least 2 consecutive seasons) covering: every primary role (`Rider`, `Service Crew`, `Supporter`) plus one unrecognized role plus one null role; `sex` values `Male`/`Female`/null; birthdays spanning every age bracket from research.md §9 plus one null; `latitude`/`longitude` landing in every distance bracket from research.md §9 plus one null pair; `excluded`/`ignore` flags set on at least one record each; a `match_key` retained across two consecutive seasons via a recorded `alias_match_keys`; a `match_key` present only in the earlier season (departed); a `match_key` that skips one season and returns in a later one — never real member data (Constitution I/V). These same null role/sex/birthday/coordinate cases double as the FR-017 data-gap fixtures for T013.
-- [ ] T008 [P] Write failing tests in `tests/unit/test_rkby_report_frame.py` for `geo.haversine_km()` (known-distance coordinate pairs, symmetry, zero distance) and `buckets.age_bucket()`/`buckets.distance_bucket()` (every bracket boundary from research.md §9, plus the `"unknown"`/`"unknown/not geocoded"` sentinel for `None` input)
-- [ ] T009 Implement `scripts/rkby_report/geo.py` (`HAMBURG_CENTER` constant + `haversine_km()`) and `scripts/rkby_report/buckets.py` (bracket boundary constants + `age_bucket()`/`distance_bucket()` helpers) — makes T008 pass (research.md §5, §9)
-- [ ] T010 Extend `tests/unit/test_rkby_report_frame.py` with failing tests for `build_member_season_frame()` against the T007 fixtures, asserting every guarantee in `contracts/member-season-frame.md`: the eligibility filter drops only `excluded`/`ignore` records (never for a missing birthday/sex/coordinates/role); every column from data-model.md § Member-Season Observation is present with correct values, including `"unknown"` categories for missing fields rather than dropped rows; `match_key` is the canonical identity (via T006) even across a recorded alias; `retained_next_season` is `True` for the alias-retained fixture, `False` for the departed one, `None` for every row in the chronologically last discovered season, and correctly `False` (not `True`) for the skip-and-return fixture's skipped season; the function performs no geocode lookups and writes nothing to any `.yaml` file
-- [ ] T011 Implement `scripts/rkby_report/frame.py`: `build_member_season_frame(data_dir)` using `rkby_records.discover_seasons`/`load_existing_records`, the T006 `canonical_match_keys`, T009's `geo`/`buckets` helpers, and the age-at-season reference date from research.md §6 — makes T010 pass
+- [X] T005 [P] Write failing tests in `tests/unit/test_rkby_records_canonical_match_keys.py` for `canonical_match_keys()`: direct alias resolution, transitive multi-hop alias chains, and cycle-safety — the same coverage `rkby_interactive_map/merge.py`'s private `_canonical_match_keys` already had, now targeting the shared public function (research.md §7)
+- [X] T006 Promote `_canonical_match_keys` out of `scripts/rkby_interactive_map/merge.py` into `scripts/rkby_records.py` as public `canonical_match_keys()` (unchanged behavior); update `merge.py` to import and call the shared function instead of defining its own copy; confirm `merge.py`'s existing tests still pass unmodified in behavior — makes T005 pass (research.md §7, plan.md § Structure Decision)
+- [X] T007 [P] Add synthetic multi-season applicant YAML fixtures under `tests/fixtures/report_seasons/<season-label>/applicants/*.yaml` (at least 2 consecutive seasons) covering: every primary role (`Rider`, `Service Crew`, `Supporter`) plus one unrecognized role plus one null role; `sex` values `Male`/`Female`/null; birthdays spanning every age bracket from research.md §9 plus one null; `latitude`/`longitude` landing in every distance bracket from research.md §9 plus one null pair; `excluded`/`ignore` flags set on at least one record each; a `match_key` retained across two consecutive seasons via a recorded `alias_match_keys`; a `match_key` present only in the earlier season (departed); a `match_key` that skips one season and returns in a later one — never real member data (Constitution I/V). These same null role/sex/birthday/coordinate cases double as the FR-017 data-gap fixtures for T013.
+- [X] T008 [P] Write failing tests in `tests/unit/test_rkby_report_frame.py` for `geo.haversine_km()` (known-distance coordinate pairs, symmetry, zero distance) and `buckets.age_bucket()`/`buckets.distance_bucket()` (every bracket boundary from research.md §9, plus the `"unknown"`/`"unknown/not geocoded"` sentinel for `None` input)
+- [X] T009 Implement `scripts/rkby_report/geo.py` (`HAMBURG_CENTER` constant + `haversine_km()`) and `scripts/rkby_report/buckets.py` (bracket boundary constants + `age_bucket()`/`distance_bucket()` helpers) — makes T008 pass (research.md §5, §9)
+- [X] T010 Extend `tests/unit/test_rkby_report_frame.py` with failing tests for `build_member_season_frame()` against the T007 fixtures, asserting every guarantee in `contracts/member-season-frame.md`: the eligibility filter drops only `excluded`/`ignore` records (never for a missing birthday/sex/coordinates/role); every column from data-model.md § Member-Season Observation is present with correct values, including `"unknown"` categories for missing fields rather than dropped rows; `match_key` is the canonical identity (via T006) even across a recorded alias; `retained_next_season` is `True` for the alias-retained fixture, `False` for the departed one, `None` for every row in the chronologically last discovered season, and correctly `False` (not `True`) for the skip-and-return fixture's skipped season; the function performs no geocode lookups and writes nothing to any `.yaml` file
+- [X] T011 Implement `scripts/rkby_report/frame.py`: `build_member_season_frame(data_dir)` using `rkby_records.discover_seasons`/`load_existing_records`, the T006 `canonical_match_keys`, T009's `geo`/`buckets` helpers, and the age-at-season reference date from research.md §6 — makes T010 pass
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
 
@@ -82,17 +82,17 @@ in the notebook's data-gap list under that field, by `match_key`.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T012 [P] [US1] Write failing tests in `tests/unit/test_rkby_report_aggregate.py` for `season_summary(df, season_label)`: `total_members`, `role_counts`, `gender_counts`, `age_bucket_counts`, `distance_bucket_counts` — including `"unknown"`/`"unknown/not geocoded"` categories — against the T007 fixtures
-- [ ] T013 [US1] Extend `tests/unit/test_rkby_report_aggregate.py` with failing tests for `data_gaps(df)` (FR-017, data-model.md § Data Gap List): one output row per Member-Season Observation missing at least one of role/sex/age/distance; `missing_fields` is exactly the subset of `{"role", "sex", "age", "distance"}` that row is missing (e.g. a row with only a null `birthday` reports `missing_fields == ["age"]`, not `["birthday"]`); a fully-known row from the T007 fixtures produces no row in the result; output carries only `match_key`/`season_label`/`missing_fields` — never name, address, phone, or birthday. Shares `test_rkby_report_aggregate.py` with T012, so write it after T012 rather than in parallel.
-- [ ] T014 [P] [US1] Write failing tests in `tests/unit/test_rkby_report_plots.py` for the four single-season chart-builder functions (role, gender, age-bucket, distance-bucket bar charts): each returns a populated matplotlib `Figure` without raising, given a `season_summary()`-shaped input — smoke-level only (research.md §2)
+- [X] T012 [P] [US1] Write failing tests in `tests/unit/test_rkby_report_aggregate.py` for `season_summary(df, season_label)`: `total_members`, `role_counts`, `gender_counts`, `age_bucket_counts`, `distance_bucket_counts` — including `"unknown"`/`"unknown/not geocoded"` categories — against the T007 fixtures
+- [X] T013 [US1] Extend `tests/unit/test_rkby_report_aggregate.py` with failing tests for `data_gaps(df)` (FR-017, data-model.md § Data Gap List): one output row per Member-Season Observation missing at least one of role/sex/age/distance; `missing_fields` is exactly the subset of `{"role", "sex", "age", "distance"}` that row is missing (e.g. a row with only a null `birthday` reports `missing_fields == ["age"]`, not `["birthday"]`); a fully-known row from the T007 fixtures produces no row in the result; output carries only `match_key`/`season_label`/`missing_fields` — never name, address, phone, or birthday. Shares `test_rkby_report_aggregate.py` with T012, so write it after T012 rather than in parallel.
+- [X] T014 [P] [US1] Write failing tests in `tests/unit/test_rkby_report_plots.py` for the four single-season chart-builder functions (role, gender, age-bucket, distance-bucket bar charts): each returns a populated matplotlib `Figure` without raising, given a `season_summary()`-shaped input — smoke-level only (research.md §2)
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Implement `season_summary()` in `scripts/rkby_report/aggregate.py` — makes T012 pass
-- [ ] T016 [US1] Implement `data_gaps(df)` in `scripts/rkby_report/aggregate.py` — makes T013 pass (research.md §11)
-- [ ] T017 [US1] Implement the four single-season chart-builder functions in `scripts/rkby_report/plots.py` — makes T014 pass
-- [ ] T018 [US1] Add cells to `scripts/report_member_analytics.ipynb`: import `rkby_report`, call `build_member_season_frame(RKBY_DATA_DIR)` once, select a season (defaulting to the most recently discovered one), and render the four T017 charts for it
-- [ ] T019 [US1] Add a cell to `scripts/report_member_analytics.ipynb`, tagged `remove-cell` in its cell metadata, that calls `data_gaps()` (T016) on the full frame and displays the result (`match_key`/`season_label`/`missing_fields` only) — the `remove-cell` tag is what keeps this list out of the FR-014 export via `--TagRemovePreprocessor` (research.md §11, contracts/cli-and-env.md); confirm the tag is present by inspecting the saved `.ipynb` JSON's `cell.metadata.tags`
+- [X] T015 [US1] Implement `season_summary()` in `scripts/rkby_report/aggregate.py` — makes T012 pass
+- [X] T016 [US1] Implement `data_gaps(df)` in `scripts/rkby_report/aggregate.py` — makes T013 pass (research.md §11)
+- [X] T017 [US1] Implement the four single-season chart-builder functions in `scripts/rkby_report/plots.py` — makes T014 pass
+- [X] T018 [US1] Add cells to `scripts/report_member_analytics.ipynb`: import `rkby_report`, call `build_member_season_frame(RKBY_DATA_DIR)` once, select a season (defaulting to the most recently discovered one), and render the four T017 charts for it
+- [X] T019 [US1] Add a cell to `scripts/report_member_analytics.ipynb`, tagged `remove-cell` in its cell metadata, that calls `data_gaps()` (T016) on the full frame and displays the result (`match_key`/`season_label`/`missing_fields` only) — the `remove-cell` tag is what keeps this list out of the FR-014 export via `--TagRemovePreprocessor` (research.md §11, contracts/cli-and-env.md); confirm the tag is present by inspecting the saved `.ipynb` JSON's `cell.metadata.tags`
 
 **Checkpoint**: User Story 1 is fully functional and independently testable, including
 the FR-017 data-gap list — this is the MVP.
@@ -112,14 +112,14 @@ signal appears instead of a misleading single-point trend.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T020 [P] [US2] Write failing tests in `tests/unit/test_rkby_report_aggregate.py` for `season_trend(df)`: one row per discovered season in chronological order with `total_members`/`rider_count`/`service_count` plus wide-pivoted age-bucket/gender/distance-bucket columns, against the T007 multi-season fixtures; and that a single-season input produces a result callers can detect as "not enough data yet"
-- [ ] T021 [P] [US2] Write failing tests in `tests/unit/test_rkby_report_plots.py` for the trend chart-builder functions (member/rider/service-count line chart; age/gender/distance distribution-shift charts): smoke-level against a `season_trend()`-shaped table, plus the single-season case rendering a clear "not enough data yet" placeholder instead of a chart
+- [X] T020 [P] [US2] Write failing tests in `tests/unit/test_rkby_report_aggregate.py` for `season_trend(df)`: one row per discovered season in chronological order with `total_members`/`rider_count`/`service_count` plus wide-pivoted age-bucket/gender/distance-bucket columns, against the T007 multi-season fixtures; and that a single-season input produces a result callers can detect as "not enough data yet"
+- [X] T021 [P] [US2] Write failing tests in `tests/unit/test_rkby_report_plots.py` for the trend chart-builder functions (member/rider/service-count line chart; age/gender/distance distribution-shift charts): smoke-level against a `season_trend()`-shaped table, plus the single-season case rendering a clear "not enough data yet" placeholder instead of a chart
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Implement `season_trend()` in `scripts/rkby_report/aggregate.py` — makes T020 pass
-- [ ] T023 [US2] Implement the trend chart-builder functions in `scripts/rkby_report/plots.py`, including the single-season placeholder path — makes T021 pass
-- [ ] T024 [US2] Add cells to `scripts/report_member_analytics.ipynb` rendering the T023 trend charts across every discovered season
+- [X] T022 [US2] Implement `season_trend()` in `scripts/rkby_report/aggregate.py` — makes T020 pass
+- [X] T023 [US2] Implement the trend chart-builder functions in `scripts/rkby_report/plots.py`, including the single-season placeholder path — makes T021 pass
+- [X] T024 [US2] Add cells to `scripts/report_member_analytics.ipynb` rendering the T023 trend charts across every discovered season
 
 **Checkpoint**: User Stories 1 and 2 both work independently.
 
@@ -136,15 +136,15 @@ each split) matches that known outcome.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T025 [P] [US3] Write failing tests in `tests/unit/test_rkby_report_aggregate.py` for `retention_cohort(df, season_a, season_b)` (`retained_count`/`departed_count`/`retention_rate`) and `retention_by_split(df, season_a, season_b, split_column)` (grouped by `sex`, `age_bucket`, `distance_bucket`), against the T007 fixtures' alias-retained, departed, and skip-and-return cases — a skip-and-return member must NOT count as retained across the season they skipped
-- [ ] T026 [P] [US3] Write failing tests in `tests/unit/test_rkby_report_plots.py` for the retention chart-builder functions (overall-rate chart plus one bar chart per split dimension): smoke-level against T025-shaped input
+- [X] T025 [P] [US3] Write failing tests in `tests/unit/test_rkby_report_aggregate.py` for `retention_cohort(df, season_a, season_b)` (`retained_count`/`departed_count`/`retention_rate`) and `retention_by_split(df, season_a, season_b, split_column)` (grouped by `sex`, `age_bucket`, `distance_bucket`), against the T007 fixtures' alias-retained, departed, and skip-and-return cases — a skip-and-return member must NOT count as retained across the season they skipped
+- [X] T026 [P] [US3] Write failing tests in `tests/unit/test_rkby_report_plots.py` for the retention chart-builder functions (overall-rate chart plus one bar chart per split dimension): smoke-level against T025-shaped input
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Implement `retention_cohort()` in `scripts/rkby_report/aggregate.py` — makes the `retention_cohort` half of T025 pass
-- [ ] T028 [US3] Implement `retention_by_split()` in `scripts/rkby_report/aggregate.py` — makes the `retention_by_split` half of T025 pass
-- [ ] T029 [US3] Implement the retention chart-builder functions in `scripts/rkby_report/plots.py` — makes T026 pass
-- [ ] T030 [US3] Add cells to `scripts/report_member_analytics.ipynb` rendering overall retention plus gender/age/distance splits for every consecutive discovered season pair
+- [X] T027 [US3] Implement `retention_cohort()` in `scripts/rkby_report/aggregate.py` — makes the `retention_cohort` half of T025 pass
+- [X] T028 [US3] Implement `retention_by_split()` in `scripts/rkby_report/aggregate.py` — makes the `retention_by_split` half of T025 pass
+- [X] T029 [US3] Implement the retention chart-builder functions in `scripts/rkby_report/plots.py` — makes T026 pass
+- [X] T030 [US3] Add cells to `scripts/report_member_analytics.ipynb` rendering overall retention plus gender/age/distance splits for every consecutive discovered season pair
 
 **Checkpoint**: User Stories 1, 2, and 3 all work independently.
 
@@ -163,12 +163,12 @@ that nothing new appears under `git status` in the repo.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T031 [US4] Extend `tests/unit/test_rkby_report_frame.py` with failing tests for `ensure_reports_dir_and_gitignore(data_dir)`: creates `<data_dir>/reports/` if missing; adds a `reports/` entry to `<data_dir>/.gitignore`, creating the file if absent; running it twice never duplicates the entry; leaves any pre-existing unrelated `.gitignore` entries untouched (research.md §4, §10)
+- [X] T031 [US4] Extend `tests/unit/test_rkby_report_frame.py` with failing tests for `ensure_reports_dir_and_gitignore(data_dir)`: creates `<data_dir>/reports/` if missing; adds a `reports/` entry to `<data_dir>/.gitignore`, creating the file if absent; running it twice never duplicates the entry; leaves any pre-existing unrelated `.gitignore` entries untouched (research.md §4, §10)
 
 ### Implementation for User Story 4
 
-- [ ] T032 [US4] Implement `ensure_reports_dir_and_gitignore()` in `scripts/rkby_report/frame.py` — makes T031 pass
-- [ ] T033 [US4] Add an early cell to `scripts/report_member_analytics.ipynb` calling `ensure_reports_dir_and_gitignore(RKBY_DATA_DIR)` unconditionally on every run, and a markdown cell documenting the full export command from `contracts/cli-and-env.md` — including its `--TagRemovePreprocessor.remove_cell_tags='{"remove-cell"}'` flag (research.md §11), which is what strips the T019 data-gap cell from the exported HTML
+- [X] T032 [US4] Implement `ensure_reports_dir_and_gitignore()` in `scripts/rkby_report/frame.py` — makes T031 pass
+- [X] T033 [US4] Add an early cell to `scripts/report_member_analytics.ipynb` calling `ensure_reports_dir_and_gitignore(RKBY_DATA_DIR)` unconditionally on every run, and a markdown cell documenting the full export command from `contracts/cli-and-env.md` — including its `--TagRemovePreprocessor.remove_cell_tags='{"remove-cell"}'` flag (research.md §11), which is what strips the T019 data-gap cell from the exported HTML
 
 **Checkpoint**: All four user stories are independently functional — feature complete.
 
@@ -178,9 +178,9 @@ that nothing new appears under `git status` in the repo.
 
 **Purpose**: Bring documentation and the full test/lint suite in line with the now-complete feature.
 
-- [ ] T034 [P] Update `README.md`'s script status/usage section: add `scripts/report_member_analytics.ipynb` with its run command and export command (contracts/cli-and-env.md), marking it implemented alongside the other scripts
-- [ ] T035 [P] Walk through `specs/005-member-analytics-report/quickstart.md` Scenarios 1-5 end-to-end against a throwaway synthetic `RKBY_DATA_DIR` (never real member data); confirm every documented "Expect" holds, including that the committed notebook carries no cell output after being run locally (`nbstripout`), that the FR-017 data-gap list is visible when running the notebook interactively but absent from the exported HTML (`grep -i "match_key\|missing_fields"` finds nothing, per Scenario 4), and that the exported HTML never lands inside the git repo
-- [ ] T036 Run `uv run pre-commit install --install-hooks` (picks up the new `nbstripout` hook from T003), then `uv run ruff check .`, `uv run ruff format .`, and `uv run pytest` for the full suite; fix any lint/format/test failures before considering the feature done
+- [X] T034 [P] Update `README.md`'s script status/usage section: add `scripts/report_member_analytics.ipynb` with its run command and export command (contracts/cli-and-env.md), marking it implemented alongside the other scripts
+- [X] T035 [P] Walk through `specs/005-member-analytics-report/quickstart.md` Scenarios 1-5 end-to-end against a throwaway synthetic `RKBY_DATA_DIR` (never real member data); confirm every documented "Expect" holds, including that the committed notebook carries no cell output after being run locally (`nbstripout`), that the FR-017 data-gap list is visible when running the notebook interactively but absent from the exported HTML (`grep -i "match_key\|missing_fields"` finds nothing, per Scenario 4), and that the exported HTML never lands inside the git repo
+- [X] T036 Run `uv run pre-commit install --install-hooks` (picks up the new `nbstripout` hook from T003), then `uv run ruff check .`, `uv run ruff format .`, and `uv run pytest` for the full suite; fix any lint/format/test failures before considering the feature done
 
 ---
 
