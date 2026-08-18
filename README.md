@@ -17,10 +17,10 @@ See [REQUIREMENTS.md](REQUIREMENTS.md) for the full background and
 [.specify/memory/constitution.md](.specify/memory/constitution.md) for the project's
 governing principles (privacy, data handling, script structure).
 
-> **Status:** `scripts/scrape_applicants.py` (applicant scraper & data persistence) and
-> `scripts/generate_member_maps.py` (member map generator) are implemented. The
-> rider-pairing suggester, birthday calendar, and season stats report are not built
-> yet.
+> **Status:** `scripts/scrape_applicants.py` (applicant scraper & data persistence),
+> `scripts/generate_member_maps.py` (member map generator), and
+> `scripts/report_member_analytics.ipynb` (member analytics report) are implemented.
+> The rider-pairing suggester and birthday calendar are not built yet.
 
 ## Privacy first
 
@@ -39,8 +39,10 @@ below. Any credentials used to scrape the intranet belong in a gitignored `.env`
 ├── scripts/
 │   ├── scrape_applicants.py     # applicant scraper & data persistence (implemented)
 │   ├── generate_member_maps.py  # member map generator (implemented)
-│   ├── rkby_records.py          # shared season/record I/O (used by both scripts above)
+│   ├── report_member_analytics.ipynb  # member analytics report (implemented)
+│   ├── rkby_records.py          # shared season/record I/O (used by every script above)
 │   ├── rkby_maps/                # map-generator internals: basemap, rendering, geocoding, clustering
+│   ├── rkby_report/              # analytics-report internals: frame/aggregate/plots, geo, buckets
 │   └── schemas/                  # JSON Schema for the persisted YAML record format
 ├── tests/                    # pytest unit tests, obfuscated fixtures (no real data)
 ├── REQUIREMENTS.md          # original feature idea and technical background
@@ -99,6 +101,36 @@ subfolders (see
 for the filename grammar); OSM tiles are cached in `$RKBY_DATA_DIR/.tile_cache/`. Both
 folders are gitignored inside the data directory. Every run is idempotent — stale maps
 from a since-changed member set are deleted and regenerated, not left behind.
+
+## Running the analytics report
+
+`scripts/report_member_analytics.ipynb` reads every season already scraped into
+`$RKBY_DATA_DIR` and builds season snapshots (role/gender/age/distance breakdowns),
+season-to-season trends, and season-over-season retention (overall and split by
+gender/age/distance) — read-only, no geocoding, no writes to any season record. See
+[specs/005-member-analytics-report/](specs/005-member-analytics-report/) for the full
+design.
+
+Only `RKBY_DATA_DIR` is required (no intranet credentials):
+
+```bash
+uv run --with jupyter jupyter lab scripts/report_member_analytics.ipynb
+# inside Jupyter: Run All
+```
+
+To export a shareable, self-contained snapshot (aggregates only — no per-member
+roster):
+
+```bash
+uv run jupyter nbconvert --to html --execute \
+  --TagRemovePreprocessor.remove_cell_tags='{"remove-cell"}' \
+  scripts/report_member_analytics.ipynb \
+  --output-dir "$RKBY_DATA_DIR/reports"
+```
+
+The exported `.html` lands in `$RKBY_DATA_DIR/reports/` (gitignored, never inside this
+repo). The committed notebook itself never carries real cell output — an `nbstripout`
+pre-commit hook strips it before every commit.
 
 ## Getting started
 

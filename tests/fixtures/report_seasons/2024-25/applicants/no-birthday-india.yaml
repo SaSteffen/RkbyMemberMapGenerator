@@ -1,0 +1,21 @@
+match_key: no-birthday-india
+alias_match_keys: null
+first_name: India
+last_name: NoBirthday
+address: null
+phone: null
+email: null
+role: Service Crew
+additional_roles: null
+birthday: null
+sex: Female
+num_previous_seasons: null
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: 53.8651
+longitude: 9.993

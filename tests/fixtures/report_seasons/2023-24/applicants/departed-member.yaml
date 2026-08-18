@@ -1,0 +1,21 @@
+match_key: departed-member
+alias_match_keys: null
+first_name: Dana
+last_name: Departed
+address: null
+phone: null
+email: null
+role: Service Crew
+additional_roles: null
+birthday: '1990-01-01'
+sex: Male
+num_previous_seasons: null
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: 53.6855
+longitude: 9.993

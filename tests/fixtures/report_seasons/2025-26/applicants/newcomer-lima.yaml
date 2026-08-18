@@ -1,0 +1,21 @@
+match_key: newcomer-lima
+alias_match_keys: null
+first_name: Lima
+last_name: Newcomer
+address: null
+phone: null
+email: null
+role: Service Crew
+additional_roles: null
+birthday: '1992-01-01'
+sex: Female
+num_previous_seasons: null
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: 53.6855
+longitude: 9.993

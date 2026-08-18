@@ -15,6 +15,7 @@ from scripts.rkby_maps.geocoding import geocode_record_if_needed
 from scripts.rkby_records import (
     _dump_record_yaml,
     applicants_dir,
+    canonical_match_keys,
     load_existing_records,
 )
 
@@ -63,31 +64,6 @@ def _resolve_eligible_records(
     return eligible
 
 
-def _canonical_match_keys(eligible_by_season: dict[str, list[dict]]) -> dict[str, str]:
-    """Resolve every record's `alias_match_keys` (manual-only, like `ignore`)
-    into an old-key -> canonical-key mapping. Declared on whichever record
-    the alias should resolve *to* (typically the more recent season, after
-    the intranet recomputed the key from a spelling/married-name change),
-    naming the key an earlier season's record for the same person used
-    instead. Resolved transitively -- via a visited-set to stay safe against
-    an accidental alias cycle -- so a chain of renames across more than two
-    seasons still collapses onto one final key."""
-    direct: dict[str, str] = {}
-    for records in eligible_by_season.values():
-        for record in records:
-            for alias in record.get("alias_match_keys") or []:
-                direct[alias] = record["match_key"]
-
-    def resolve(key: str) -> str:
-        seen: set[str] = set()
-        while key in direct and key not in seen:
-            seen.add(key)
-            key = direct[key]
-        return key
-
-    return {alias: resolve(alias) for alias in direct}
-
-
 def merge_seasons(
     data_dir: Path,
     season_labels: list[str],
@@ -106,7 +82,7 @@ def merge_seasons(
         for season_label in season_labels
     }
 
-    canonical_match_key = _canonical_match_keys(eligible_by_season)
+    canonical_match_key = canonical_match_keys(eligible_by_season)
 
     records_by_match_key: dict[str, dict[str, dict]] = {}
     for season_label, records in eligible_by_season.items():

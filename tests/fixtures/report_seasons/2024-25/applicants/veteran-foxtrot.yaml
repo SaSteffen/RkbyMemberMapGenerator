@@ -1,0 +1,21 @@
+match_key: veteran-foxtrot
+alias_match_keys: null
+first_name: Foxtrot
+last_name: Veteran
+address: null
+phone: null
+email: null
+role: Service Crew
+additional_roles: null
+birthday: '1960-01-01'
+sex: Female
+num_previous_seasons: null
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: null
+longitude: null

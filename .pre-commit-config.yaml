@@ -20,3 +20,11 @@ repos:
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      # Strips every cell's output from report_member_analytics.ipynb before
+      # it can be committed, so real member-derived charts/tables can never
+      # land in git history even by accident (research.md §4).
+      - id: nbstripout

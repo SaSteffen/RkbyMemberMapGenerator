@@ -143,6 +143,38 @@ def load_existing_records(data_dir: Path, season_label: str) -> dict[str, dict]:
     return records
 
 
+# --- Cross-season identity resolution (research.md §7, feature 005) -----------
+
+
+def canonical_match_keys(eligible_by_season: dict[str, list[dict]]) -> dict[str, str]:
+    """Resolve every record's `alias_match_keys` (manual-only, like `ignore`)
+    into an old-key -> canonical-key mapping. Declared on whichever record
+    the alias should resolve *to* (typically the more recent season, after
+    the intranet recomputed the key from a spelling/married-name change),
+    naming the key an earlier season's record for the same person used
+    instead. Resolved transitively -- via a visited-set to stay safe against
+    an accidental alias cycle -- so a chain of renames across more than two
+    seasons still collapses onto one final key.
+
+    Promoted, unchanged in behavior, from
+    `rkby_interactive_map/merge.py`'s private `_canonical_match_keys`: two
+    independent features now need the exact same logic (research.md §7)."""
+    direct: dict[str, str] = {}
+    for records in eligible_by_season.values():
+        for record in records:
+            for alias in record.get("alias_match_keys") or []:
+                direct[alias] = record["match_key"]
+
+    def resolve(key: str) -> str:
+        seen: set[str] = set()
+        while key in direct and key not in seen:
+            seen.add(key)
+            key = direct[key]
+        return key
+
+    return {alias: resolve(alias) for alias in direct}
+
+
 # --- Run logging (FR-016) -----------------------------------------------------
 
 
