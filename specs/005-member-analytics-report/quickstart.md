@@ -33,7 +33,18 @@ uv run --with jupyter jupyter lab scripts/report_member_analytics.ipynb
 supporter/any other role present), a gender distribution, an age-bucket distribution,
 and a distance-from-Hamburg-bucket distribution — with members missing a birthday,
 `sex`, or coordinates showing up under an explicit "unknown" category in the relevant
-chart rather than disappearing from the count.
+chart rather than disappearing from the count. The notebook also shows a data-gap
+list (FR-017) naming each such member by `match_key` and which field(s) they're
+missing — never their name, address, phone, or birthday.
+
+## Scenario 1a — Data-gap list identifies who to fix (FR-017)
+
+Using a fixture member with a null `birthday`:
+
+**Expect**: that member's `match_key` and `"birthday"`/`"age"` appear in the notebook's
+data-gap list from Scenario 1, alongside any other members missing a field. Confirm
+the underlying record is the one named: `cat "$RKBY_DATA_DIR/seasons/<label>/
+applicants/<match_key>.yaml"` shows `birthday: null`.
 
 ## Scenario 2 — Season-to-season trends (Story 2)
 
@@ -61,6 +72,7 @@ count as retained across the skipped gap (spec Edge Cases).
 
 ```bash
 uv run jupyter nbconvert --to html --execute \
+  --TagRemovePreprocessor.remove_cell_tags='{"remove-cell"}' \
   scripts/report_member_analytics.ipynb \
   --output-dir "$RKBY_DATA_DIR/reports"
 ls "$RKBY_DATA_DIR"/reports/*.html
@@ -68,8 +80,14 @@ ls "$RKBY_DATA_DIR"/reports/*.html
 
 **Expect**: one `.html` file is produced under `$RKBY_DATA_DIR/reports/`, openable in
 a browser with every chart and table visible and no re-run needed, and containing no
-per-member list of names — aggregated numbers only (FR-015). Confirm it was **not**
-written anywhere inside the git repository:
+per-member list of names — aggregated numbers only (FR-015). Confirm the FR-017
+data-gap list from Scenario 1 is **not** present anywhere in the file:
+
+```bash
+grep -i "match_key\|missing_fields" "$RKBY_DATA_DIR"/reports/*.html   # expect: no matches
+```
+
+Confirm it was **not** written anywhere inside the git repository:
 
 ```bash
 git status --porcelain   # should show nothing new under scripts/ or elsewhere in the repo
@@ -94,8 +112,8 @@ uv run pytest
 ```
 
 **Expect**: all unit tests pass — eligibility filtering, age-at-season, distance,
-cross-season identity/retention resolution, and season/trend/retention aggregation
-(`tests/unit/test_rkby_report_*.py`), plus the promoted `canonical_match_keys()`
-coverage (`test_rkby_records_canonical_match_keys.py`) — all offline, against
-synthetic fixtures in `tests/fixtures/report_seasons/`, none touching real member
-data (Constitution V).
+cross-season identity/retention resolution, season/trend/retention aggregation, and
+`data_gaps()` (FR-017) (`tests/unit/test_rkby_report_*.py`), plus the promoted
+`canonical_match_keys()` coverage (`test_rkby_records_canonical_match_keys.py`) — all
+offline, against synthetic fixtures in `tests/fixtures/report_seasons/`, none
+touching real member data (Constitution V).

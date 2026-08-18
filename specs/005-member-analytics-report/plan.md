@@ -19,8 +19,11 @@ identity resolution, and aggregation — lives in a small, fully unit-tested int
 package, `scripts/rkby_report/`; the notebook itself stays a thin, easy-to-run,
 easy-to-export orchestration shell over that package. The report never geocodes and
 never writes to any season record — it only reads coordinates the map generator
-already cached. See research.md for every technical decision and
-data-model.md/contracts/ for the DataFrame schema and run/export contract.
+already cached. The notebook also surfaces, for the maintainer only, a list of which
+members are missing a field a view needs (FR-017) — excluded from the export via
+nbconvert's own tag-removal mechanism, not a new dependency (research.md §11). See
+research.md for every technical decision and data-model.md/contracts/ for the
+DataFrame schema and run/export contract.
 
 ## Technical Context
 
@@ -35,9 +38,11 @@ FR-014/SC-005). `PyYAML`, `jsonschema` (already dependencies — reused via the 
 `scripts/rkby_records.py`, extended with one promoted function, research.md §7). No new
 geocoding or distance library — great-circle distance is computed in-house
 (research.md §5), mirroring 002's precedent of implementing Web Mercator math in-house
-rather than adding a geo dependency. Dev-only: `pytest` (already a dependency);
-`nbstripout` (**new**, dev-only — a pre-commit hook that strips notebook cell outputs
-before every commit, research.md §4).
+rather than adding a geo dependency. No dependency is added for FR-017's data-gap
+list either — it's a plain function in `rkby_report/aggregate.py` plus `nbconvert`'s
+already-required, built-in `TagRemovePreprocessor` (research.md §11). Dev-only:
+`pytest` (already a dependency); `nbstripout` (**new**, dev-only — a pre-commit hook
+that strips notebook cell outputs before every commit, research.md §4).
 
 **Storage**: Local filesystem only, read-only against the same `RKBY_DATA_DIR` every
 other script uses — reads `seasons/<label>/applicants/*.yaml` (never writes them; no
@@ -71,7 +76,10 @@ laptop.
 here). The committed notebook source MUST never carry executed cell outputs —
 enforced by a new `nbstripout` pre-commit hook, not just convention (research.md §4).
 The exported/shareable report MUST land outside the git repo (`$RKBY_DATA_DIR/reports/`)
-and MUST show aggregates only, never a per-member roster (FR-015).
+and MUST show aggregates only, never a per-member roster (FR-015). The FR-017
+data-gap list MUST be visible in the notebook but MUST NOT appear in that export —
+enforced via a `remove-cell`-tagged cell plus `nbconvert --TagRemovePreprocessor`
+(research.md §11), not left to a manual step.
 
 **Scale/Scope**: Same small scale as 002 — roughly 200 member records per season
 across a handful of seasons on file today. Out of scope: the rider-pairing-suggestion
@@ -85,7 +93,7 @@ local, run-on-demand notebook, not a hosted report.
 
 | Principle | Check | Status |
 |---|---|---|
-| I. Member Data Privacy First | No new third-party calls at all — FR-007 forbids new geocoding, so this feature is strictly local pandas computation over coordinates the map generator already cached. The committed source, `report_member_analytics.ipynb`, never carries real numbers: a new `nbstripout` pre-commit hook strips every cell's output before it can be committed, so no chart or count derived from a real season can land in git history even by accident (research.md §4). The one artifact that does carry real numbers — an executed/exported report — is written only to `$RKBY_DATA_DIR/reports/` (outside the repo, alongside `maps/`/`interactive_map/`), never committed, and (FR-015) shows aggregated counts/rates/distributions only, never a per-member roster. Excluded/ignored members are left out of every count (FR-002), the same opt-out support every other artifact already gives. | PASS |
+| I. Member Data Privacy First | No new third-party calls at all — FR-007 forbids new geocoding, so this feature is strictly local pandas computation over coordinates the map generator already cached. The committed source, `report_member_analytics.ipynb`, never carries real numbers: a new `nbstripout` pre-commit hook strips every cell's output before it can be committed, so no chart or count derived from a real season can land in git history even by accident (research.md §4). The one artifact that does carry real numbers — an executed/exported report — is written only to `$RKBY_DATA_DIR/reports/` (outside the repo, alongside `maps/`/`interactive_map/`), never committed, and (FR-015) shows aggregated counts/rates/distributions only, never a per-member roster. FR-017's per-member data-gap list (added by `/speckit-clarify`) is the one place this feature displays a `match_key` at all — never name/address/phone/birthday — and it's shown only inside the notebook: a `remove-cell` tag plus `nbconvert --TagRemovePreprocessor` mechanically strips it from the export, so it can't leak there even by omission of a manual step (research.md §11). Excluded/ignored members are left out of every count (FR-002), the same opt-out support every other artifact already gives. | PASS |
 | II. One Script, One Artifact | New, independent artifact: `scripts/report_member_analytics.ipynb`. Its own non-trivial logic lives in a private internal package, `scripts/rkby_report/` (mirrors `rkby_maps/`'s precedent from 002) — not a second artifact, nothing outside this feature imports it. The one piece of genuinely shared logic — cross-season identity resolution — is promoted from its current private home (`rkby_interactive_map/merge.py`'s `_canonical_match_keys`) into the existing shared module `rkby_records.py`, because two independent features now need the exact same logic: the same real-duplication threshold that justified creating `rkby_records.py` in the first place (002's research.md §10). | PASS |
 | III. Local Data Is the Editable Source of Truth | Read-only with respect to `seasons/*/applicants/*.yaml`: never geocodes (FR-007), never writes a record. There is nothing here for a later run to silently clobber. | PASS |
 | IV. Python, Minimal Dependencies | New runtime deps: `pandas` (explicitly requested — "build a data frame first"), `matplotlib` (visualization; no smaller/more standard alternative), `jupyterlab`+`ipykernel`+`nbconvert` (the notebook medium and export path the request specifically asked for). New dev-only dep: `nbstripout`, a single-purpose pre-commit hook. Deliberately not adding a geo/distance library (rejected `geopy`, research.md §5) or a charting-convenience library (rejected `seaborn`/`plotly`, research.md §3) — great-circle distance is ~10 lines implemented in-house, matplotlib alone covers every chart this feature needs. | PASS |
@@ -95,6 +103,14 @@ local, run-on-demand notebook, not a hosted report.
 within one notebook + one internal package + one promoted shared-module function, with
 no dependency introduced during Phase 1 beyond Phase 0's list. All gates above still
 hold at **PASS** — no Complexity Tracking entries are needed.
+
+**Amendment 2026-08-18** (folding in FR-017 after `/speckit-clarify`): adds one
+function (`aggregate.data_gaps()`) to the already-planned `rkby_report/aggregate.py`,
+one new derived entity (data-model.md § Data Gap List), and one `remove-cell`-tagged
+notebook cell plus an `nbconvert` flag already covered by the existing `nbconvert`
+dependency (research.md §11, `contracts/cli-and-env.md`). No new dependency, no new
+file, no change to any gate above — all Constitution Check rows re-confirmed at
+**PASS** with this addition folded in.
 
 ## Project Structure
 
@@ -131,10 +147,13 @@ scripts/
 │   ├── buckets.py                   # age-bracket / distance-bracket boundary constants
 │   │                                 #   (research.md §9)
 │   ├── aggregate.py                 # season summaries, season-to-season trend tables,
-│   │                                 #   retention rate + gender/age/distance splits
+│   │                                 #   retention rate + gender/age/distance splits,
+│   │                                 #   and data_gaps() for FR-017 (research.md §11)
 │   └── plots.py                     # thin matplotlib chart builders, one per view in spec.md
 └── report_member_analytics.ipynb    # NEW — the one artifact for this feature: thin
-                                      #   orchestration cells only, imports rkby_report
+                                      #   orchestration cells only, imports rkby_report;
+                                      #   its data_gaps() cell carries a `remove-cell`
+                                      #   tag (research.md §11)
 
 tests/
 ├── unit/
@@ -142,7 +161,8 @@ tests/
 │   │                                 #   function (moved/extended from merge.py's tests)
 │   ├── test_rkby_report_frame.py     # eligibility filter, age-at-season, distance,
 │   │                                 #   retained_next_season, alias resolution
-│   ├── test_rkby_report_aggregate.py # season summaries, trend tables, retention + splits
+│   ├── test_rkby_report_aggregate.py # season summaries, trend tables, retention +
+│   │                                 #   splits, and data_gaps() (FR-017)
 │   └── test_rkby_report_plots.py     # smoke tests: each chart builder runs without
 │                                     #   error against synthetic aggregated data
 └── fixtures/

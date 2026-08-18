@@ -30,6 +30,7 @@ server; it only reads what's already on disk (FR-007).
 
 ```bash
 uv run jupyter nbconvert --to html --execute \
+  --TagRemovePreprocessor.remove_cell_tags='{"remove-cell"}' \
   scripts/report_member_analytics.ipynb \
   --output-dir "$RKBY_DATA_DIR/reports"
 ```
@@ -44,6 +45,10 @@ installed (FR-014). This file:
   §10).
 - Shows aggregated counts, rates, and distributions only — never a per-member roster
   of names alongside personal fields (FR-015).
+- Never contains the FR-017 data-gap list: the notebook cell that displays it carries
+  a `remove-cell` tag, and `--TagRemovePreprocessor.remove_cell_tags` strips that cell
+  (source and output alike) before the HTML is written (research.md §11). Omitting
+  this flag would leak that list into the export — it is not optional.
 
 ## Keeping the committed notebook output-free
 
@@ -51,6 +56,13 @@ A `nbstripout` pre-commit hook (research.md §4) strips every cell's output from
 `report_member_analytics.ipynb` before it can be committed — running the notebook
 locally against real data and saving it never risks committing real member-derived
 numbers or charts. This is enforced by tooling, not left to convention.
+
+This is a different guarantee from the `remove-cell` tag above: `nbstripout` governs
+what reaches **git** (no cell's output, ever); the tag governs what reaches the
+**exported HTML** (every cell except the one tagged `remove-cell`). A maintainer
+running the notebook interactively in Jupyter sees the FR-017 data-gap list normally
+either way — neither mechanism hides anything from them, only from git and the export
+respectively.
 
 ## Data contract this feature depends on
 

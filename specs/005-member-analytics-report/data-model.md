@@ -68,6 +68,19 @@ split_column)` for the same rate broken down (FR-011, FR-012) — feeding User S
 | `retention_rate_by_age_bucket` | dict[str, float] | Same rate, grouped by `season_a`'s `age_bucket`. |
 | `retention_rate_by_distance_bucket` | dict[str, float] | Same rate, grouped by `season_a`'s `distance_bucket`. |
 
+## Data Gap List (derived, notebook-only — FR-017)
+
+The output of `rkby_report.aggregate.data_gaps(df)` — one row per Member-Season
+Observation missing at least one field a view needs. Displayed only in the notebook
+(research.md §11); the cell that renders it is tagged `remove-cell` so it never
+reaches the FR-014 export.
+
+| Column | Type | Notes |
+|---|---|---|
+| `match_key` | string | Canonical identity, same as the Member-Season Observation — lets the maintainer find the record to fix (`seasons/<label>/applicants/<match_key>.yaml`). Never a name/address/phone/birthday — those personal fields are never printed by this feature at all (FR-017). |
+| `season_label` | string | Which season's record needs fixing. |
+| `missing_fields` | list[str] | Subset of `{"role", "sex", "age", "distance"}` — which of that row's fields were `"unknown"`/`"unknown/not geocoded"`. |
+
 ## Local Data Repository (read/write footprint)
 
 ```

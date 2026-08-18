@@ -227,6 +227,9 @@ opened and read without re-running any analysis," satisfied by handing that one 
 file to someone, and it comes for free once `nbconvert` (already needed to open/run
 the notebook at all) is a dependency. Writing straight to `$RKBY_DATA_DIR/reports/`
 means the export step can never produce a file inside the git repo by construction.
+HTML (over PDF) was subsequently confirmed directly with the maintainer via
+`/speckit-clarify` (spec.md § Clarifications, 2026-08-18) — this section's reasoning
+is what that confirmation ratified.
 
 **Alternatives considered**:
 - *Export the currently-open notebook's already-rendered outputs* (no `--execute`):
@@ -236,3 +239,50 @@ means the export step can never produce a file inside the git repo by constructi
   the default — PDF export requires a LaTeX toolchain, an unnecessary heavy
   dependency for a single-maintainer tool when HTML already satisfies "open and read"
   in any browser.
+
+## §11. FR-017: the notebook-only data-gap list, and keeping it out of the export
+
+**Decision**: `rkby_report.aggregate.data_gaps(df) -> pandas.DataFrame` — a pure
+function over the already-built frame (§6-§8) that returns one row per (member,
+season) with at least one missing field needed by a view (`role` unknown, `sex`
+unknown, `age_bucket` unknown, or `distance_bucket` unknown/not-geocoded), with a
+`missing_fields` column listing which. The notebook cell that displays it is tagged
+`remove-cell` in the notebook's cell metadata. The export command (research.md §10,
+`contracts/cli-and-env.md`) is extended with nbconvert's built-in tag-stripping
+preprocessor:
+
+```bash
+uv run jupyter nbconvert --to html --execute \
+  --TagRemovePreprocessor.remove_cell_tags='{"remove-cell"}' \
+  scripts/report_member_analytics.ipynb --output-dir "$RKBY_DATA_DIR/reports"
+```
+
+**Rationale**: FR-017 requires this list to be visible while working in the notebook
+but absent from the FR-014 export. `nbconvert --execute` runs and displays *every*
+cell by default, including this one — so without an explicit exclusion mechanism, the
+gap list would leak straight into the exported HTML, contradicting FR-017 and FR-015
+alike. `TagRemovePreprocessor` is nbconvert's own built-in, first-party mechanism for
+exactly this "show it live, strip it from the export" need — no new dependency, since
+`nbconvert` is already required for the export path itself (§10). It's orthogonal to,
+and layered on top of, `nbstripout`'s pre-commit stripping (research.md §4):
+`nbstripout` keeps *every* cell's output out of what gets *committed to git*;
+`--TagRemovePreprocessor` keeps *this one cell* out of what gets *exported*. A
+maintainer running the notebook interactively still sees the gap list normally — only
+the committed source (no outputs at all, any cell) and the exported HTML (every cell
+except this one) are restricted, each by its own mechanism.
+
+**Alternatives considered**:
+- *A separate, untracked cell the maintainer manually deletes before exporting*:
+  rejected — relies on remembering a manual step for a NON-NEGOTIABLE privacy rule
+  (Constitution Principle I), the same reasoning research.md §4 already rejected for
+  the commit-output problem.
+- *Print the gap list to `stderr`/logging instead of a normal cell output*: rejected —
+  `nbconvert --execute` still captures and embeds a cell's stderr stream in the
+  export by default; this doesn't actually solve the leak without the same kind of
+  tag-based (or equivalent config-based) exclusion, so it adds complexity without
+  removing the real fix.
+- *Write the gap list to the season's `logs/` folder instead of showing it in the
+  notebook*: rejected — FR-017 asks for it in the notebook specifically, and writing
+  into `seasons/<label>/logs/` would break this feature's read-only-except-`reports/`
+  footprint (data-model.md § Local Data Repository) for no benefit over a cell the
+  maintainer already has open.
