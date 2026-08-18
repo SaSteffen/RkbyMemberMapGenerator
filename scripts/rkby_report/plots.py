@@ -10,6 +10,36 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.figure import Figure
 
+from scripts.rkby_report.buckets import (
+    AGE_BRACKETS,
+    AGE_UNKNOWN,
+    DISTANCE_BRACKETS,
+    DISTANCE_UNKNOWN,
+)
+
+# Ordinal splits (bucket order carries meaning) get a single light->dark hue so
+# the stack reads low-to-high; nominal splits (e.g. gender) get distinct hues.
+# Both ramps are pulled from the dataviz skill's validated default palette
+# rather than matplotlib's default cycle. "Unknown"/"not geocoded" is always
+# the same muted gray so missing data never competes visually with real data.
+_BUCKET_ORDER = {
+    "age": (*AGE_BRACKETS, AGE_UNKNOWN),
+    "distance": (*DISTANCE_BRACKETS, DISTANCE_UNKNOWN),
+}
+_ORDINAL_RAMP = ("#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281", "#0d366b")
+_CATEGORICAL = (
+    "#2a78d6",
+    "#eb6834",
+    "#1baf7a",
+    "#eda100",
+    "#e87ba4",
+    "#008300",
+    "#4a3aa7",
+    "#e34948",
+)
+_UNKNOWN_COLOR = "#898781"
+_UNKNOWN_LABELS = {"unknown", "unknown/not geocoded"}
+
 
 def _bar_chart(counts: dict[str, int], title: str, ylabel: str) -> Figure:
     fig, ax = plt.subplots()
@@ -94,11 +124,66 @@ def member_count_trend_chart(trend: pd.DataFrame) -> Figure:
     )
 
 
+def _bucket_columns(trend: pd.DataFrame, prefix: str) -> list[str]:
+    present = {
+        column[len(prefix) + 1 :]
+        for column in trend.columns
+        if column.startswith(f"{prefix}_")
+    }
+    order = _BUCKET_ORDER.get(prefix)
+    labels = (
+        [label for label in order if label in present]
+        if order is not None
+        else sorted(present, key=lambda label: (label in _UNKNOWN_LABELS, label))
+    )
+    return [f"{prefix}_{label}" for label in labels]
+
+
+def _bucket_colors(prefix: str, columns: list[str]) -> list[str]:
+    ordinal = prefix in _BUCKET_ORDER
+    colors = []
+    slot = 0
+    for column in columns:
+        label = column[len(prefix) + 1 :]
+        if label in _UNKNOWN_LABELS:
+            colors.append(_UNKNOWN_COLOR)
+        elif ordinal:
+            colors.append(_ORDINAL_RAMP[slot])
+            slot += 1
+        else:
+            colors.append(_CATEGORICAL[slot % len(_CATEGORICAL)])
+            slot += 1
+    return colors
+
+
+def _stacked_bar_chart(trend: pd.DataFrame, prefix: str, title: str) -> Figure:
+    columns = _bucket_columns(trend, prefix)
+    colors = _bucket_colors(prefix, columns)
+
+    fig, ax = plt.subplots()
+    bottoms = pd.Series(0, index=trend.index, dtype=float)
+    for column, color in zip(columns, colors):
+        label = column[len(prefix) + 1 :]
+        ax.bar(
+            trend["season_label"],
+            trend[column],
+            bottom=bottoms,
+            label=label,
+            color=color,
+        )
+        bottoms = bottoms + trend[column]
+    ax.set_title(title)
+    ax.set_ylabel("Members")
+    ax.tick_params(axis="x", rotation=45)
+    ax.legend()
+    fig.tight_layout()
+    return fig
+
+
 def _distribution_shift_chart(trend: pd.DataFrame, prefix: str, title: str) -> Figure:
     if len(trend) < 2:
         return _not_enough_data_figure(title)
-    columns = [column for column in trend.columns if column.startswith(f"{prefix}_")]
-    return _line_chart(trend, columns, title)
+    return _stacked_bar_chart(trend, prefix, title)
 
 
 def age_distribution_shift_chart(trend: pd.DataFrame) -> Figure:
