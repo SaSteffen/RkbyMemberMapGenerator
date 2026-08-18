@@ -371,6 +371,17 @@ Accept on teams, Note`) and one `<tr>` per applicant in `<tbody>`.
   contingency) — the endpoint exists, it just isn't linked from the table row the way a
   normal `<a href>` or `onclick` would be; it only became apparent by watching the
   network request the site's own UI makes on row click.
+  **Revision (2026-08-18, live-site sample of all 55 season-2026/27 applicants)**: the
+  `dd-mm-yyyy` separator is not consistent — the site renders the same
+  `<p class="profile_birthday">` field as dash-separated (`15-03-1990`,
+  ~75% of records sampled), dot-separated (`15.03.1990`, ~16%), or as bare
+  digits with no separator at all (`15031990`, a handful) depending on the
+  individual applicant record, not on season or any other pattern found. A
+  couple of records also carry the literal garbage text `NaN-NaN-NaN` — a
+  bug on the site's own side (its own `Age` column is blank for those same
+  applicants), not recoverable from the scraper side. The parse regex
+  (`_BIRTHDAY_RE`) now matches an optional dash-or-dot separator rather than
+  assuming a dash, so it accepts all three real formats.
 - **Status** (`Accept on teams` column) has two renderings that both need parsing: (a)
   an editable 3-way toggle (`Undecided`/`No`/`Yes`), where the selected option's
   `<label>` carries an extra `active` CSS class — read that label's text; (b) an

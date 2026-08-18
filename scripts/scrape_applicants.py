@@ -290,14 +290,21 @@ def _parse_applicant_id(status_cell) -> int | None:
     return int(raw) if raw and raw.isdigit() else None
 
 
-_BIRTHDAY_RE = re.compile(r"(\d{2})-(\d{2})-(\d{4})")
+_BIRTHDAY_RE = re.compile(r"(\d{2})[.\-]?(\d{2})[.\-]?(\d{4})")
 
 
 def _parse_birthday(html: str) -> str | None:
-    """Parse the `dd-mm-yyyy` birthday out of an applicant detail popup
+    """Parse the dd-mm-yyyy birthday out of an applicant detail popup
     (`/Ajax/showparticipant.php`) into ISO 8601 (YYYY-MM-DD). Birthday is not
     present in the applicant list view itself, only here (research.md §15
-    revision)."""
+    revision). The site renders this field inconsistently per-applicant --
+    dash-separated (`15-03-1990`), dot-separated (`15.03.1990`), and bare
+    digits with no separator at all (`15031990`) have all been observed live
+    -- so the separator is optional and matched loosely rather than assumed
+    to be a dash. A handful of records carry literal garbage (`NaN-NaN-NaN`)
+    from a bug on the site's own side; those have no digits to match and
+    correctly fall through to None here, same as a genuinely absent
+    birthday -- not fixable from the scraper side."""
     soup = BeautifulSoup(html, "html.parser")
     el = soup.find("p", class_="profile_birthday")
     if el is None:

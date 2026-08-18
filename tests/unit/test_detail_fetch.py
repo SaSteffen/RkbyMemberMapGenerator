@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from scripts.scrape_applicants import (
+    _parse_birthday,
     fetch_participant_details,
     persist_records,
     setup_run_logger,
@@ -22,6 +23,32 @@ FIXTURES = Path(__file__).parent.parent / "fixtures"
 
 def _load(name: str) -> str:
     return (FIXTURES / name).read_text()
+
+
+def _birthday_html(raw: str) -> str:
+    return f'<p class="profile_birthday"><span>Birthday: </span>{raw}</p>'
+
+
+# --- Birthday separator variance (live site renders this field
+# inconsistently per-applicant, not just as dd-mm-yyyy) -----------------
+
+
+def test_parse_birthday_accepts_dash_separator():
+    assert _parse_birthday(_birthday_html("15-03-1990")) == "1990-03-15"
+
+
+def test_parse_birthday_accepts_dot_separator():
+    assert _parse_birthday(_birthday_html("15.03.1990")) == "1990-03-15"
+
+
+def test_parse_birthday_accepts_no_separator():
+    assert _parse_birthday(_birthday_html("15031990")) == "1990-03-15"
+
+
+def test_parse_birthday_returns_none_for_site_garbage_value():
+    # A handful of live records render the literal text "NaN-NaN-NaN" -- a
+    # bug on the site's own side, not something the scraper can recover.
+    assert _parse_birthday(_birthday_html("NaN-NaN-NaN")) is None
 
 
 class _StubClient:
