@@ -96,6 +96,40 @@ change.
    roles, seasons, and job title still appears as specified in the interactive photo
    map feature.
 
+### User Story 4 - Optionally load the basemap from a maintainer-hosted URL instead of embedding it (Priority: P4)
+
+As the maintainer, I want the option to point a generated map bundle at a PMTiles
+basemap URL I've published myself, instead of embedding the whole archive in the
+bundle, so that viewers get a smaller, faster-loading bundle when I'm willing to
+host the (non-member-data) basemap file somewhere — while member data still never
+leaves local generation.
+
+**Why this priority**: Purely additive to Story 1's default behavior — the
+embedded, fully offline build remains the default and must keep working
+unmodified. This story only adds a second, opt-in build variant; nothing else
+depends on it.
+
+**Independent Test**: Set the hosted-basemap option to a URL serving a valid
+PMTiles archive, run the generator, and confirm the resulting bundle's basemap
+requests go only to that URL at view time (never embedding the archive), while
+every member-data field (photos, positions, names, roles) still ships local-only,
+exactly as in the default build.
+
+**Acceptance Scenarios**:
+
+1. **Given** the maintainer has not set a hosted-basemap URL, **When** they run the
+   generator, **Then** the bundle behaves exactly as in Story 1 — basemap fully
+   embedded, zero network requests at view time.
+2. **Given** the maintainer has set a hosted-basemap URL pointing at a real,
+   reachable PMTiles archive, **When** they run the generator and a viewer opens
+   the resulting bundle with network access, **Then** the basemap loads by
+   fetching tiles from that URL, and the bundle contains no embedded copy of the
+   archive.
+3. **Given** hosted mode is selected, **When** the bundle is generated, **Then**
+   no member data (photos, positions, names, roles, seasons) is ever sent to the
+   hosted URL or any other network endpoint — only basemap tile requests go there,
+   and only from the viewer's browser, never from the generator itself.
+
 ### Edge Cases
 
 - What happens when a viewer zooms in past the deepest zoom level available in the
@@ -109,6 +143,11 @@ change.
   (different coverage area or zoom range)? The next generation run should pick up
   the new file's coverage without manual cleanup of stale basemap output from the
   previous file.
+- What happens in hosted mode (Story 4) if the hosted URL is unreachable or serves
+  something invalid when a viewer opens the map? The basemap fails to render (the
+  rest of the map — member markers, popups, season controls — still works), rather
+  than the generator being able to detect or prevent a hosting problem it has no
+  visibility into at generation time.
 
 ## Requirements *(mandatory)*
 
@@ -122,10 +161,12 @@ change.
 - **FR-003**: If the expected PMTiles file is missing, unreadable, or not a valid
   PMTiles archive, the generator MUST fail before producing output, with an error
   that identifies the expected file location.
-- **FR-004**: The generated interactive map bundle MUST remain a fully
+- **FR-004**: By default, the generated interactive map bundle MUST remain a fully
   self-contained, offline-viewable standalone folder — the basemap data needed to
   render the map MUST be bundled with the output, not fetched from the network when
-  someone views the map.
+  someone views the map. (Story 4's opt-in hosted mode is the sole exception, scoped
+  by FR-008–FR-011 below; every other artifact this feature produces stays fully
+  local unconditionally.)
 - **FR-005**: The rendered basemap MUST support panning and zooming across the full
   zoom range available in the supplied PMTiles archive.
 - **FR-006**: All existing interactive-map capabilities unrelated to the basemap
@@ -135,6 +176,24 @@ change.
 - **FR-007**: Automatically sourcing or generating the PMTiles basemap file itself
   is explicitly out of scope for this feature (see Out of Scope); the generator
   MUST treat the file as an existing local input it does not create.
+- **FR-008**: The generator MUST support an explicit, opt-in hosted-basemap mode
+  (Story 4), selected by the maintainer at generation time (e.g. an environment
+  variable naming a URL), in which the generated bundle loads basemap tiles from
+  that URL at view time instead of embedding the archive. Absent this opt-in, the
+  generator MUST produce the default embedded bundle (FR-004).
+- **FR-009**: Publishing the PMTiles file to the URL used in hosted mode is a
+  manual step the maintainer performs themselves, outside this generator, the same
+  way sourcing the file itself already is (FR-007). The generator MUST NOT upload,
+  deploy, or otherwise manage remote hosting infrastructure — it only accepts a URL
+  and, in hosted mode, tells the bundle to use it.
+- **FR-010**: The local PMTiles file (FR-001/FR-003's validation) is still required
+  and validated in hosted mode exactly as in the default mode — hosted mode changes
+  only whether the archive is embedded or referenced by URL in the output, never
+  whether it must exist and be valid locally first.
+- **FR-011**: In hosted mode, member data (photos, names, positions, roles,
+  seasons) MUST continue to ship local-only within the generated bundle exactly as
+  in the default mode (Constitution Principle I) — hosting applies solely to the
+  basemap tile archive, which contains no member data.
 
 ### Key Entities
 
@@ -152,6 +211,14 @@ change.
   maintainer produces and places the file manually. **TODO (future feature):**
   automate sourcing/generating this PMTiles file as part of the pipeline, so a
   maintainer no longer has to produce it out of band.
+- **Automated hosting/deployment of the PMTiles file** (Story 4/FR-009): choosing
+  a hosting provider, provisioning it, or uploading the file there is not part of
+  this feature. The generator only accepts a URL the maintainer already has a
+  file published at; how that URL came to serve the file — and whether that host
+  satisfies what an HTTP-range-addressable, CORS-permissive static file host needs
+  to — is the maintainer's own concern, not something this feature configures,
+  verifies, or automates. **TODO (possible future feature):** a guided or
+  automated deploy step, if this turns out to be a recurring manual chore.
 
 ## Success Criteria *(mandatory)*
 
@@ -169,6 +236,11 @@ change.
 - **SC-004**: Viewers of a generated map can pan and zoom smoothly across the
   entire area and zoom range the supplied PMTiles file covers, with no loss of the
   existing photo-popup, season-selection, or mobile-mode functionality.
+- **SC-005**: In hosted mode, inspecting the network requests a generated bundle
+  makes while viewed shows requests only to the maintainer-configured basemap URL
+  (for basemap tiles) — never a request containing any member field (name, photo,
+  position, role, season), and never an embedded copy of the archive in the
+  bundle's own files.
 
 ## Assumptions
 
@@ -182,3 +254,12 @@ change.
 - The interactive map's other capabilities (member popups, season merge, mobile
   mode, offline standalone bundling) are unchanged in behavior; only how the
   basemap imagery is produced and rendered changes.
+- Hosted mode (Story 4) is opt-in and additive: the maintainer decides per
+  generation run whether to embed or reference a hosted URL; nothing about the
+  default embedded build's behavior, contract, or guarantees changes because
+  hosted mode exists.
+- A host the maintainer chooses for hosted mode is assumed capable of serving a
+  static file over HTTP range requests with a permissive CORS policy — standard
+  behavior for common static-file hosts/CDNs, and the maintainer's own
+  responsibility to confirm (FR-009); the generator does not detect or validate
+  hosting-target capability.

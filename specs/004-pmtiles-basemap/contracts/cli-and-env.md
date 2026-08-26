@@ -17,12 +17,20 @@ Unchanged: no CLI arguments (FR-002 of spec 003).
 
 | Path | Required | Contains |
 |---|---|---|
-| `<RKBY_DATA_DIR>/basemap.pmtiles` | yes | One maintainer-supplied PMTiles v3 archive (data-model.md § PMTiles Basemap File) |
+| `<RKBY_DATA_DIR>/basemap.pmtiles` | yes, in both delivery modes below | One maintainer-supplied PMTiles v3 archive (data-model.md § PMTiles Basemap File) |
 
 Not an environment variable — a fixed, documented file path under the existing
 `RKBY_DATA_DIR`, checked before any other generation work.
 
-Exit codes (supersedes spec 003's table — adds one new failure cause):
+## New optional environment variable: hosted-basemap mode (Story 4)
+
+| Variable | Required | Contains | Notes |
+|---|---|---|---|
+| `RKBY_BASEMAP_URL` | no | A URL where the maintainer has separately published the same `basemap.pmtiles` archive | Unset (default): the bundle embeds the archive, fully offline (research.md §2). Set: the bundle references this URL instead and fetches basemap tiles live at view time (research.md §8) — the local `basemap.pmtiles` file is still required and validated either way (FR-010); this variable only changes what the generator does with it. Publishing the file to this URL is the maintainer's own manual step (FR-009) — the generator does not check the URL is reachable or valid. |
+
+## Exit codes
+
+Supersedes spec 003's table — adds one new failure cause:
 
 | Code | Meaning |
 |---|---|
@@ -40,6 +48,12 @@ Supersedes spec 003's table:
 
 No other member field is ever sent to either remaining endpoint, matching spec
 003's existing minimization guarantee unchanged.
+
+This table covers only calls the **generator itself** makes. In hosted mode
+(`RKBY_BASEMAP_URL` set), the *generated bundle* additionally has the viewer's own
+browser fetch basemap tiles from that URL at view time (spec.md Story 4, SC-005)
+— a request the generator itself never makes, and one that never carries any
+member field, only basemap tile requests (research.md §8).
 
 ## Output contract
 

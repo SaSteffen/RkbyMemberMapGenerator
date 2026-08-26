@@ -251,12 +251,78 @@ inert: it protects a folder no future run will ever populate or need, on an
 existing maintainer's data directory it may still be sitting in from before this
 feature.
 
-**Recommendation** (flagged here rather than decided unilaterally, since it
-overrides established "never delete `tiles/`" guidance whose original reasoning —
-protecting expensive, re-fetchable OSM bakes from accidental loss — no longer
-applies once nothing bakes them): remove the `tiles/`-exemption from
-`_ensure_interactive_map_dir` as part of this feature's implementation, so a
-leftover `tiles/` folder from a pre-PMTiles run is cleaned up like every other
-regenerated file, rather than silently orphaned forever. This is a tasks.md/
-implementation-phase decision, not something this plan performs — surfaced here so
-it's confirmed before `/speckit-implement`, not discovered mid-implementation.
+**Decision** (confirmed with the maintainer, since it overrides established "never
+delete `tiles/`" guidance whose original reasoning — protecting expensive,
+re-fetchable OSM bakes from accidental loss — no longer applies once nothing bakes
+them): remove the `tiles/`-exemption from `_ensure_interactive_map_dir` as part of
+this feature's implementation. A one-time cleanup, not a standing policy change —
+once this feature ships, `tiles/` is simply never populated again, so any leftover
+folder from a pre-PMTiles run is wiped like every other regenerated file on the
+next run, rather than silently orphaned forever. This is a tasks.md/
+implementation-phase change, not something this plan performs itself.
+
+## §8. Hosted-basemap mode (Story 4, FR-008–FR-011)
+
+**Decision**: One new optional environment variable, `RKBY_BASEMAP_URL`. Unset (the
+default): unchanged embedded behavior from §1–§6. Set: the generator skips the
+base64-embed step (§2) and instead writes `{"mode": "hosted", "url": "<value>"}`
+into `map-data.js`'s `basemap` object (data-model.md); `main.js` then constructs
+`new pmtiles.PMTiles("<value>")` — the package's **default, unmodified**
+`FetchSource` — rather than the custom Blob-backed `Source` from §2, and passes
+that straight to `protomaps-leaflet`'s `leafletLayer({ url })` exactly as in
+embedded mode (§1's `url?: PMTiles | string` accepts either).
+
+**Rationale**: §2's `file://` CORS block is specific to the `file` scheme as a
+*fetch target* — Chromium's own error message lists `http`/`https` as allowed
+target schemes regardless of the requesting page's origin. A `file://`-opened
+bundle fetching an `https://` URL is therefore unaffected by §2's finding; it's an
+ordinary cross-origin fetch from an opaque (`null`) origin, which works exactly
+like any other page embedding a resource from a CDN, provided the host answers
+with a permissive CORS header (`Access-Control-Allow-Origin`, wildcard or `null`-
+tolerant) — standard for public static-file hosts, and exactly the "maintainer's
+own responsibility" scope FR-009/the spec's new Assumption already draws the line
+at. This means hosted mode needs **no new library code at all** beyond what §1/§2
+already add to the frontend: `pmtiles`'s `FetchSource` is the package's ordinary,
+first-class, actively-used path (it's what every *other* PMTiles deployment on the
+web already relies on) — the custom `Source` from §2 is what's unusual here, built
+specifically to route around `file://`'s restriction that simply doesn't apply
+once the target is a real hosted URL.
+
+Env var (not a new CLI flag) matches `RKBY_DATA_DIR`'s existing sole-config-surface
+pattern for this script and keeps FR-002 of spec 003 ("no CLI arguments") literally
+true — this feature adds a second optional env var alongside it, not a flag.
+
+The local `<RKBY_DATA_DIR>/basemap.pmtiles` file stays required and validated
+identically in both modes (FR-010) — hosted mode only changes the *output*
+(embed vs. reference-by-URL), never the generation-time input contract. This keeps
+exactly one validated local file as ground truth regardless of build variant,
+and means the same `basemap.pmtiles` a maintainer already validated locally is
+what they separately publish to get the URL hosted mode then references — no
+second, ungoverned copy of "the real basemap" to keep in sync by hand.
+
+No new Python or JS dependency: `FetchSource` is already part of the `pmtiles`
+package §1 added; the only new code is the small conditional in `bundle.py`
+(embed vs. write a URL reference) and in `main.js` (which `Source`/constructor
+form to use), both driven by whether `RKBY_BASEMAP_URL` is set.
+
+**Alternatives considered**:
+- **A CLI flag instead of an env var** (`--basemap-url`) — rejected: breaks spec
+  003's "no CLI arguments" contract for a config value that fits the existing
+  env-var surface just as well; no behavioral benefit to a flag here.
+- **Generator uploads/deploys the file itself** — rejected per the maintainer's
+  explicit choice (spec.md FR-009): a materially bigger feature (hosting-provider
+  choice, credentials, deploy pipeline) than a basemap-delivery toggle.
+- **Embed as a fallback even in hosted mode** — rejected per the maintainer's
+  explicit choice (spec.md Story 4/Edge Cases): keeps two clean, distinct build
+  variants rather than a hybrid that both stays large *and* still needs live
+  network access to benefit from hosting.
+- **Generator verifies the hosted URL is reachable/valid at generation time** —
+  rejected: the generator runs before the maintainer has necessarily finished
+  publishing the file to that URL (FR-009's manual, out-of-band step could happen
+  before or after generation), and the generator has no way to check the target
+  host's actual CORS/Range support beyond a single fetch, which would need network
+  access at generation time — reintroducing exactly the kind of generation-time
+  network dependency FR-002 (unchanged) forbids. Left as a viewer-side failure
+  (spec.md Edge Cases: basemap alone fails to render; rest of the map still
+  works), consistent with FR-009 putting hosting-target correctness on the
+  maintainer.

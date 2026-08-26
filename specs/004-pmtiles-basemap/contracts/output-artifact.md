@@ -9,6 +9,8 @@ logging) is unchanged by this feature.
 
 ## Folder layout (changed)
 
+**Default (embedded) mode** — `RKBY_BASEMAP_URL` unset:
+
 ```text
 <RKBY_DATA_DIR>/interactive_map/
 ├── index.html
@@ -19,28 +21,50 @@ logging) is unchanged by this feature.
     └── <match_key>.<ext>
 ```
 
+**Hosted mode** (Story 4) — `RKBY_BASEMAP_URL` set: no `basemap-pmtiles.js`; the
+URL is referenced from `map-data.js` instead (data-model.md), and the bundle needs
+network access to a maintainer-managed host to show a basemap when opened.
+
+```text
+<RKBY_DATA_DIR>/interactive_map/
+├── index.html
+├── map-data.js              # basemap.mode="hosted", basemap.url=<RKBY_BASEMAP_URL>
+└── photos/
+    ├── placeholder.png
+    └── <match_key>.<ext>
+```
+
 `basemap.jpg` and `tiles/` (spec 003's flattened base image + chunked
-higher-resolution raster pyramid) no longer exist — nothing in this feature's
-generation path produces them. Every run still fully deletes and regenerates this
-whole folder (data-model.md § Idempotency, spec 003).
+higher-resolution raster pyramid) no longer exist in either mode — nothing in
+this feature's generation path produces them. Every run still fully deletes and
+regenerates this whole folder (data-model.md § Idempotency, spec 003).
 
-## Opening the artifact — unchanged, but now load-bearing rather than incidental
+## Opening the artifact — unchanged in default mode, now load-bearing rather than incidental
 
-Double-click (or otherwise open) `index.html` directly — no local server, no
-network connection required. This was already true in spec 003; this feature's
-entire technical design (research.md §2) exists specifically to keep it true once
-the basemap is a real PMTiles archive rather than a baked static image — verified
-directly against Chromium's actual `file://` fetch/XHR restrictions, not assumed.
+Double-click (or otherwise open) `index.html` directly — in **default (embedded)
+mode**, no local server, no network connection required. This was already true in
+spec 003; this feature's entire technical design (research.md §2) exists
+specifically to keep it true once the basemap is a real PMTiles archive rather
+than a baked static image — verified directly against Chromium's actual `file://`
+fetch/XHR restrictions, not assumed.
+
+In **hosted mode** (Story 4), the artifact still opens the same way (double-click
+`index.html`, no server) but needs network access to the maintainer-configured
+`RKBY_BASEMAP_URL` for the basemap specifically to render — everything else
+(member markers, popups, season controls) still works fully offline either way,
+since only the basemap moved, never member data (spec.md FR-011).
 
 ## Visual & interaction contract (changed: Basemap, Markers)
 
-- **Basemap**: rendered live from the embedded PMTiles archive via
-  `protomaps-leaflet`, using Leaflet's real geographic CRS (`L.CRS.EPSG3857`) —
-  real vector-tile basemap imagery, not a pre-baked raster image or chunk pyramid
-  (research.md §1, §5). Panning/zooming covers the archive's own bounds and zoom
-  range (FR-005); past the archive's deepest baked zoom, Leaflet reuses and
-  auto-scales that deepest level rather than showing a blank area (Edge Cases,
-  research.md §6).
+- **Basemap**: rendered live from the PMTiles archive (embedded, or fetched from
+  `RKBY_BASEMAP_URL` in hosted mode — research.md §8) via `protomaps-leaflet`,
+  using Leaflet's real geographic CRS (`L.CRS.EPSG3857`) — real vector-tile
+  basemap imagery, not a pre-baked raster image or chunk pyramid (research.md §1,
+  §5). Panning/zooming covers the archive's own bounds and zoom range (FR-005);
+  past the archive's deepest baked zoom, Leaflet reuses and auto-scales that
+  deepest level rather than showing a blank area (Edge Cases, research.md §6). In
+  hosted mode, an unreachable/invalid URL leaves the basemap blank without
+  affecting markers/popups/controls (spec.md Edge Cases).
 - **Markers**: each member's photo marker is positioned at their real
   `latitude`/`longitude` (data-model.md § Merged Member), not a precomputed pixel
   position on a synthetic canvas. Visually and interactively identical otherwise —

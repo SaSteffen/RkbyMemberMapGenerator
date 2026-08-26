@@ -8,15 +8,22 @@
 
 Replace the interactive map's basemap source: instead of `generate_interactive_map.py`
 fetching and pre-baking a large per-run pyramid of OpenStreetMap raster tiles
-(`rkby_interactive_map/bundle.py`'s `generate_basemap`), the generator copies one
-maintainer-supplied local PMTiles archive (`<RKBY_DATA_DIR>/basemap.pmtiles`) into
-the bundle, base64-embedded so it can be read entirely offline despite Chromium's
-`file://` fetch/XHR restrictions (research.md §2), and the frontend renders it with
-`protomaps-leaflet` + `pmtiles` (research.md §1) using real geographic coordinates
-(`L.CRS.EPSG3857`) instead of the old precomputed-pixel-canvas approach
-(research.md §5). This deletes the OSM-tile-baking code path for the *interactive*
-map only — `generate_member_maps.py`'s own static-PNG maps keep using
-`rkby_maps/basemap.py`'s OSM fetch/stitch code unchanged.
+(`rkby_interactive_map/bundle.py`'s `generate_basemap`), the generator validates one
+maintainer-supplied local PMTiles archive (`<RKBY_DATA_DIR>/basemap.pmtiles`) and,
+by default, base64-embeds it into the bundle so it can be read entirely offline
+despite Chromium's `file://` fetch/XHR restrictions (research.md §2). The frontend
+renders it with `protomaps-leaflet` + `pmtiles` (research.md §1) using real
+geographic coordinates (`L.CRS.EPSG3857`) instead of the old
+precomputed-pixel-canvas approach (research.md §5). This deletes the OSM-tile-baking
+code path for the *interactive* map only — `generate_member_maps.py`'s own
+static-PNG maps keep using `rkby_maps/basemap.py`'s OSM fetch/stitch code
+unchanged.
+
+An optional second build variant (Story 4, `RKBY_BASEMAP_URL`, research.md §8) lets
+the maintainer instead reference a basemap they've separately published at a URL of
+their own, so the bundle fetches basemap tiles live rather than embedding them —
+purely a build-time choice about the (non-member-data) basemap's delivery; member
+data always stays local-only in both variants.
 
 ## Technical Context
 
@@ -32,10 +39,12 @@ rendering.py` for photo thumbnails). Frontend: add `pmtiles` (^4.5) and
 `leaflet` ^1.9.4, `vite`, `vite-plugin-singlefile` stay (research.md §1).
 
 **Storage**: Local files only. New required input: one maintainer-supplied
-`<RKBY_DATA_DIR>/basemap.pmtiles` (research.md §4). No change to `seasons/`
-storage. `<RKBY_DATA_DIR>/.tile_cache/` and `interactive_map/tiles/` stop being
-written by this script (research.md §7) but `.tile_cache/` stays in use by
-`generate_member_maps.py`.
+`<RKBY_DATA_DIR>/basemap.pmtiles` (research.md §4), required and validated in
+both build variants (FR-010). New optional input: `RKBY_BASEMAP_URL` env var
+selecting the hosted variant (research.md §8) — not a file, just a config value.
+No change to `seasons/` storage. `<RKBY_DATA_DIR>/.tile_cache/` and
+`interactive_map/tiles/` stop being written by this script (research.md §7) but
+`.tile_cache/` stays in use by `generate_member_maps.py`.
 
 **Testing**: `pytest` (`uv run pytest`) for the generator; `vitest` (`pnpm test`,
 already wired into the frontend build) for frontend pure-logic modules
@@ -44,8 +53,10 @@ spec 003, no new test framework.
 
 **Target Platform**: Self-contained `interactive_map/index.html`, opened directly
 via `file://` (no server) in a current desktop or mobile browser — identical
-contract to spec 003's output artifact; this feature does not change how the
-bundle is opened or shared.
+contract to spec 003's output artifact in the default build variant; this feature
+does not change how the bundle is opened or shared. The optional hosted variant
+(Story 4) opens the same way but additionally needs network access reaching the
+maintainer's chosen host for the basemap specifically to render.
 
 **Project Type**: Single project, two-language (Python generator + Vite/Leaflet
 frontend) — same shape spec 003 already established, not a new structure.
@@ -54,9 +65,13 @@ frontend) — same shape spec 003 already established, not a new structure.
 19.7 MB archive as base64 adds ~26 MB of text to the bundle (research.md §2) —
 acceptable given the artifact is a locally-shared folder, not a hosted web page.
 
-**Constraints**: Zero network requests at generation time (FR-002) or view time
-(FR-004) for the basemap. Must keep working when `index.html` is opened directly
-via `file://`, which is what makes this feature's core technical problem
+**Constraints**: Zero network requests at generation time in either build variant
+(FR-002) — including hosted mode, since publishing the file is a manual step the
+maintainer performs outside the generator (FR-009). Zero network requests at view
+time in the default build (FR-004); in the opt-in hosted build, exactly one class
+of view-time request is allowed — basemap tiles from the maintainer-configured
+URL, never member data (FR-011). Must keep working when `index.html` is opened
+directly via `file://`, which is what makes this feature's core technical problem
 (research.md §2) real rather than theoretical — verified empirically against a
 real Chromium binary, not assumed from documentation.
 
@@ -72,11 +87,11 @@ unchanged by this feature (research.md §5).
 
 | Principle | Check | Result |
 |---|---|---|
-| I. Member Data Privacy First | No new third-party network call is introduced — this feature *removes* the interactive map's only recurring third-party dependency at generation time (the OSM tile server, FR-002/SC-001). The Nominatim geocoding exception is untouched by this feature. The PMTiles basemap file itself carries no member data. | **PASS** |
-| II. One Script, One Artifact | Still exactly one script (`generate_interactive_map.py`) for one artifact. Changes are internal to its existing helper modules; no new script, no new CLI flag/mode. | **PASS** |
+| I. Member Data Privacy First | Default build: no new third-party network call is introduced — this feature *removes* the interactive map's only recurring third-party dependency at generation time (the OSM tile server, FR-002/SC-001). Optional hosted build (Story 4): the *only* new network call is a viewer-side fetch of basemap tiles from a URL the maintainer themselves chooses and publishes to (FR-009) — never a call the generator makes, and never one that can carry a member field, since the basemap file itself contains no member data and `map-data.js`/`photos/` stay local-only in both build variants unconditionally (FR-011). The Nominatim geocoding exception is untouched by this feature. | **PASS** |
+| II. One Script, One Artifact | Still exactly one script (`generate_interactive_map.py`) for one artifact. Changes are internal to its existing helper modules; no new script. The new `RKBY_BASEMAP_URL` env var is a delivery-mechanism toggle for one existing input, not a new use case — same precedent as `generate_member_maps.py`'s existing `--min-width-km`/`--no-scale-bar` tuning flags for one artifact, not a reason for a second script. | **PASS** |
 | III. Local Data Is Editable Source of Truth | Not touched — no scraped-data merge/persistence logic is changed by this feature. | **PASS (unaffected)** |
-| IV. Python, Minimal Dependencies | No Python dependency added (research.md §3). Two small, well-maintained JS packages added to the frontend (`pmtiles`, `protomaps-leaflet`, both maintained by the Protomaps project, combined ~1.5 MB unpacked vs. the ~19.5 MB MapLibre GL alternative that was rejected specifically to avoid a heavier dependency, research.md §1) — directly required by FR-001. | **PASS** |
-| V. Test-First Development (Red-Green) | Procedural gate for `/speckit-implement`, not a design-time blocker. Affected existing tests are named in Phase 1 (`data-model.md`); new/changed behavior (PMTiles header validation, base64 embedding, real-CRS marker positioning) needs new failing tests before implementation, same as every prior feature. | **PASS (procedural, enforced at implement time)** |
+| IV. Python, Minimal Dependencies | No Python dependency added (research.md §3). Two small, well-maintained JS packages added to the frontend (`pmtiles`, `protomaps-leaflet`, both maintained by the Protomaps project, combined ~1.5 MB unpacked vs. the ~19.5 MB MapLibre GL alternative that was rejected specifically to avoid a heavier dependency, research.md §1) — directly required by FR-001. Hosted mode adds no further dependency: it uses `pmtiles`'s own default `FetchSource`, already part of that same package (research.md §8). | **PASS** |
+| V. Test-First Development (Red-Green) | Procedural gate for `/speckit-implement`, not a design-time blocker. Affected existing tests are named in Phase 1 (`data-model.md`); new/changed behavior (PMTiles header validation, base64 embedding, real-CRS marker positioning, hosted-vs-embedded mode selection) needs new failing tests before implementation, same as every prior feature. | **PASS (procedural, enforced at implement time)** |
 
 No violations. Complexity Tracking table is not needed.
 
@@ -101,12 +116,15 @@ layout spec 003 established (see `README.md`'s Project structure section):
 
 ```text
 scripts/
-├── generate_interactive_map.py       # CLI entrypoint (unchanged shape; new basemap.pmtiles
-│                                      # existence/validity check added before build, FR-003)
+├── generate_interactive_map.py       # CLI entrypoint (still no CLI args, FR-002 of spec 003;
+│                                      # new basemap.pmtiles existence/validity check added
+│                                      # before build, FR-003; reads optional RKBY_BASEMAP_URL
+│                                      # to select embedded vs. hosted mode, research.md §8)
 ├── rkby_interactive_map/
 │   ├── bundle.py                     # generate_basemap/_tile_levels/_write_level_tiles/
 │   │                                  # _base_level/compute_positions DELETED; replaced by a
-│   │                                  # small embed-and-validate step (research.md §2, §3, §5)
+│   │                                  # small validate-then-embed-or-reference step, branching
+│   │                                  # on RKBY_BASEMAP_URL (research.md §2, §3, §5, §8)
 │   └── merge.py                      # unchanged — already emits latitude/longitude per member
 └── rkby_maps/
     └── basemap.py                    # UNCHANGED — generate_member_maps.py (spec 002) still
@@ -117,7 +135,9 @@ frontend/interactive-map/
 ├── package.json                      # add pmtiles, protomaps-leaflet
 └── src/
     ├── main.js                       # CRS.Simple -> CRS.EPSG3857; real-latlng markers;
-    │                                  # construct PMTiles from a Blob-backed custom Source
+    │                                  # constructs PMTiles from a Blob-backed custom Source
+    │                                  # in embedded mode, or the package's default FetchSource
+    │                                  # in hosted mode, per basemap.mode (research.md §2, §8)
     ├── basemapTiles.js                # DELETED — chunk-grid math no longer applies
     ├── basemapTiles.test.js           # DELETED with it
     └── declutter.js                   # overlap math moves from precomputed canvas-pixel
@@ -128,7 +148,8 @@ tests/unit/
 │                                             # this feature does not touch
 ├── test_rkby_interactive_map_bundle.py      # tests for deleted functions removed; new tests
 │                                             # for basemap.pmtiles validation/embedding added
-└── test_generate_interactive_map_cli.py     # extended: missing/invalid basemap.pmtiles -> FR-003
+└── test_generate_interactive_map_cli.py     # extended: missing/invalid basemap.pmtiles -> FR-003;
+                                              # RKBY_BASEMAP_URL set/unset -> hosted/embedded output
 ```
 
 **Structure Decision**: No structural change to the repository. This feature edits

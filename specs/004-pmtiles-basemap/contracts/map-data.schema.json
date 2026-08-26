@@ -80,21 +80,41 @@
       }
     },
     "basemap": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["file", "variable"],
-      "description": "Describes the base64-embedded PMTiles archive asset (research.md §2) -- deliberately carries no minZoom/maxZoom/bounds: the frontend reads those straight from the embedded archive's own header at runtime (pmtiles.PMTiles#getHeader(), research.md §6) so there is exactly one source of truth for the archive's own coverage.",
-      "properties": {
-        "file": {
-          "type": "string",
-          "description": "Filename of the base64-embedding script relative to interactive_map/, e.g. \"basemap-pmtiles.js\"."
+      "description": "Describes where the frontend gets the PMTiles archive from -- one of two shapes, chosen at generation time by whether RKBY_BASEMAP_URL is set (data-model.md, research.md §8). Deliberately carries no minZoom/maxZoom/bounds in either shape: the frontend reads those straight from the archive's own header at runtime (pmtiles.PMTiles#getHeader(), research.md §6) so there is exactly one source of truth for the archive's own coverage.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "file", "variable"],
+          "description": "Default: the archive is base64-embedded in the bundle (research.md §2).",
+          "properties": {
+            "mode": { "const": "embedded" },
+            "file": {
+              "type": "string",
+              "description": "Filename of the base64-embedding script relative to interactive_map/, e.g. \"basemap-pmtiles.js\"."
+            },
+            "variable": {
+              "type": "string",
+              "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$",
+              "description": "Global variable name that basemap.file sets on window, e.g. \"RKBY_PMTILES_BASE64\" -- read as window[basemap.variable] rather than a name hardcoded independently on both the Python and JS sides."
+            }
+          }
         },
-        "variable": {
-          "type": "string",
-          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$",
-          "description": "Global variable name that basemap.file sets on window, e.g. \"RKBY_PMTILES_BASE64\" -- read as window[basemap.variable] rather than a name hardcoded independently on both the Python and JS sides."
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "url"],
+          "description": "Opt-in: the archive is fetched live from a maintainer-hosted URL, never embedded (spec.md Story 4/FR-008-FR-011, research.md §8).",
+          "properties": {
+            "mode": { "const": "hosted" },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "The maintainer-supplied RKBY_BASEMAP_URL value, passed through unchanged. The frontend constructs new pmtiles.PMTiles(url) -- the package's own default FetchSource -- rather than the embedded mode's custom Blob-backed Source."
+            }
+          }
         }
-      }
+      ]
     }
   }
 }

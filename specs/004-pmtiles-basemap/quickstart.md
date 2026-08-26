@@ -94,7 +94,48 @@ range with no leftover artifact from the previous archive (no stale `tiles/`
 folder, no mixed old/new basemap content) — the whole `interactive_map/` folder is
 fully regenerated every run (data-model.md, unchanged from spec 003).
 
-## Scenario 5 — Existing interactions still work (Story 3, FR-006)
+## Scenario 5 — Hosted-basemap mode (Story 4, FR-008–FR-011, SC-005)
+
+Publish the same `basemap.pmtiles` file to any static host that serves it with
+Range support and permissive CORS (e.g. a GitHub Pages/raw-content URL, an S3
+bucket with public read + CORS enabled) — this is a manual step you do yourself
+(FR-009); the generator doesn't need network access to do it.
+
+```bash
+export RKBY_BASEMAP_URL="https://your-host/basemap.pmtiles"
+uv run scripts/generate_interactive_map.py
+```
+
+**Expect**:
+
+- `$RKBY_DATA_DIR/interactive_map/` contains `index.html` and `map-data.js` but
+  **no** `basemap-pmtiles.js` (data-model.md § Generated Interactive Map
+  Artifact, hosted mode).
+- `map-data.js`'s `basemap` object has `"mode": "hosted"` and
+  `"url": "https://your-host/basemap.pmtiles"`.
+
+```bash
+open "$RKBY_DATA_DIR/interactive_map/index.html"   # with network access
+```
+
+**Expect**: the basemap loads by fetching tiles from `RKBY_BASEMAP_URL` (check the
+Network tab: requests to your host, none to `tile.openstreetmap.org`); no request
+anywhere carries a member field (name, photo, position, role, season) — only
+basemap tile requests go to that host (SC-005). Member markers, popups, and
+season controls behave identically to embedded mode.
+
+```bash
+export RKBY_BASEMAP_URL="https://your-host/does-not-exist.pmtiles"
+uv run scripts/generate_interactive_map.py
+open "$RKBY_DATA_DIR/interactive_map/index.html"   # with network access
+```
+
+**Expect**: the basemap fails to render (blank), but member markers, popups, and
+season controls still work — a bad hosted URL degrades only the basemap, matching
+spec.md's Edge Cases for Story 4. Unset `RKBY_BASEMAP_URL` afterward to return to
+default embedded mode for later scenarios.
+
+## Scenario 6 — Existing interactions still work (Story 3, FR-006)
 
 Run through `specs/003-interactive-photo-map/quickstart.md`'s Scenarios 3, 4, 5, 6,
 7 unchanged (season toggles, cross-season popup, identical-address pair, idempotent
