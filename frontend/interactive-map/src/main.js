@@ -179,13 +179,28 @@ async function main() {
       });
       const latlng = map.containerPointToLatLng([member.x, member.y]);
       const marker = L.marker(latlng, { icon }).addTo(markersLayer);
-      // bindPopup's content is a function so it's re-evaluated against the
-      // live activeSeasons on every open, not frozen at render time -- a
-      // toggle can change which of this member's seasons are active between
-      // one hover and the next without needing a fresh renderMarkers() call.
-      marker.bindPopup(() => renderPopupContent(member), { className: "rkby-popup" });
-      marker.on("mouseover", () => marker.openPopup());
-      marker.on("mouseout", () => marker.closePopup());
+      // A manually-managed popup, not marker.bindPopup() -- bindPopup wires
+      // its own internal click handler that *toggles* the popup, which on a
+      // touch device closes it again immediately: a tap synthesizes
+      // mousemove (fires our mouseover below, opening it) then click
+      // (toggles it right back closed) as part of the same single tap. This
+      // popup instead opens (never toggles) on both mouseover and click, so
+      // a tap and a mouse hover behave the same way; Leaflet's own
+      // autoClose still closes any previously-open popup when a new one
+      // opens, and clicking empty map area still closes it (Map's own
+      // default behavior, untouched here). setContent's argument is a
+      // function so it's re-evaluated against the live activeSeasons on
+      // every open, not frozen at render time -- a toggle can change which
+      // of this member's seasons are active between one open and the next
+      // without needing a fresh renderMarkers() call.
+      const popup = L.popup({ className: "rkby-popup" })
+        .setLatLng(latlng)
+        .setContent(() => renderPopupContent(member));
+      const openPopup = () => popup.openOn(map);
+      const closePopup = () => map.closePopup(popup);
+      marker.on("mouseover", openPopup);
+      marker.on("mouseout", closePopup);
+      marker.on("click", openPopup);
     }
   }
 

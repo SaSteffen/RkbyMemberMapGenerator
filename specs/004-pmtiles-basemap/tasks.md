@@ -266,14 +266,23 @@ confirm each behaves as it did before this change (quickstart.md Scenario 6).
   network requests, zero console errors, basemap tile canvases render (including
   past the archive's max native zoom), markers render and re-declutter correctly
   after pan/zoom, season checkboxes change the visible member set, and hover popups
-  open/close correctly on desktop. One pre-existing, feature-unrelated finding
-  surfaced (not a regression from this feature — confirmed via `git log` that the
+  open/close correctly on desktop. One pre-existing, feature-unrelated bug surfaced
+  (not a regression from this feature — confirmed via `git log` that the
   `mouseover`/`mouseout` + `bindPopup` combo predates this feature, from spec 003's
   `93f4ca8`): on a touch device, the synthetic `mousemove`→`mouseover` from a tap
-  opens the popup, then the tap's own `click` immediately toggles it closed again
+  opened the popup, then the tap's own `click` immediately toggled it closed again
   (Leaflet's default marker-click-toggles-its-bound-popup behavior), so tapping a
-  marker on a real phone likely never shows a popup. Flagged to the maintainer, not
-  fixed here — out of this feature's scope (basemap swap only).
+  marker on a real phone never showed a popup. Fixed (at the maintainer's request,
+  after initially being flagged out-of-scope): `main.js`'s `renderMarkers` no longer
+  calls `marker.bindPopup(...)`, which is what wired that internal toggling click
+  handler; it now manages one `L.popup()` per marker directly, opened (never
+  toggled) by both `mouseover` and `click`, closed by `mouseout` — Leaflet's own
+  popup `autoClose` still closes a previously-open popup when a new one opens, and
+  the map's own default click-elsewhere-closes-the-popup behavior is untouched.
+  Re-verified with the same Playwright harness (mobile-viewport/touch-emulated
+  context): a tap opens the popup, a second tap on the same marker leaves it open
+  (no toggle-close), tapping a different marker switches to exactly one open popup,
+  and tapping empty map area still closes it — with no console errors throughout.
 
 **Checkpoint**: All three of User Stories 1–3 work together — correct basemap,
 fail-fast validation, and zero regressions in existing interactions.
