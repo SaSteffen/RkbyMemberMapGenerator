@@ -41,7 +41,7 @@ top-level structure (plan.md § Project Structure):
 **Purpose**: Add the two frontend dependencies this feature needs before any code
 touches them.
 
-- [ ] T001 [P] Add `pmtiles` (^4.5) and `protomaps-leaflet` (^5.1) to
+- [X] T001 [P] Add `pmtiles` (^4.5) and `protomaps-leaflet` (^5.1) to
   `frontend/interactive-map/package.json`'s `dependencies` (alongside the existing
   `leaflet` ^1.9.4); run `pnpm install` inside `frontend/interactive-map/` to update
   `pnpm-lock.yaml` (research.md §1).
@@ -57,7 +57,7 @@ untouched because `generate_member_maps.py` (spec 002) still depends on it direc
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 Delete the OSM-tile-baking code path from
+- [X] T002 Delete the OSM-tile-baking code path from
   `scripts/rkby_interactive_map/bundle.py`: remove `compute_positions`, `_base_level`,
   `_tile_levels`, `_write_level_tiles`, `generate_basemap`, and the
   `CANVAS_SIZE`/`MIN_WIDTH_KM`/`PADDING_KM`/`DEFAULT_CENTER`/`DEFAULT_ZOOM`/
@@ -66,11 +66,11 @@ untouched because `generate_member_maps.py` (spec 002) still depends on it direc
   (`canvas_origin`/`lonlat_to_pixel`/`stitch_basemap`/`stitch_region`/
   `zoom_for_bounding_box`) imports (research.md §5, plan.md § Project Structure).
   `rkby_maps/basemap.py` itself is not touched.
-- [ ] T003 [P] Delete `frontend/interactive-map/src/basemapTiles.js` and
+- [X] T003 [P] Delete `frontend/interactive-map/src/basemapTiles.js` and
   `frontend/interactive-map/src/basemapTiles.test.js` — the chunk-grid math they
   implement/test no longer applies once the basemap is a real PMTiles archive
   (plan.md § Project Structure).
-- [ ] T004 In `tests/unit/test_rkby_interactive_map_bundle.py`, remove the top-level
+- [X] T004 In `tests/unit/test_rkby_interactive_map_bundle.py`, remove the top-level
   import of `compute_positions`/`generate_basemap` (T002 deleted them) and delete every
   test that exercises the deleted functions: `test_compute_positions_is_order_independent`,
   `test_compute_positions_handles_zero_members`,
@@ -101,27 +101,27 @@ basemap comes from that file (open `index.html`, see the real map render), no
 
 ### Backend: validation and embedding
 
-- [ ] T005 [US1] In `tests/unit/test_rkby_interactive_map_bundle.py`, add failing tests
+- [X] T005 [US1] In `tests/unit/test_rkby_interactive_map_bundle.py`, add failing tests
   for a new PMTiles header-validation function: a file starting with ASCII `PMTiles`
   followed by a supported version byte (`<= 3`) passes; a missing file, an unreadable
   file, a file shorter than 8 bytes, and a file with the wrong magic bytes or an
   unsupported version byte each raise with a message naming
   `<RKBY_DATA_DIR>/basemap.pmtiles` (data-model.md § PMTiles Basemap File §
   Validation, research.md §3).
-- [ ] T006 [US1] In `scripts/rkby_interactive_map/bundle.py`, implement the validator
+- [X] T006 [US1] In `scripts/rkby_interactive_map/bundle.py`, implement the validator
   (e.g. `validate_pmtiles_file(path: Path) -> None`): stdlib-only 8-byte header check,
   no new dependency (research.md §3). Makes T005 pass.
-- [ ] T007 [US1] In `tests/unit/test_rkby_interactive_map_bundle.py`, add failing tests
+- [X] T007 [US1] In `tests/unit/test_rkby_interactive_map_bundle.py`, add failing tests
   for the base64-embedding step: given a valid PMTiles file, it writes
   `interactive_map/basemap-pmtiles.js` containing
   `window.RKBY_PMTILES_BASE64 = "…";` whose decoded bytes equal the original file
   byte-for-byte, and re-running with the same input file produces a byte-identical
   `basemap-pmtiles.js` (SC-002, research.md §2).
-- [ ] T008 [US1] In `scripts/rkby_interactive_map/bundle.py`, implement the embed step
+- [X] T008 [US1] In `scripts/rkby_interactive_map/bundle.py`, implement the embed step
   (e.g. `embed_basemap(interactive_map_dir: Path, pmtiles_path: Path) -> dict`
   returning the embedded-mode `basemap` object): base64-encodes the archive and writes
   `basemap-pmtiles.js` (research.md §2). Makes T007 pass.
-- [ ] T009 [US1] In `tests/unit/test_rkby_interactive_map_bundle.py`, update
+- [X] T009 [US1] In `tests/unit/test_rkby_interactive_map_bundle.py`, update
   `SCHEMA_PATH` to point at
   `specs/004-pmtiles-basemap/contracts/map-data.schema.json`, then add/update failing
   tests for `assemble_map_data`'s payload: each `members[]` entry now carries `lat`/
@@ -130,13 +130,13 @@ basemap comes from that file (open `index.html`, see the real map render), no
   `basemap` object matching T008's embedded-mode shape (`{"mode": "embedded", "file":
   "basemap-pmtiles.js", "variable": "RKBY_PMTILES_BASE64"}`) is present; the whole
   payload still validates against the schema (data-model.md § Bundled Map Data).
-- [ ] T010 [US1] In `scripts/rkby_interactive_map/bundle.py`, update `assemble_map_data`
+- [X] T010 [US1] In `scripts/rkby_interactive_map/bundle.py`, update `assemble_map_data`
   to emit `lat`/`lon` from each merged member's `latitude`/`longitude` and the new
   `basemap` object (calling T008's embed step) instead of `image`; update the module's
   top docstring (currently describes "precomputed pixel positions... base flattened
   basemap image plus tiled levels") to describe the new validate-then-embed
   responsibility. Makes T009 pass.
-- [ ] T011 [US1] In `scripts/generate_interactive_map.py`'s `main()`, call T006's
+- [X] T011 [US1] In `scripts/generate_interactive_map.py`'s `main()`, call T006's
   validator on `config.data_dir / "basemap.pmtiles"` immediately after config/arg
   loading and **before** `build_frontend()` runs (contracts/cli-and-env.md: a missing
   basemap file must fail fast without waiting on a frontend build); on failure, print
@@ -148,7 +148,7 @@ basemap comes from that file (open `index.html`, see the real map render), no
 
 ### Backend: tiles/ exemption cleanup (research.md §7)
 
-- [ ] T012 [P] [US1] In `tests/unit/test_generate_interactive_map_cli.py`, replace
+- [X] T012 [P] [US1] In `tests/unit/test_generate_interactive_map_cli.py`, replace
   `test_ensure_interactive_map_dir_never_deletes_tiles` with a failing test asserting
   the **opposite**: a leftover `tiles/` folder from a prior (pre-this-feature) run is
   now deleted by `_ensure_interactive_map_dir`, exactly like every other regenerated
@@ -156,23 +156,23 @@ basemap comes from that file (open `index.html`, see the real map render), no
   deliberate, confirmed decision scoped to this feature (research.md §7): once T002's
   deletion ships, nothing ever writes to `tiles/` again, so the old exemption protects
   a folder no future run will populate.
-- [ ] T013 [US1] In `scripts/generate_interactive_map.py`, remove the `tiles/`
+- [X] T013 [US1] In `scripts/generate_interactive_map.py`, remove the `tiles/`
   exemption from `_ensure_interactive_map_dir` (the `if entry.name == "tiles":
   continue` branch) and update its docstring accordingly. Makes T012 pass.
 
 ### Frontend: PMTiles rendering
 
-- [ ] T014 [P] [US1] Add `frontend/interactive-map/src/basemapSource.test.js`
+- [X] T014 [P] [US1] Add `frontend/interactive-map/src/basemapSource.test.js`
   (Vitest) with failing tests for a new pure-logic module (this feature's replacement
   for `basemapTiles.js` in the frontend structure, plan.md § Testing): a
   `base64ToBlob(base64String)` helper that round-trips known byte sequences, and a
   `BlobSource` class whose `getBytes(offset, length)` returns the correct byte range
   from a synthetic `Blob` (research.md §2's `FileSource` reference shape) and whose
   `getKey()` returns a stable string.
-- [ ] T015 [US1] Create `frontend/interactive-map/src/basemapSource.js` implementing
+- [X] T015 [US1] Create `frontend/interactive-map/src/basemapSource.js` implementing
   `base64ToBlob` and `BlobSource` (satisfying `pmtiles`'s public `Source` interface:
   `getBytes`/`getKey`, research.md §2). Makes T014 pass.
-- [ ] T016 [US1] Rewrite `frontend/interactive-map/src/main.js`'s map setup: switch
+- [X] T016 [US1] Rewrite `frontend/interactive-map/src/main.js`'s map setup: switch
   `crs: L.CRS.Simple` → `L.CRS.EPSG3857` (Leaflet's default), remove the
   `BasemapTileLayer`/`basemapTiles.js` import and the `L.imageOverlay` base layer;
   when `data.basemap.mode === "embedded"`, decode `window[data.basemap.variable]` via
@@ -181,21 +181,21 @@ basemap comes from that file (open `index.html`, see the real map render), no
   url })` option using the package's default `flavor: "light"` paint/label rules
   (research.md §1). `main()` must become async (or use `.then` chaining) since
   constructing the layer now depends on an async `getHeader()` call (T018).
-- [ ] T017 [US1] In `main.js`, replace pixel-canvas marker positioning: drop
+- [X] T017 [US1] In `main.js`, replace pixel-canvas marker positioning: drop
   `imageWidth`/`imageHeight`/`bounds`/`pixelToLatLng`, and position each marker
   directly via `L.marker([member.lat, member.lon])`; fit the map's initial view using
   the PMTiles archive's own bounds from `pmtiles.PMTiles#getHeader()` instead of the
   old image-pixel bounds (research.md §5).
-- [ ] T018 [US1] In `main.js`, read `minZoom`/`maxZoom` from
+- [X] T018 [US1] In `main.js`, read `minZoom`/`maxZoom` from
   `pmtiles.PMTiles#getHeader()` at runtime and set the `protomaps-leaflet` layer's
   `maxNativeZoom` to the header's `maxZoom` while the Leaflet map's own `maxZoom`
   stays higher, so panning past the archive's deepest baked zoom auto-scales that
   level instead of showing blank tiles (research.md §6, spec.md Edge Cases).
-- [ ] T019 [US1] In `main.js`, update the attribution control to source its text from
+- [X] T019 [US1] In `main.js`, update the attribution control to source its text from
   the embedded archive's own attribution metadata (from `getHeader()`/PMTiles
   metadata) where available, falling back to the existing "© OpenStreetMap
   contributors" text (output-artifact.md § Attribution).
-- [ ] T020 [P] [US1] In `frontend/interactive-map/index.html`, add
+- [X] T020 [P] [US1] In `frontend/interactive-map/index.html`, add
   `<script src="./basemap-pmtiles.js"></script>` before the `map-data.js` script tag
   (embedded mode's classic-script asset, research.md §2). This tag is unconditional
   — the same built `index.html` is used for both build variants; in hosted mode (US4)
@@ -220,14 +220,14 @@ expected path.
 generator, and confirm it exits non-zero immediately with a message naming the path,
 before any `interactive_map/` output appears (quickstart.md Scenario 2).
 
-- [ ] T021 [US2] In `tests/unit/test_generate_interactive_map_cli.py`, add failing
+- [X] T021 [US2] In `tests/unit/test_generate_interactive_map_cli.py`, add failing
   CLI-level tests via `main()`: (a) `<RKBY_DATA_DIR>/basemap.pmtiles` missing, and (b)
   present but invalid (too short / wrong magic bytes) — both cases must return a
   non-zero exit code, print a message naming `<RKBY_DATA_DIR>/basemap.pmtiles`, never
   call `build_frontend` (mock/spy and assert not called), and leave no
   `interactive_map/` directory on disk (SC-003, contracts/cli-and-env.md's exit-code
   table).
-- [ ] T022 [US2] In `scripts/generate_interactive_map.py`, adjust T011's early
+- [X] T022 [US2] In `scripts/generate_interactive_map.py`, adjust T011's early
   validation call/error message as needed to satisfy T021 exactly (wording naming the
   full path, confirmed ordering strictly before `build_frontend()`).
 
@@ -246,21 +246,34 @@ real screen-projected marker positions instead of a precomputed pixel canvas.
 (gesture + buttons), hover/tap popups, season toggling, and mobile-mode/drawer;
 confirm each behaves as it did before this change (quickstart.md Scenario 6).
 
-- [ ] T023 [US3] In `main.js`'s `renderMarkers`/`updateVisibleMarkers`, replace the
+- [X] T023 [US3] In `main.js`'s `renderMarkers`/`updateVisibleMarkers`, replace the
   `map.getZoomScale(map.getZoom(), 0)` + canvas-pixel `x`/`y` inputs to
   `declutterPositions` with each visible member's actual on-screen position via
   `map.latLngToContainerPoint([member.lat, member.lon])`, calling `declutterPositions`
   with its default `scale = 1` (container points are already real screen pixels); keep
   recomputing on `zoomend`, and also add a `moveend` listener (research.md §5).
-- [ ] T024 [P] [US3] Update `declutter.js`'s header comment (no functional change to
+- [X] T024 [P] [US3] Update `declutter.js`'s header comment (no functional change to
   the union-find/pack-grid algorithm) to describe its `x`/`y` inputs as Leaflet
   container points from `map.latLngToContainerPoint`, not precomputed canvas-pixel
   positions scaled by zoom (research.md §5).
-- [ ] T025 [US3] Manual regression pass against a bundle generated after Phase 3/4:
+- [X] T025 [US3] Manual regression pass against a bundle generated after Phase 3/4:
   run through `specs/003-interactive-photo-map/quickstart.md` Scenarios 3–7 (season
   toggles, cross-season popup, identical-address pair, idempotent member re-run,
   mobile mode/drawer) unchanged, per `specs/004-pmtiles-basemap/quickstart.md`
   Scenario 6 — confirm every interaction still behaves as documented there (FR-006).
+  Verified with a headless-Chromium (Playwright) automated pass against a bundle
+  generated from real `RKBY_DATA_DIR` data + the sample archive: zero non-`file://`
+  network requests, zero console errors, basemap tile canvases render (including
+  past the archive's max native zoom), markers render and re-declutter correctly
+  after pan/zoom, season checkboxes change the visible member set, and hover popups
+  open/close correctly on desktop. One pre-existing, feature-unrelated finding
+  surfaced (not a regression from this feature — confirmed via `git log` that the
+  `mouseover`/`mouseout` + `bindPopup` combo predates this feature, from spec 003's
+  `93f4ca8`): on a touch device, the synthetic `mousemove`→`mouseover` from a tap
+  opens the popup, then the tap's own `click` immediately toggles it closed again
+  (Leaflet's default marker-click-toggles-its-bound-popup behavior), so tapping a
+  marker on a real phone likely never shows a popup. Flagged to the maintainer, not
+  fixed here — out of this feature's scope (basemap swap only).
 
 **Checkpoint**: All three of User Stories 1–3 work together — correct basemap,
 fail-fast validation, and zero regressions in existing interactions.
@@ -278,32 +291,32 @@ the generator, and confirm the bundle has no `basemap-pmtiles.js`, `map-data.js`
 `basemap.mode` is `"hosted"`, and viewing the bundle fetches tiles only from that URL
 (quickstart.md Scenario 5, SC-005).
 
-- [ ] T026 [P] [US4] In `tests/unit/test_generate_interactive_map_cli.py`, add failing
+- [X] T026 [P] [US4] In `tests/unit/test_generate_interactive_map_cli.py`, add failing
   tests for `load_config()`: `Config.basemap_url` equals `RKBY_BASEMAP_URL`'s value
   when the env var is set, and is `None` when unset.
-- [ ] T027 [US4] In `scripts/generate_interactive_map.py`, add a `basemap_url: str |
+- [X] T027 [US4] In `scripts/generate_interactive_map.py`, add a `basemap_url: str |
   None = None` field to the `Config` dataclass, populated in `load_config()` from
   `os.environ.get("RKBY_BASEMAP_URL")` (contracts/cli-and-env.md). Makes T026 pass.
-- [ ] T028 [P] [US4] In `tests/unit/test_rkby_interactive_map_bundle.py`, add failing
+- [X] T028 [P] [US4] In `tests/unit/test_rkby_interactive_map_bundle.py`, add failing
   tests: when a `basemap_url` is supplied to the embed/assemble step, `map-data.js`'s
   `basemap` object is `{"mode": "hosted", "url": "<value>"}` and `basemap-pmtiles.js`
   is **not** written; when omitted/`None`, T007/T009's embedded-mode behavior is
   unchanged (data-model.md § Bundled Map Data, research.md §8).
-- [ ] T029 [US4] In `scripts/rkby_interactive_map/bundle.py`, add an optional
+- [X] T029 [US4] In `scripts/rkby_interactive_map/bundle.py`, add an optional
   `basemap_url` parameter to the embed/assemble step (T008/T010): when set, skip the
   base64-embed step entirely and return the hosted `basemap` object instead; when
   unset, behavior is exactly T008/T010's embedded path. Makes T028 pass.
-- [ ] T030 [US4] In `scripts/generate_interactive_map.py`'s `main()`, pass
+- [X] T030 [US4] In `scripts/generate_interactive_map.py`'s `main()`, pass
   `config.basemap_url` through to T029's function. The local
   `<RKBY_DATA_DIR>/basemap.pmtiles` file is still validated via T006/T011 first in
   both modes (FR-010) — this task only changes what happens with its bytes afterward.
-- [ ] T031 [P] [US4] Extend `basemapSource.js`/`main.js`: when `data.basemap.mode ===
+- [X] T031 [P] [US4] Extend `basemapSource.js`/`main.js`: when `data.basemap.mode ===
   "hosted"`, construct `new pmtiles.PMTiles(data.basemap.url)` (the `pmtiles` package's
   own default `FetchSource`) instead of T015's `BlobSource`-backed instance, then pass
   it to `protomaps-leaflet`'s `leafletLayer({ url })` exactly as in embedded mode
   (research.md §8 — no new dependency, `FetchSource` is already part of the `pmtiles`
   package T001 added).
-- [ ] T032 [US4] Add tests to `basemapSource.test.js` (or a small extracted
+- [X] T032 [US4] Add tests to `basemapSource.test.js` (or a small extracted
   `selectBasemapSource(basemap, window)`-style helper + its own test) covering
   hosted-vs-embedded mode selection — given `data.basemap`, which `Source`/constructor
   form T031's code should choose.
@@ -318,15 +331,43 @@ variant without touching any other behavior.
 
 **Purpose**: Documentation and final end-to-end validation across every story.
 
-- [ ] T033 [P] Update `README.md`'s "Getting started"/interactive-map section to
+- [X] T033 [P] Update `README.md`'s "Getting started"/interactive-map section to
   document the new required local input (`<RKBY_DATA_DIR>/basemap.pmtiles`) and the
   optional `RKBY_BASEMAP_URL` env var for hosted mode (contracts/cli-and-env.md).
-- [ ] T034 Run `uv run pytest` and (`cd frontend/interactive-map && pnpm install &&
+  Added a new "Running the interactive map generator" section (matching the existing
+  per-script doc pattern) rather than only touching "Getting started", since no
+  dedicated section existed yet.
+- [X] T034 Run `uv run pytest` and (`cd frontend/interactive-map && pnpm install &&
   pnpm test`) to confirm the full automated suite passes end to end after all prior
-  phases.
-- [ ] T035 Manually run `specs/004-pmtiles-basemap/quickstart.md` Scenarios 1–5 end to
-  end against a real (or the provided sample `trhharea11poi-stripped.pmtiles`)
-  archive, confirming SC-001 through SC-005 all hold.
+  phases. 370 Python tests pass (`uv run pytest`), 30 Vitest tests pass
+  (`pnpm test`), `uv run ruff check .` clean.
+- [X] T035 Manually run `specs/004-pmtiles-basemap/quickstart.md` Scenarios 1–5 end to
+  end against real `RKBY_DATA_DIR` data + the provided sample
+  `trhharea11poi-stripped.pmtiles` archive (found in the maintainer's Downloads
+  folder), confirming SC-001 through SC-005 all hold. Used a headless-Chromium
+  (Playwright) harness for the parts a terminal can't observe (network tab, rendered
+  canvas, DOM). Scenario 1 (embedded, offline): zero non-`file://` requests, no
+  `basemap.jpg`/`tiles/`, basemap + 51 markers render. Scenario 2 (missing/invalid
+  file fails fast): covered by T021's automated tests. Scenario 4 (swap archive):
+  regenerated cleanly against a differently-scoped archive
+  (`trhharea12poi-stripped.pmtiles`), no stale `tiles/`/`basemap.jpg`, new coverage
+  renders. Scenario 5 (hosted mode): verified both the success path (a local
+  Range-request-capable static server — basemap tiles fetch from that host only,
+  zero OSM/member-data requests, canvas renders) and the failure path (an
+  unreachable URL) — the latter surfaced a real bug, fixed during this task (see
+  below).
+
+  **Bug found and fixed**: spec.md's Story 4 Edge Case requires an unreachable/
+  invalid `RKBY_BASEMAP_URL` to degrade only the basemap at view time (markers,
+  popups, season controls keep working). The Phase 3/6 implementation instead let
+  `pmtilesArchive.getHeader()`'s rejection propagate out of `main()` unhandled,
+  aborting marker rendering and the season control entirely. Fixed in `main.js` by
+  wrapping the header-fetch/tile-layer/attribution setup in a `try/catch`: on
+  failure it logs the error, falls back to fitting the view around the bundled
+  members' own lat/lon (no archive header to size against), and uses the default
+  OSM attribution text — everything else proceeds unchanged. Re-verified with the
+  same Playwright harness: markers, season control, and hover popups all still work
+  against a bad `RKBY_BASEMAP_URL`.
 
 ---
 
