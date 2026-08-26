@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rkby.local/schemas/interactive-map-data.schema.json",
+  "title": "Interactive Map Bundled Data",
+  "description": "The exact shape of window.RKBY_MAP_DATA as written into map-data.js by scripts/generate_interactive_map.py. Supersedes specs/003-interactive-photo-map/contracts/map-data.schema.json: members[].x/y become members[].lat/lon, and the image (baked pixel canvas + tile pyramid) block is replaced by basemap (the embedded PMTiles archive asset). See specs/004-pmtiles-basemap/data-model.md and research.md §2/§5 for the rationale, and specs/003-interactive-photo-map/data-model.md for the field-minimization rationale unchanged from spec 003 (Constitution Principle I).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["seasons", "members", "basemap"],
+  "properties": {
+    "seasons": {
+      "type": "array",
+      "description": "Every season discover_seasons() found, sorted ascending (string sort matches chronological order, e.g. \"2024-25\" < \"2025-26\"). Includes seasons with zero eligible members.",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-[0-9]{2}$"
+      }
+    },
+    "members": {
+      "type": "array",
+      "description": "One entry per distinct match_key eligible in at least one season. Never includes address, phone, email, birthday, sex, motive_for_participation, food_restrictions, status, excluded, or ignore (Principle I minimization).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["match_key", "name", "num_previous_seasons", "photo", "photo_full", "lat", "lon", "seasons"],
+        "properties": {
+          "match_key": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          },
+          "name": {
+            "type": "string",
+            "description": "first_name + last_name from the person's latest eligible season-record (FR-010)."
+          },
+          "num_previous_seasons": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "From the latest eligible season-record; null when not on file (FR-016 renders this as unknown, not blank)."
+          },
+          "photo": {
+            "type": "string",
+            "description": "Path relative to interactive_map/, e.g. \"photos/jane-doe.jpg\" or \"photos/placeholder.png\" -- a square-cropped, fixed-size marker thumbnail. Never null."
+          },
+          "photo_full": {
+            "type": "string",
+            "description": "Path relative to interactive_map/, e.g. \"photos/jane-doe-full.jpg\" or \"photos/placeholder.png\" -- the member's own full (uncropped) photo shown in the hover popup. Distinct file from `photo`. Never null."
+          },
+          "lat": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90,
+            "description": "The member's own geocoded latitude, passed through unchanged from their merged record (merge.py) -- no pixel projection (data-model.md § Merged Member, research.md §5)."
+          },
+          "lon": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "description": "The member's own geocoded longitude, same passthrough as lat."
+          },
+          "seasons": {
+            "type": "object",
+            "description": "Every season this person has an eligible record in (not only active ones) -- keys are season labels. The frontend filters this live by the active season set; it is not pre-filtered here.",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["role", "additional_roles"],
+              "properties": {
+                "role": {
+                  "type": ["string", "null"],
+                  "description": "Raw primary role text for that season-record, e.g. \"Rider\", \"Service Crew\", \"Supporter\", or null if not on file."
+                },
+                "additional_roles": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Empty array when known-empty (mirrors the schema's null-vs-empty-array distinction for the source field)."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "basemap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "variable"],
+      "description": "Describes the base64-embedded PMTiles archive asset (research.md §2) -- deliberately carries no minZoom/maxZoom/bounds: the frontend reads those straight from the embedded archive's own header at runtime (pmtiles.PMTiles#getHeader(), research.md §6) so there is exactly one source of truth for the archive's own coverage.",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Filename of the base64-embedding script relative to interactive_map/, e.g. \"basemap-pmtiles.js\"."
+        },
+        "variable": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$",
+          "description": "Global variable name that basemap.file sets on window, e.g. \"RKBY_PMTILES_BASE64\" -- read as window[basemap.variable] rather than a name hardcoded independently on both the Python and JS sides."
+        }
+      }
+    }
+  }
+}
