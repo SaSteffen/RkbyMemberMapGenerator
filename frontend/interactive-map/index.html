@@ -10,12 +10,20 @@
     <div id="map"></div>
 
     <!--
-      Classic external script, not a module, never fetched dynamically --
-      map-data.js must load before the bundled app script runs, and both
-      must survive being opened via file:// (research.md §10). Do not
-      change this tag's position/type: vite-plugin-singlefile inlines the
-      built JS/CSS around it but leaves this untouched.
+      Classic external scripts, not modules, never fetched dynamically --
+      basemap-pmtiles.js/map-data.js must load before the bundled app
+      script runs, and all three must survive being opened via file://
+      (research.md §2, §10). Do not change these tags' position/type:
+      vite-plugin-singlefile inlines the built JS/CSS around them but
+      leaves them untouched.
+
+      basemap-pmtiles.js is unconditional -- the same built index.html is
+      used for both build variants; in hosted mode (RKBY_BASEMAP_URL set)
+      the referenced file simply doesn't exist and the browser's failed
+      local load has no effect, since main.js only reads
+      window[data.basemap.variable] when data.basemap.mode === "embedded".
     -->
+    <script src="./basemap-pmtiles.js"></script>
     <script src="./map-data.js"></script>
     <script type="module" src="./src/main.js"></script>
   </body>

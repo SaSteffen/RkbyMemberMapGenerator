@@ -18,6 +18,15 @@ from scripts.generate_interactive_map import (
 )
 from scripts.rkby_interactive_map.frontend_build import FrontendBuildError
 
+
+def _write_valid_pmtiles_file(data_dir):
+    """A header-valid basemap.pmtiles so tests targeting later stages of
+    main() (frontend build, dir bootstrapping) aren't short-circuited by
+    the basemap validation step that now runs before build_frontend()
+    (contracts/cli-and-env.md)."""
+    (data_dir / "basemap.pmtiles").write_bytes(b"PMTiles" + bytes([3]) + b"\x00" * 16)
+
+
 # --- Config loading (T005) ------------------------------------------------------
 
 
@@ -67,6 +76,7 @@ def test_parser_rejects_any_cli_flag(bad_args):
 
 def test_main_fails_and_writes_nothing_when_pnpm_is_missing(monkeypatch, tmp_path):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    _write_valid_pmtiles_file(tmp_path)
     monkeypatch.setattr("shutil.which", lambda _name: None)
 
     exit_code = main([])
@@ -77,6 +87,7 @@ def test_main_fails_and_writes_nothing_when_pnpm_is_missing(monkeypatch, tmp_pat
 
 def test_main_fails_and_writes_nothing_when_pnpm_install_fails(monkeypatch, tmp_path):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    _write_valid_pmtiles_file(tmp_path)
     monkeypatch.setattr("shutil.which", lambda _name: "/usr/bin/pnpm")
 
     def _fake_run(args, **_kwargs):
@@ -96,6 +107,7 @@ def test_main_fails_and_writes_nothing_when_pnpm_install_fails(monkeypatch, tmp_
 
 def test_main_fails_and_writes_nothing_when_pnpm_build_fails(monkeypatch, tmp_path):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    _write_valid_pmtiles_file(tmp_path)
     monkeypatch.setattr("shutil.which", lambda _name: "/usr/bin/pnpm")
 
     def _fake_run(args, **_kwargs):
@@ -117,6 +129,7 @@ def test_main_fails_and_writes_nothing_when_pnpm_build_fails(monkeypatch, tmp_pa
 
 def test_build_frontend_error_surfaces_as_frontend_build_error(monkeypatch, tmp_path):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    _write_valid_pmtiles_file(tmp_path)
 
     def _raise(_frontend_dir):
         raise FrontendBuildError("pnpm exploded")
@@ -173,17 +186,80 @@ def test_ensure_interactive_map_dir_removes_stale_files_from_a_prior_run(tmp_pat
     assert (tmp_path / "interactive_map").is_dir()
 
 
-def test_ensure_interactive_map_dir_never_deletes_tiles(tmp_path):
-    """tiles/ (baked basemap chunks) must survive every run, unlike every
-    other interactive_map/ artifact -- regenerating them is slow/network-
-    bound, and generate_basemap relies on already-present chunk files being
-    left alone (bundle._write_level_tiles skips them)."""
+# --- Fail fast on a missing/invalid basemap.pmtiles (T021, US2, FR-003) --------
+
+
+def test_main_fails_and_never_builds_frontend_when_basemap_pmtiles_is_missing(
+    monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    build_frontend_calls = []
+    monkeypatch.setattr(
+        "scripts.generate_interactive_map.build_frontend",
+        lambda frontend_dir: build_frontend_calls.append(frontend_dir),
+    )
+
+    exit_code = main([])
+
+    assert exit_code != 0
+    captured = capsys.readouterr()
+    assert str(tmp_path / "basemap.pmtiles") in captured.err
+    assert build_frontend_calls == []
+    assert not (tmp_path / "interactive_map").exists()
+
+
+def test_main_fails_and_never_builds_frontend_when_basemap_pmtiles_is_invalid(
+    monkeypatch, tmp_path, capsys
+):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    (tmp_path / "basemap.pmtiles").write_bytes(b"not-a-pmtiles-file")
+    build_frontend_calls = []
+    monkeypatch.setattr(
+        "scripts.generate_interactive_map.build_frontend",
+        lambda frontend_dir: build_frontend_calls.append(frontend_dir),
+    )
+
+    exit_code = main([])
+
+    assert exit_code != 0
+    captured = capsys.readouterr()
+    assert str(tmp_path / "basemap.pmtiles") in captured.err
+    assert build_frontend_calls == []
+    assert not (tmp_path / "interactive_map").exists()
+
+
+# --- RKBY_BASEMAP_URL config (T026, US4, contracts/cli-and-env.md) --------------
+
+
+def test_load_config_reads_basemap_url_from_env_when_set(monkeypatch, tmp_path):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("RKBY_BASEMAP_URL", "https://example.com/basemap.pmtiles")
+
+    config = load_config()
+
+    assert config.basemap_url == "https://example.com/basemap.pmtiles"
+
+
+def test_load_config_basemap_url_is_none_when_unset(monkeypatch, tmp_path):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("RKBY_BASEMAP_URL", raising=False)
+
+    config = load_config()
+
+    assert config.basemap_url is None
+
+
+def test_ensure_interactive_map_dir_deletes_a_leftover_tiles_folder(tmp_path):
+    """research.md §7: once the PMTiles basemap ships, nothing ever writes
+    to tiles/ again, so a folder left over from a pre-this-feature run is
+    now wiped on the next run exactly like every other regenerated file --
+    a deliberate reversal of the old "never delete tiles/" exemption."""
     _ensure_interactive_map_dir(tmp_path)
-    baked_tile = tmp_path / "interactive_map" / "tiles" / "2" / "0_0.jpg"
-    baked_tile.parent.mkdir(parents=True)
-    baked_tile.write_bytes(b"already-baked")
+    stale_tile = tmp_path / "interactive_map" / "tiles" / "2" / "0_0.jpg"
+    stale_tile.parent.mkdir(parents=True)
+    stale_tile.write_bytes(b"stale-pre-feature-tile")
 
     _ensure_interactive_map_dir(tmp_path)
 
-    assert baked_tile.exists()
-    assert baked_tile.read_bytes() == b"already-baked"
+    assert not stale_tile.exists()
+    assert not (tmp_path / "interactive_map" / "tiles").exists()

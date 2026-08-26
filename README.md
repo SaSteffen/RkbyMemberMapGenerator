@@ -132,6 +132,44 @@ The exported `.html` lands in `$RKBY_DATA_DIR/reports/` (gitignored, never insid
 repo). The committed notebook itself never carries real cell output — an `nbstripout`
 pre-commit hook strips it before every commit.
 
+## Running the interactive map generator
+
+`scripts/generate_interactive_map.py` reads every season already scraped into
+`$RKBY_DATA_DIR` and builds one combined, self-contained interactive photo map
+(`index.html`, opened directly via `file://`, no server needed) with season
+toggles and hover popups. See [specs/003-interactive-photo-map/](specs/003-interactive-photo-map/)
+and [specs/004-pmtiles-basemap/](specs/004-pmtiles-basemap/) for the full design.
+
+Besides `RKBY_DATA_DIR`, it requires one maintainer-supplied local file, placed
+by hand (never scraped or generated):
+
+| Path | Required | Contains |
+|---|---|---|
+| `$RKBY_DATA_DIR/basemap.pmtiles` | yes | A [PMTiles](https://protomaps.com/docs/pmtiles) v3 vector-tile archive covering the map's area/zoom range |
+
+```bash
+uv run scripts/generate_interactive_map.py
+```
+
+By default the archive is base64-embedded into the bundle, so the generated
+`index.html` renders fully offline. To instead have the bundle fetch basemap
+tiles live from a URL where you've separately published the same archive
+(e.g. a static host with Range support and permissive CORS), set:
+
+```bash
+export RKBY_BASEMAP_URL="https://your-host/basemap.pmtiles"
+uv run scripts/generate_interactive_map.py
+```
+
+The local `basemap.pmtiles` file is still required and validated either way —
+`RKBY_BASEMAP_URL` only changes how the *generated bundle* delivers it to a
+viewer, not what the generator itself needs on disk. See
+[specs/004-pmtiles-basemap/contracts/cli-and-env.md](specs/004-pmtiles-basemap/contracts/cli-and-env.md)
+for the full contract.
+
+Output lands in `$RKBY_DATA_DIR/interactive_map/` (gitignored), fully
+regenerated every run.
+
 ## Getting started
 
 This project uses [uv](https://docs.astral.sh/uv/) for Python dependency and

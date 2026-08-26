@@ -8,7 +8,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "leaflet": "^1.9.4"
+    "leaflet": "^1.9.4",
+    "pmtiles": "^4.5",
+    "protomaps-leaflet": "^5.1"
   },
   "devDependencies": {
     "vite": "^8.0.4",

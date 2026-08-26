@@ -1,20 +1,25 @@
-"""Unit tests for `scripts/rkby_interactive_map/bundle.py`: deterministic
-pixel positioning (research.md §3), the assembled `map-data.js` payload
-against `contracts/map-data.schema.json`, photo/placeholder copying, and
-idempotent regeneration (data-model.md § Idempotency)."""
+"""Unit tests for `scripts/rkby_interactive_map/bundle.py`: PMTiles header
+validation (research.md §3), base64 embedding (research.md §2), the
+assembled `map-data.js` payload against `contracts/map-data.schema.json`,
+photo/placeholder copying, and idempotent regeneration (data-model.md §
+Idempotency)."""
 
+import base64
 import json
+import os
 from pathlib import Path
 
 import jsonschema
 import pytest
 
-from scripts.rkby_interactive_map import bundle as bundle_module
 from scripts.rkby_interactive_map.bundle import (
+    PMTILES_EMBED_FILENAME,
+    PMTILES_EMBED_VARIABLE,
+    InvalidPMTilesFileError,
     assemble_map_data,
-    compute_positions,
     copy_assets,
-    generate_basemap,
+    embed_basemap,
+    validate_pmtiles_file,
 )
 from scripts.rkby_maps.rendering import PLACEHOLDER_PHOTO_PATH
 
@@ -22,7 +27,7 @@ FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 SCHEMA_PATH = (
     Path(__file__).parent.parent.parent
     / "specs"
-    / "003-interactive-photo-map"
+    / "004-pmtiles-basemap"
     / "contracts"
     / "map-data.schema.json"
 )
@@ -44,36 +49,165 @@ def _member(match_key, latitude, longitude, **overrides):
     return base
 
 
-# --- compute_positions determinism (T009) ----------------------------------------
+def _write_pmtiles_file(
+    path: Path,
+    *,
+    version: int = 3,
+    magic: bytes = b"PMTiles",
+    extra: bytes = b"\x00" * 16,
+) -> None:
+    path.write_bytes(magic + bytes([version]) + extra)
 
 
-def test_compute_positions_is_order_independent():
-    members = [
-        _member("alice", 53.55, 9.99),
-        _member("bob", 53.60, 10.05),
-        _member("carol", 53.50, 9.95),
-    ]
+# --- validate_pmtiles_file (T005) --------------------------------------------------
 
-    positions_forward, center_forward, zoom_forward = compute_positions(members)
-    positions_reversed, center_reversed, zoom_reversed = compute_positions(
-        list(reversed(members))
+
+def test_validate_pmtiles_file_accepts_a_valid_header(tmp_path):
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    _write_pmtiles_file(pmtiles_path)
+
+    validate_pmtiles_file(pmtiles_path)  # must not raise
+
+
+def test_validate_pmtiles_file_accepts_every_supported_version(tmp_path):
+    for version in (0, 1, 2, 3):
+        pmtiles_path = tmp_path / f"basemap-v{version}.pmtiles"
+        _write_pmtiles_file(pmtiles_path, version=version)
+
+        validate_pmtiles_file(pmtiles_path)  # must not raise
+
+
+def test_validate_pmtiles_file_rejects_a_missing_file(tmp_path):
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+
+    with pytest.raises(InvalidPMTilesFileError, match=str(pmtiles_path)):
+        validate_pmtiles_file(pmtiles_path)
+
+
+def test_validate_pmtiles_file_rejects_an_unreadable_file(tmp_path):
+    if os.geteuid() == 0:
+        pytest.skip("root bypasses file permission checks")
+
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    _write_pmtiles_file(pmtiles_path)
+    pmtiles_path.chmod(0o000)
+
+    try:
+        with pytest.raises(InvalidPMTilesFileError, match=str(pmtiles_path)):
+            validate_pmtiles_file(pmtiles_path)
+    finally:
+        pmtiles_path.chmod(0o644)
+
+
+def test_validate_pmtiles_file_rejects_a_file_shorter_than_8_bytes(tmp_path):
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    pmtiles_path.write_bytes(b"PMTiles")  # 7 bytes -- one short of the header
+
+    with pytest.raises(InvalidPMTilesFileError, match=str(pmtiles_path)):
+        validate_pmtiles_file(pmtiles_path)
+
+
+def test_validate_pmtiles_file_rejects_wrong_magic_bytes(tmp_path):
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    _write_pmtiles_file(pmtiles_path, magic=b"NOTATIL")
+
+    with pytest.raises(InvalidPMTilesFileError, match=str(pmtiles_path)):
+        validate_pmtiles_file(pmtiles_path)
+
+
+def test_validate_pmtiles_file_rejects_an_unsupported_version_byte(tmp_path):
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    _write_pmtiles_file(pmtiles_path, version=4)
+
+    with pytest.raises(InvalidPMTilesFileError, match=str(pmtiles_path)):
+        validate_pmtiles_file(pmtiles_path)
+
+
+# --- embed_basemap (T007) -----------------------------------------------------------
+
+
+def test_embed_basemap_writes_a_base64_script_whose_decoded_bytes_round_trip(tmp_path):
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    original_bytes = b"PMTiles\x03" + os.urandom(256)
+    pmtiles_path.write_bytes(original_bytes)
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+
+    basemap = embed_basemap(interactive_map_dir, pmtiles_path)
+
+    assert basemap == {
+        "mode": "embedded",
+        "file": PMTILES_EMBED_FILENAME,
+        "variable": PMTILES_EMBED_VARIABLE,
+    }
+    script_text = (interactive_map_dir / PMTILES_EMBED_FILENAME).read_text()
+    prefix = f"window.{PMTILES_EMBED_VARIABLE} = " + '"'
+    assert script_text.startswith(prefix)
+    encoded = script_text[len(prefix) :].rstrip("\n").rstrip(";").rstrip('"')
+    assert base64.b64decode(encoded) == original_bytes
+
+
+def test_embed_basemap_is_byte_identical_across_reruns(tmp_path):
+    """SC-002's "consistent across runs": re-running with the same input
+    file produces a byte-identical basemap-pmtiles.js."""
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    pmtiles_path.write_bytes(b"PMTiles\x03" + os.urandom(256))
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+
+    embed_basemap(interactive_map_dir, pmtiles_path)
+    first_run_bytes = (interactive_map_dir / PMTILES_EMBED_FILENAME).read_bytes()
+
+    embed_basemap(interactive_map_dir, pmtiles_path)
+    second_run_bytes = (interactive_map_dir / PMTILES_EMBED_FILENAME).read_bytes()
+
+    assert first_run_bytes == second_run_bytes
+
+
+# --- embed_basemap: hosted mode (T028, US4, research.md §8) ------------------------
+
+
+def test_embed_basemap_returns_hosted_object_and_writes_no_script_when_url_is_set(
+    tmp_path,
+):
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    _write_pmtiles_file(pmtiles_path)
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+
+    basemap = embed_basemap(
+        interactive_map_dir,
+        pmtiles_path,
+        basemap_url="https://example.com/basemap.pmtiles",
     )
 
-    assert center_forward == center_reversed
-    assert zoom_forward == zoom_reversed
-    for match_key in ("alice", "bob", "carol"):
-        assert positions_forward[match_key] == positions_reversed[match_key]
+    assert basemap == {
+        "mode": "hosted",
+        "url": "https://example.com/basemap.pmtiles",
+    }
+    assert not (interactive_map_dir / PMTILES_EMBED_FILENAME).exists()
 
 
-def test_compute_positions_handles_zero_members():
-    positions, center, zoom = compute_positions([])
+def test_embed_basemap_embedded_mode_is_unchanged_when_basemap_url_is_omitted(
+    tmp_path,
+):
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    original_bytes = b"PMTiles\x03" + os.urandom(64)
+    pmtiles_path.write_bytes(original_bytes)
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
 
-    assert positions == {}
-    assert center is not None
-    assert isinstance(zoom, int)
+    basemap = embed_basemap(interactive_map_dir, pmtiles_path)
+
+    assert basemap == {
+        "mode": "embedded",
+        "file": PMTILES_EMBED_FILENAME,
+        "variable": PMTILES_EMBED_VARIABLE,
+    }
+    assert (interactive_map_dir / PMTILES_EMBED_FILENAME).exists()
 
 
-# --- map-data.js schema conformance (T015) ----------------------------------------
+# --- map-data.js schema conformance (T009) ------------------------------------------
 
 
 def _load_map_data(interactive_map_dir: Path) -> dict:
@@ -84,56 +218,86 @@ def _load_map_data(interactive_map_dir: Path) -> dict:
     return json.loads(json_text)
 
 
+def _assemble(tmp_path, interactive_map_dir, seasons, members, basemap_url=None):
+    pmtiles_path = tmp_path / "basemap.pmtiles"
+    if not pmtiles_path.exists():
+        _write_pmtiles_file(pmtiles_path)
+    assemble_map_data(
+        tmp_path,
+        interactive_map_dir,
+        seasons,
+        members,
+        pmtiles_path,
+        basemap_url=basemap_url,
+    )
+
+
+def test_assemble_map_data_uses_hosted_basemap_when_basemap_url_is_set(tmp_path):
+    interactive_map_dir = tmp_path / "interactive_map"
+    interactive_map_dir.mkdir()
+    members = [_member("jane-doe", 53.55, 9.99)]
+
+    _assemble(
+        tmp_path,
+        interactive_map_dir,
+        ["2025-26"],
+        members,
+        basemap_url="https://example.com/basemap.pmtiles",
+    )
+
+    payload = _load_map_data(interactive_map_dir)
+    assert payload["basemap"] == {
+        "mode": "hosted",
+        "url": "https://example.com/basemap.pmtiles",
+    }
+    assert not (interactive_map_dir / PMTILES_EMBED_FILENAME).exists()
+
+
 def test_assemble_map_data_validates_against_the_schema(tmp_path):
     interactive_map_dir = tmp_path / "interactive_map"
     interactive_map_dir.mkdir()
     members = [_member("jane-doe", 53.55, 9.99, first_name="Jane", last_name="Doe")]
 
-    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+    _assemble(tmp_path, interactive_map_dir, ["2025-26"], members)
 
     payload = _load_map_data(interactive_map_dir)
     schema = json.loads(SCHEMA_PATH.read_text())
     jsonschema.validate(instance=payload, schema=schema)
 
 
-def test_assemble_map_data_describes_the_base_image_and_tile_levels(tmp_path):
-    """The base (1x) image is always a single file (research.md §2); any
-    resolution levels beyond it are described as cols x rows chunk grids,
-    not files, sorted ascending by scale (research.md §2 2nd addendum)."""
+def test_assemble_map_data_emits_lat_lon_passthrough_not_pixel_positions(tmp_path):
+    """Marker position is the member's own already-geocoded lat/lon, passed
+    straight through with no projection (data-model.md § Merged Member,
+    research.md §5) -- no more x/y pixel positions or image block."""
     interactive_map_dir = tmp_path / "interactive_map"
     interactive_map_dir.mkdir()
     members = [_member("jane-doe", 53.55, 9.99)]
 
-    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+    _assemble(tmp_path, interactive_map_dir, ["2025-26"], members)
 
     payload = _load_map_data(interactive_map_dir)
-    image = payload["image"]
-    assert image["file"] == "basemap.jpg"
-    assert image["tileSize"] > 0
-    scales = [level["scale"] for level in image["tileLevels"]]
-    assert scales == sorted(scales)
-    for level in image["tileLevels"]:
-        assert level["cols"] > 0
-        assert level["rows"] > 0
+    assert "image" not in payload
+    member_payload = payload["members"][0]
+    assert member_payload["lat"] == 53.55
+    assert member_payload["lon"] == 9.99
+    assert "x" not in member_payload
+    assert "y" not in member_payload
 
 
-def test_assemble_map_data_tile_level_grids_cover_the_full_scaled_canvas(tmp_path):
-    """Each tileLevels entry's cols x rows grid, at tileSize per chunk, must
-    cover at least the level's own (base width/height * scale) canvas --
-    the same bounding box as every other level, just chunked instead of one
-    file (research.md §2 2nd addendum)."""
+def test_assemble_map_data_includes_the_embedded_basemap_object(tmp_path):
     interactive_map_dir = tmp_path / "interactive_map"
     interactive_map_dir.mkdir()
     members = [_member("jane-doe", 53.55, 9.99)]
 
-    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+    _assemble(tmp_path, interactive_map_dir, ["2025-26"], members)
 
     payload = _load_map_data(interactive_map_dir)
-    image = payload["image"]
-    for level in image["tileLevels"]:
-        scale = level["scale"]
-        assert level["cols"] * image["tileSize"] >= image["width"] * scale
-        assert level["rows"] * image["tileSize"] >= image["height"] * scale
+    assert payload["basemap"] == {
+        "mode": "embedded",
+        "file": PMTILES_EMBED_FILENAME,
+        "variable": PMTILES_EMBED_VARIABLE,
+    }
+    assert (interactive_map_dir / PMTILES_EMBED_FILENAME).exists()
 
 
 def test_assemble_map_data_never_null_photo_field(tmp_path):
@@ -141,7 +305,7 @@ def test_assemble_map_data_never_null_photo_field(tmp_path):
     interactive_map_dir.mkdir()
     members = [_member("no-photo-member", 53.55, 9.99, photo_relative_path=None)]
 
-    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+    _assemble(tmp_path, interactive_map_dir, ["2025-26"], members)
 
     payload = _load_map_data(interactive_map_dir)
     assert payload["members"][0]["photo"] == "photos/placeholder.png"
@@ -156,7 +320,7 @@ def test_assemble_map_data_includes_a_never_null_full_photo_field(tmp_path):
     interactive_map_dir.mkdir()
     members = [_member("no-photo-member", 53.55, 9.99, photo_relative_path=None)]
 
-    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+    _assemble(tmp_path, interactive_map_dir, ["2025-26"], members)
 
     payload = _load_map_data(interactive_map_dir)
     assert payload["members"][0]["photo_full"] == "photos/placeholder.png"
@@ -182,7 +346,7 @@ def test_assemble_map_data_full_photo_uses_a_distinct_filename_from_the_marker_t
         )
     ]
 
-    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+    _assemble(tmp_path, interactive_map_dir, ["2025-26"], members)
 
     payload = _load_map_data(interactive_map_dir)
     member_payload = payload["members"][0]
@@ -197,7 +361,7 @@ def test_assemble_map_data_excludes_non_popup_fields(tmp_path):
     interactive_map_dir.mkdir()
     members = [_member("jane-doe", 53.55, 9.99)]
 
-    assemble_map_data(tmp_path, interactive_map_dir, ["2025-26"], members)
+    _assemble(tmp_path, interactive_map_dir, ["2025-26"], members)
 
     payload = _load_map_data(interactive_map_dir)
     member_payload = payload["members"][0]
@@ -212,7 +376,7 @@ def test_assemble_map_data_excludes_non_popup_fields(tmp_path):
         assert forbidden_field not in member_payload
 
 
-# --- Photo/placeholder copying (T015) ----------------------------------------------
+# --- Photo/placeholder copying (T015 of spec 003, unaffected by this feature) ------
 
 
 def test_copy_assets_copies_a_members_own_photo(tmp_path):
@@ -400,7 +564,7 @@ def test_copy_assets_falls_back_to_placeholder_when_photo_file_is_missing_on_dis
     ]
 
 
-# --- Idempotency (T015, data-model.md § Idempotency) -------------------------------
+# --- Idempotency (T015 of spec 003, data-model.md § Idempotency) -------------------
 
 
 def test_regeneration_leaves_no_stale_photo_from_a_removed_member(tmp_path):
@@ -444,11 +608,19 @@ def test_regeneration_leaves_no_stale_photo_from_a_removed_member(tmp_path):
 def test_copy_assets_copied_index_html_has_no_file_protocol_incompatible_markers(
     tmp_path,
 ):
-    """Regression guard for research.md §10/Story 4/SC-003: Chromium blocks
-    fetch() and ES-module <script> loading of local files under file://, so
-    the actually-built frontend bundle -- not a fake stand-in -- must never
-    contain either, or the shared folder silently fails to open for
-    recipients (T038/T039)."""
+    """Regression guard for research.md §10 (spec 003): Chromium blocks
+    ES-module <script> loading of local files under file://, and Vite's own
+    modulepreload polyfill would unconditionally fetch() at load time if it
+    ever leaked into the build -- either would silently break the shared
+    folder for recipients. The actually-built frontend bundle -- not a fake
+    stand-in -- must never contain either marker.
+
+    Unlike spec 003, a blanket "no fetch( anywhere in the bundle" check no
+    longer holds: this feature (research.md §8, Story 4) intentionally
+    bundles pmtiles's FetchSource, whose fetch() call is real but reachable
+    only when RKBY_BASEMAP_URL selects hosted mode -- never invoked, and
+    never executed at load time, in the default embedded build this test
+    exercises (empty member list, no RKBY_BASEMAP_URL)."""
     from scripts.generate_interactive_map import FRONTEND_DIR
 
     dist_index_html_path = FRONTEND_DIR / "dist" / "index.html"
@@ -464,132 +636,5 @@ def test_copy_assets_copied_index_html_has_no_file_protocol_incompatible_markers
     copy_assets(tmp_path, interactive_map_dir, [], dist_index_html_path)
 
     copied_html = (interactive_map_dir / "index.html").read_text()
-    assert "fetch(" not in copied_html
+    assert "modulepreload" not in copied_html
     assert 'type="module"' not in copied_html
-
-
-def test_generate_basemap_writes_a_jpeg_of_canvas_size(tmp_path, monkeypatch):
-    """Uses the real stitch_basemap/tile-fetch path against a mocked HTTP
-    tile response, matching the existing map-generator tests' pattern.
-    CANVAS_SIZE is patched tiny so the tiled resolution levels
-    (BASEMAP_LEVELS' scale=2/4/8/16, always generated alongside the base
-    image) stay fast to stitch here -- production runs use the real,
-    much larger CANVAS_SIZE (research.md §2 2nd addendum has the real
-    chunk-count numbers)."""
-    import re
-
-    import responses
-    from PIL import Image
-
-    monkeypatch.setattr(bundle_module, "CANVAS_SIZE", (64, 64))
-
-    tile_url_pattern = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.png")
-    tile_cache_dir = tmp_path / ".tile_cache"
-    interactive_map_dir = tmp_path / "interactive_map"
-    interactive_map_dir.mkdir()
-    members = [_member("jane-doe", 53.55, 9.99)]
-
-    with responses.RequestsMock() as mocked:
-        mocked.add(
-            responses.GET,
-            tile_url_pattern,
-            body=(FIXTURES_DIR / "osm_tile_fixture.png").read_bytes(),
-            status=200,
-            content_type="image/png",
-        )
-        generate_basemap(interactive_map_dir, members, tile_cache_dir)
-
-    image = Image.open(interactive_map_dir / "basemap.jpg")
-    assert image.size == bundle_module.CANVAS_SIZE
-
-
-def test_generate_basemap_writes_uniformly_sized_tile_chunks(tmp_path, monkeypatch):
-    """research.md §2 2nd addendum: resolution levels beyond the base are
-    written as a grid of tileSize-square chunk files under
-    tiles/<scale>/<x>_<y>.jpg, never one big image -- including the grid's
-    last (partial) row/column, padded out to a full tileSize square so the
-    frontend never needs partial-tile handling."""
-    import re
-
-    import responses
-    from PIL import Image
-
-    monkeypatch.setattr(bundle_module, "CANVAS_SIZE", (64, 64))
-
-    tile_url_pattern = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.png")
-    tile_cache_dir = tmp_path / ".tile_cache"
-    interactive_map_dir = tmp_path / "interactive_map"
-    interactive_map_dir.mkdir()
-    members = [_member("jane-doe", 53.55, 9.99)]
-
-    with responses.RequestsMock() as mocked:
-        mocked.add(
-            responses.GET,
-            tile_url_pattern,
-            body=(FIXTURES_DIR / "osm_tile_fixture.png").read_bytes(),
-            status=200,
-            content_type="image/png",
-        )
-        generate_basemap(interactive_map_dir, members, tile_cache_dir)
-
-    tiles_root = interactive_map_dir / "tiles"
-    scale_dirs = sorted(tiles_root.iterdir(), key=lambda p: int(p.name))
-    assert scale_dirs  # at least one tiled level exists at this bounding box
-
-    first_level_dir = scale_dirs[0]
-    chunk_files = list(first_level_dir.glob("*.jpg"))
-    assert chunk_files
-    for chunk_file in chunk_files:
-        assert Image.open(chunk_file).size == (
-            bundle_module.TILE_PX,
-            bundle_module.TILE_PX,
-        )
-
-
-def test_generate_basemap_never_rewrites_an_already_baked_tile_chunk(
-    tmp_path, monkeypatch
-):
-    """A chunk file already on disk (baked by an earlier run) is reused as
-    -- is: generate_basemap must not re-stitch it or re-fetch the OSM tiles
-    under it, so a fully-baked tiles/ tree makes later runs a no-network
-    no-op for tiles (tiles/ is also never deleted -- see
-    generate_interactive_map._ensure_interactive_map_dir)."""
-    import re
-
-    import responses
-
-    monkeypatch.setattr(bundle_module, "CANVAS_SIZE", (64, 64))
-
-    tile_url_pattern = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.png")
-    tile_cache_dir = tmp_path / ".tile_cache"
-    interactive_map_dir = tmp_path / "interactive_map"
-    interactive_map_dir.mkdir()
-    members = [_member("jane-doe", 53.55, 9.99)]
-
-    with responses.RequestsMock() as mocked:
-        mocked.add(
-            responses.GET,
-            tile_url_pattern,
-            body=(FIXTURES_DIR / "osm_tile_fixture.png").read_bytes(),
-            status=200,
-            content_type="image/png",
-        )
-        generate_basemap(interactive_map_dir, members, tile_cache_dir)
-
-    tiles_root = interactive_map_dir / "tiles"
-    scale_dirs = sorted(tiles_root.iterdir(), key=lambda p: int(p.name))
-    first_chunk = min((scale_dirs[0]).glob("*.jpg"))
-    sentinel = b"already-baked-sentinel-bytes"
-    first_chunk.write_bytes(sentinel)
-
-    with responses.RequestsMock(assert_all_requests_are_fired=False) as mocked:
-        mocked.add(
-            responses.GET,
-            tile_url_pattern,
-            body=(FIXTURES_DIR / "osm_tile_fixture.png").read_bytes(),
-            status=200,
-            content_type="image/png",
-        )
-        generate_basemap(interactive_map_dir, members, tile_cache_dir)
-
-    assert first_chunk.read_bytes() == sentinel

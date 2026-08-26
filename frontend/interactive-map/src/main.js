@@ -1,36 +1,28 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { chunkRowForTileY, isTileInLevel, levelForZoom, tileUrl } from "./basemapTiles.js";
+import { PMTiles } from "pmtiles";
+import { leafletLayer } from "protomaps-leaflet";
+import { selectBasemapSource } from "./basemapSource.js";
 import { ICON_SIZE_PX, declutterPositions } from "./declutter.js";
 import { defaultSeasonLabel } from "./defaultSeason.js";
 import { isVisible, popupData } from "./popupData.js";
 
-// Renders the tiled higher-resolution basemap levels (research.md §2
-// addenda): each `createTile` call resolves to one small, independently
-// cached/lazily-loaded chunk file instead of one giant per-level image, so
-// however deep the zoom goes only the handful of chunks actually on
-// screen are ever fetched. The base (1x) level stays a single always-
-// mounted L.imageOverlay underneath this layer -- small enough (research.md
-// §2) that it needs no chunking, and it's what's visible at zoom levels
-// below this layer's own minZoom (no baked tiles exist that far out).
-const BasemapTileLayer = L.GridLayer.extend({
-  createTile(coords, done) {
-    const img = document.createElement("img");
-    const level = levelForZoom(this.options.tileLevels, coords.z);
-    const row = chunkRowForTileY(coords.y);
-    if (!level || !isTileInLevel(level, coords.x, row)) {
-      // Past the baked grid's edge (the user panned beyond map bounds) or
-      // this zoom has no tiled level -- a blank tile, never a request for
-      // a chunk file that was never generated.
-      done(null, img);
-      return img;
-    }
-    img.onload = () => done(null, img);
-    img.onerror = () => done(new Error(`basemap tile failed to load: ${img.src}`), img);
-    img.src = tileUrl(level, coords.x, row);
-    return img;
-  },
-});
+// protomaps-leaflet's own compiled bundle references a bare, non-imported
+// `L` (built assuming Leaflet is loaded globally via <script>, matching its
+// README's own usage example for "legacy Leaflet-based systems",
+// research.md §1) -- since this app loads Leaflet as an ES import instead,
+// the global has to be set explicitly so protomaps-leaflet's
+// `class ... extends L.GridLayer` resolves at the point it constructs its
+// layer class.
+window.L = L;
+
+// Attribution text sourced from the embedded archive's own JSON metadata
+// (output-artifact.md § Attribution) -- pmtiles's own getMetadata(), a
+// local in-memory read for the embedded archive, no network request.
+async function resolveAttribution(pmtilesArchive) {
+  const metadata = await pmtilesArchive.getMetadata();
+  return (metadata && metadata.attribution) || "© OpenStreetMap contributors";
+}
 
 // Stripped of its "type=module" deferral by vite.config.js's post-build
 // step (research.md §10: file://-opened Chromium blocks module script
@@ -39,81 +31,90 @@ const BasemapTileLayer = L.GridLayer.extend({
 // tag have run. Deferring the real work to DOMContentLoaded restores the
 // "runs after the DOM and map-data.js are ready" behavior a module script
 // gave us for free, regardless of the two scripts' relative tag order.
-function main() {
+async function main() {
   const data = window.RKBY_MAP_DATA;
-  const imageWidth = data.image.width;
-  const imageHeight = data.image.height;
   // Newest season label bundled in this run, same sort-as-plain-strings
   // order as discover_seasons/merge.py -- used to tell a still-current
   // rookie from a member whose only season is long since over.
   const newestBundledSeason = [...data.seasons].sort().at(-1);
 
-  // L.CRS.Simple treats the basemap image's own pixel space as the map's
-  // coordinate system -- there are no live geographic tiles to align to
-  // (research.md §2, §3), so a plain image overlay + precomputed pixel
-  // positions is simpler than a geographic CRS.
+  // Real Web Mercator (Leaflet's own default CRS) -- the basemap is now a
+  // real geographic PMTiles archive, addressed by (z, x, y) tile
+  // coordinates in standard Web Mercator space, not one baked flat image
+  // in an arbitrary pixel space (research.md §5).
   const map = L.map("map", {
-    crs: L.CRS.Simple,
-    minZoom: -5,
-    maxZoom: 5,
     attributionControl: false,
+    minZoom: 0,
+    maxZoom: 19,
   });
 
-  const bounds = [
-    [0, 0],
-    [imageHeight, imageWidth],
-  ];
-  map.fitBounds(bounds);
+  // research.md §2/§8: embedded mode never fetch()es the .pmtiles file --
+  // Chromium blocks fetch()/XHR of a sibling local file when index.html is
+  // opened via file://, so its bytes are already in memory (decoded from
+  // the base64-embedded classic-script global basemap-pmtiles.js sets),
+  // wrapped in a Blob-backed Source with zero network calls. Hosted mode
+  // (RKBY_BASEMAP_URL set) instead hands PMTiles a plain URL string, which
+  // uses the package's own default FetchSource -- an ordinary cross-origin
+  // fetch, unaffected by the file:// restriction above (research.md §8).
+  const pmtilesArchive = new PMTiles(selectBasemapSource(data.basemap, window));
 
-  // Always-present base layer (research.md §2): one small flattened image,
-  // visible at every zoom, and the only thing shown below the tiled
-  // levels' own minZoom (i.e. zoomed out further than any baked tile
-  // grid covers).
-  L.imageOverlay(data.image.file, bounds).addTo(map);
-
-  // Tiled higher-resolution levels (research.md §2 addenda) layer on top.
-  // Below their own minZoom, Leaflet hides the GridLayer entirely and the
-  // base imageOverlay above is what's visible. Above their deepest baked
-  // level (maxNativeZoom, not maxZoom), Leaflet reuses that level's
-  // already-fetched chunks and auto-scales them up rather than hiding the
-  // layer -- setting maxZoom to the deepest baked level (instead of the
-  // map's own maxZoom) previously made the layer disappear entirely once
-  // a viewer zoomed in past it, which looked like "the tiles never load".
+  // research.md §6: the archive is the single source of truth for its own
+  // coverage and zoom range -- read at runtime via getHeader() rather than
+  // duplicating minZoom/maxZoom/bounds in map-data.js, so a maintainer can
+  // swap in a differently-scoped archive without regenerating anything
+  // Python-side re-deriving zoom bounds.
   //
-  // pane: "overlayPane" is required, not cosmetic -- L.imageOverlay
-  // defaults to Leaflet's own "overlayPane" (z-index 400), while a plain
-  // GridLayer defaults to "tilePane" (z-index 200), a *lower* stacking
-  // context. Without this, the always-present base image silently paints
-  // over every tile regardless of zoom or how correctly the tiles
-  // themselves load -- exactly what happened here (only ever "the
-  // overview" was visible) until caught in a real browser, since a
-  // same-content test fixture made the two layers visually identical.
-  const tileZooms = data.image.tileLevels.map((level) => Math.log2(level.scale));
-  if (tileZooms.length > 0) {
-    new BasemapTileLayer({
-      tileLevels: data.image.tileLevels,
-      tileSize: data.image.tileSize,
-      minZoom: Math.min(...tileZooms),
+  // spec.md Edge Cases (Story 4): an unreachable or invalid RKBY_BASEMAP_URL
+  // must degrade only the basemap at view time -- member markers, popups,
+  // and season controls still work. getHeader() is this archive's first
+  // network round-trip in hosted mode, so it's also the first point such a
+  // failure surfaces; without this try/catch an unhandled rejection here
+  // would abort the rest of main() before any marker ever renders.
+  let attributionText;
+  try {
+    const header = await pmtilesArchive.getHeader();
+    const bounds = L.latLngBounds(
+      [header.minLat, header.minLon],
+      [header.maxLat, header.maxLon],
+    );
+    map.fitBounds(bounds);
+
+    // maxNativeZoom (not maxZoom) is set to the header's deepest baked zoom
+    // so Leaflet reuses and auto-scales those tiles once a viewer zooms in
+    // past it, rather than the basemap going blank (spec.md Edge Cases).
+    // flavor: "light" is protomaps-leaflet's ready-made default paint/label
+    // style for a standard Protomaps schema (research.md §1) -- with no
+    // flavor set, the layer would render nothing.
+    leafletLayer({
+      url: pmtilesArchive,
+      flavor: "light",
+      minZoom: header.minZoom,
       maxZoom: map.getMaxZoom(),
-      maxNativeZoom: Math.max(...tileZooms),
+      maxNativeZoom: header.maxZoom,
       bounds,
-      pane: "overlayPane",
     }).addTo(map);
+
+    attributionText = await resolveAttribution(pmtilesArchive);
+  } catch (error) {
+    console.error("Basemap failed to load; continuing without it.", error);
+    // No archive header to fit to -- fall back to framing the view around
+    // the member markers themselves, which are always available locally.
+    if (data.members.length > 0) {
+      map.fitBounds(
+        L.latLngBounds(data.members.map((member) => [member.lat, member.lon])),
+      );
+    } else {
+      map.setView([0, 0], 2);
+    }
+    attributionText = "© OpenStreetMap contributors";
   }
 
   // FR-022, research.md §8: real, always-legible attribution text, never
   // hidden behind a toggle -- Leaflet's own default bottom-right corner.
   L.control
     .attribution({ prefix: false, position: "bottomright" })
-    .addAttribution("© OpenStreetMap contributors")
+    .addAttribution(attributionText)
     .addTo(map);
-
-  // Leaflet's "latitude" increases upward while the image's pixel rows
-  // increase downward (CRS.Simple convention, research.md §3) -- y is
-  // negated relative to the raw pixel y computed at generation time.
-  function pixelToLatLng(x, y) {
-    return L.latLng(imageHeight - y, x);
-  }
 
   // One shared layer group, cleared and rebuilt on every season toggle
   // (FR-008) -- since renderMarkers always draws from the full, already-
@@ -158,22 +159,26 @@ function main() {
     );
   }
 
+  // FR-021, research.md §5: overlap is now a function of each member's
+  // actual on-screen position under the real CRS, not a precomputed
+  // canvas-pixel position scaled by a zoom ratio -- map.latLngToContainerPoint
+  // already returns real screen pixels, so declutterPositions runs at its
+  // default scale = 1.
   function renderMarkers(members) {
     markersLayer.clearLayers();
-    // Overlap is a screen-pixel concept (declutter.js), so the current
-    // zoom's world-to-screen scale has to be passed in every time this
-    // runs -- the same members can be non-overlapping at one zoom and
-    // overlapping at another.
-    const scale = map.getZoomScale(map.getZoom(), 0);
-    const declutteredMembers = declutterPositions(members, scale);
-    for (const member of declutteredMembers) {
+    const screenPositioned = members.map((member) => {
+      const point = map.latLngToContainerPoint([member.lat, member.lon]);
+      return { ...member, x: point.x, y: point.y };
+    });
+    for (const member of declutterPositions(screenPositioned)) {
       const icon = L.divIcon({
         className: "",
         html: `<img class="rkby-marker-photo" src="${member.photo}" alt="${member.name}" />`,
         iconSize: [ICON_SIZE_PX, ICON_SIZE_PX],
         iconAnchor: [ICON_SIZE_PX / 2, ICON_SIZE_PX / 2],
       });
-      const marker = L.marker(pixelToLatLng(member.x, member.y), { icon }).addTo(markersLayer);
+      const latlng = map.containerPointToLatLng([member.x, member.y]);
+      const marker = L.marker(latlng, { icon }).addTo(markersLayer);
       // bindPopup's content is a function so it's re-evaluated against the
       // live activeSeasons on every open, not frozen at render time -- a
       // toggle can change which of this member's seasons are active between
@@ -196,13 +201,12 @@ function main() {
 
   updateVisibleMarkers();
 
-  // FR-021, research.md §7: which members' icons overlap on screen depends
-  // on the current zoom (declutter.js), so a zoom change can both create
-  // new overlaps (zooming out) and resolve old ones (zooming in) -- markers
-  // are re-decluttered from their original coordinates on every zoom change
-  // rather than nudged incrementally, since re-running declutterPositions
-  // is cheap and avoids compounding rounding drift across many zoom steps.
+  // Both zoom and pan change every member's on-screen container point (the
+  // input declutterPositions now runs on, research.md §5), so both must
+  // trigger a re-declutter -- panning alone couldn't change overlap under
+  // the old fixed-canvas approach, but it can now.
   map.on("zoomend", updateVisibleMarkers);
+  map.on("moveend", updateVisibleMarkers);
 
   // FR-006/FR-008, research.md §8: one checkbox per bundled season --
   // including seasons with zero eligible members (Edge Cases) -- rendered

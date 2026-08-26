@@ -22,9 +22,10 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.rkby_interactive_map.bundle import (
+    InvalidPMTilesFileError,
     assemble_map_data,
     copy_assets,
-    generate_basemap,
+    validate_pmtiles_file,
 )
 from scripts.rkby_interactive_map.frontend_build import (
     FrontendBuildError,
@@ -45,11 +46,17 @@ class ConfigError(Exception):
 @dataclass(frozen=True)
 class Config:
     data_dir: Path
+    basemap_url: str | None = None
 
 
 def load_config() -> Config:
     """Validate all required env vars are present and usable before any
-    network request or file write (mirrors generate_member_maps.load_config)."""
+    network request or file write (mirrors generate_member_maps.load_config).
+
+    RKBY_BASEMAP_URL (research.md §8, contracts/cli-and-env.md) is optional:
+    unset selects the default embedded-basemap build; set, it selects the
+    hosted-basemap build instead. Either way, the local basemap.pmtiles file
+    stays required and validated identically (FR-010)."""
     raw_data_dir = os.environ.get("RKBY_DATA_DIR")
     if not raw_data_dir:
         raise ConfigError("Missing required environment variable: RKBY_DATA_DIR")
@@ -60,7 +67,7 @@ def load_config() -> Config:
             f"RKBY_DATA_DIR does not exist or is not a directory: {data_dir}"
         )
 
-    return Config(data_dir=data_dir)
+    return Config(data_dir=data_dir, basemap_url=os.environ.get("RKBY_BASEMAP_URL"))
 
 
 # --- CLI arg parsing (contracts/cli-and-env.md, FR-002) -------------------------
@@ -82,21 +89,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def _ensure_interactive_map_dir(data_dir: Path) -> Path:
-    """Delete everything under `<data_dir>/interactive_map/` except `tiles/`
-    if present, recreate the dir, and add an `interactive_map/` entry to
-    `<data_dir>/.gitignore` if not already there. Called only after
-    `build_frontend()` succeeds (contracts/cli-and-env.md: pnpm failures are
-    checked before any RKBY_DATA_DIR write).
+    """Delete everything under `<data_dir>/interactive_map/`, recreate the
+    dir, and add an `interactive_map/` entry to `<data_dir>/.gitignore` if
+    not already there. Called only after `build_frontend()` succeeds
+    (contracts/cli-and-env.md: pnpm failures are checked before any
+    RKBY_DATA_DIR write).
 
-    `tiles/` (the stitched basemap chunk grid) is exempt from this wipe --
-    it must never be deleted, and `generate_basemap` skips re-stitching any
-    chunk file already on disk, so previously baked tiles survive every
-    later run (data-model.md § Idempotency exception, tiles/)."""
+    Every entry is wiped unconditionally, including a leftover `tiles/`
+    folder from a pre-PMTiles-basemap run (research.md §7): now that the
+    basemap comes entirely from the embedded/hosted PMTiles archive,
+    nothing ever writes to `tiles/` again, so the old exemption that
+    protected it from deletion is retired -- a stale `tiles/` folder is
+    just another regenerated artifact now."""
     interactive_map_dir = data_dir / "interactive_map"
     if interactive_map_dir.exists():
         for entry in interactive_map_dir.iterdir():
-            if entry.name == "tiles":
-                continue
             if entry.is_dir():
                 shutil.rmtree(entry)
             else:
@@ -129,6 +136,13 @@ def main(argv: list[str] | None = None) -> int:
 
     build_arg_parser().parse_args(argv)  # FR-002: no flags accepted
 
+    pmtiles_path = config.data_dir / "basemap.pmtiles"
+    try:
+        validate_pmtiles_file(pmtiles_path)
+    except InvalidPMTilesFileError as exc:
+        print(f"Basemap validation failed: {exc}", file=sys.stderr)
+        return 1
+
     try:
         build_frontend(FRONTEND_DIR)
     except FrontendBuildError as exc:
@@ -148,9 +162,13 @@ def main(argv: list[str] | None = None) -> int:
 
     merged_members = merge_seasons(config.data_dir, seasons, loggers)
 
-    assemble_map_data(config.data_dir, interactive_map_dir, seasons, merged_members)
-    generate_basemap(
-        interactive_map_dir, merged_members, config.data_dir / ".tile_cache"
+    assemble_map_data(
+        config.data_dir,
+        interactive_map_dir,
+        seasons,
+        merged_members,
+        pmtiles_path,
+        basemap_url=config.basemap_url,
     )
     copy_assets(
         config.data_dir,

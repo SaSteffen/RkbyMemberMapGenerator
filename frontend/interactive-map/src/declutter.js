@@ -3,15 +3,15 @@
 // zoom, they're rearranged into a compact non-overlapping grid centered on
 // their shared position, instead of rendering as a single unreadable stack.
 //
-// "Overlap" is a function of on-screen pixel distance, not raw world
-// distance: main.js's L.CRS.Simple map scales world-coordinate distance by
-// `scale` (2^zoom) to get screen pixels, so the world-space distance two
-// icons can be apart and still visually collide shrinks as the viewer zooms
-// in and grows as they zoom out. Positions are therefore recomputed from the
-// original member coordinates on every zoom change (main.js's `zoomend`
-// handler calls this again with the new scale) rather than once at load --
-// a fixed offset chosen for one zoom would drift apart (zoom in) or fail to
-// separate overlapping-but-distinct members (zoom out) at any other zoom.
+// "Overlap" is a function of on-screen pixel distance: main.js passes each
+// member's real screen position from map.latLngToContainerPoint(latlng)
+// under the real Web Mercator CRS, which is already in screen pixels, so
+// declutterPositions runs at its default scale = 1 (research.md §5).
+// Positions are therefore recomputed from the original member coordinates
+// on every zoom or pan change (main.js's `zoomend`/`moveend` handlers call
+// this again with freshly projected container points) rather than once at
+// load -- a fixed offset chosen for one view would drift apart or fail to
+// separate overlapping-but-distinct members at any other pan/zoom.
 export const ICON_SIZE_PX = 40; // must match main.js's L.divIcon iconSize
 
 export function declutterPositions(members, scale = 1) {
