@@ -5,6 +5,7 @@ import { leafletLayer } from "protomaps-leaflet";
 import { selectBasemapSource } from "./basemapSource.js";
 import { ICON_SIZE_PX, declutterPositions } from "./declutter.js";
 import { defaultSeasonLabel } from "./defaultSeason.js";
+import { computeMemberBounds } from "./memberBounds.js";
 import { isVisible, popupData } from "./popupData.js";
 
 // protomaps-leaflet's own compiled bundle references a bare, non-imported
@@ -58,6 +59,41 @@ async function main() {
   // fetch, unaffected by the file:// restriction above (research.md §8).
   const pmtilesArchive = new PMTiles(selectBasemapSource(data.basemap, window));
 
+  // FR-007: on load, exactly the season considered "current" as of today
+  // (the viewer's own device clock) is the sole active one; FR-008: any
+  // combination of seasons can be active at once thereafter. Computed here,
+  // ahead of the basemap fit below, so the initial view can already be
+  // framed around this season's members rather than the whole archive.
+  const defaultSeason = defaultSeasonLabel(new Date(), data.seasons);
+  const activeSeasons = new Set([defaultSeason]);
+
+  function currentlyVisibleMembers() {
+    return data.members.filter((member) => isVisible(member, activeSeasons));
+  }
+
+  // Padding (px) around the tightest box containing every visible member,
+  // so a marker sitting right on the envelope's edge isn't clipped by the
+  // viewport border.
+  const MEMBER_FIT_PADDING = [40, 40];
+
+  // Frames the map around exactly the given members -- animated (flyTo) for
+  // a season toggle's pan/zoom transition, or a plain jump for the initial
+  // load, where there's no prior view to animate from. Returns false
+  // without touching the view when there's nothing to frame (e.g. every
+  // season just got unchecked), so callers can fall back to some other
+  // framing instead.
+  function fitToMembers(members, { animate = false } = {}) {
+    const bounds = computeMemberBounds(members);
+    if (!bounds) return false;
+    const latLngBounds = L.latLngBounds(bounds);
+    if (animate) {
+      map.flyToBounds(latLngBounds, { padding: MEMBER_FIT_PADDING });
+    } else {
+      map.fitBounds(latLngBounds, { padding: MEMBER_FIT_PADDING });
+    }
+    return true;
+  }
+
   // research.md §6: the archive is the single source of truth for its own
   // coverage and zoom range -- read at runtime via getHeader() rather than
   // duplicating minZoom/maxZoom/bounds in map-data.js, so a maintainer can
@@ -77,7 +113,12 @@ async function main() {
       [header.minLat, header.minLon],
       [header.maxLat, header.maxLon],
     );
-    map.fitBounds(bounds);
+    // Frame the default season's members first; only when none are
+    // eligible this season (Edge Cases) does the whole archive's coverage
+    // area make a better starting view than an arbitrary fallback.
+    if (!fitToMembers(currentlyVisibleMembers())) {
+      map.fitBounds(bounds);
+    }
 
     // maxNativeZoom (not maxZoom) is set to the header's deepest baked zoom
     // so Leaflet reuses and auto-scales those tiles once a viewer zooms in
@@ -99,11 +140,9 @@ async function main() {
     console.error("Basemap failed to load; continuing without it.", error);
     // No archive header to fit to -- fall back to framing the view around
     // the member markers themselves, which are always available locally.
-    if (data.members.length > 0) {
-      map.fitBounds(
-        L.latLngBounds(data.members.map((member) => [member.lat, member.lon])),
-      );
-    } else {
+    // Prefer the default season's members; if none are eligible this
+    // season, frame every bundled member instead of an arbitrary box.
+    if (!fitToMembers(currentlyVisibleMembers()) && !fitToMembers(data.members)) {
       map.setView([0, 0], 2);
     }
     attributionText = "© OpenStreetMap contributors";
@@ -204,14 +243,8 @@ async function main() {
     }
   }
 
-  // FR-007: on load, exactly the season considered "current" as of today
-  // (the viewer's own device clock) is the sole active one; FR-008: any
-  // combination of seasons can be active at once thereafter.
-  const defaultSeason = defaultSeasonLabel(new Date(), data.seasons);
-  const activeSeasons = new Set([defaultSeason]);
-
   function updateVisibleMarkers() {
-    renderMarkers(data.members.filter((member) => isVisible(member, activeSeasons)));
+    renderMarkers(currentlyVisibleMembers());
   }
 
   updateVisibleMarkers();
@@ -242,6 +275,12 @@ async function main() {
             activeSeasons.delete(season);
           }
           updateVisibleMarkers();
+          // Animated pan/zoom to the new season selection's members; a
+          // moveend/zoomend from this re-runs updateVisibleMarkers once the
+          // animation settles, correcting decluttering for the final view.
+          // Left untouched when nothing is visible (e.g. every season just
+          // got unchecked) rather than jumping to some arbitrary framing.
+          fitToMembers(currentlyVisibleMembers(), { animate: true });
         });
         label.appendChild(document.createTextNode(` ${season}`));
       }
