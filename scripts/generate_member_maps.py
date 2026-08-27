@@ -26,32 +26,19 @@ from scripts.rkby_maps.basemap import (
     stitch_basemap,
     zoom_for_bounding_box,
 )
-from scripts.rkby_maps.clustering import (
-    detail_map_slug,
-    find_overlap_groups,
-    is_fr014_exception,
-)
+from scripts.rkby_maps.clustering import detail_map_slug, is_fr014_exception
 from scripts.rkby_maps.geocoding import geocode_record_if_needed
+from scripts.rkby_maps.photo_map import render_photo_layer
 from scripts.rkby_maps.pin_map import (
     CANVAS_SIZE,
     DEFAULT_MIN_WIDTH_KM,
     EDGE_MARGIN_PX,
     PADDING_KM,
-    group_position,
     overview_center_and_zoom,
-    pixel_positions,
     records_within_frame,
     render_pin_layer,
 )
-from scripts.rkby_maps.rendering import (
-    PHOTO_RADIUS_PX,
-    PLACEHOLDER_PHOTO_PATH,
-    crop_circular_photo,
-    draw_attribution,
-    draw_offset_photo_circles,
-    draw_photo_circle,
-    draw_scale_bar,
-)
+from scripts.rkby_maps.rendering import draw_attribution, draw_scale_bar
 from scripts.rkby_records import (
     _dump_record_yaml,
     applicants_dir,
@@ -208,47 +195,6 @@ def _delete_existing_season_maps(variant_dir: Path, season_prefix: str) -> None:
         stale_map.unlink()
 
 
-def _photo_path(s_dir: Path, record: dict) -> Path:
-    """The member's own photo if one is on file, otherwise the Team Rynkeby
-    mascot placeholder -- every plottable member gets a circle on the photo
-    map, picture or not."""
-    photo_relative_path = record.get("photo")
-    if photo_relative_path and (s_dir / photo_relative_path).exists():
-        return s_dir / photo_relative_path
-    return PLACEHOLDER_PHOTO_PATH
-
-
-def _draw_photo_layer(
-    data_dir: Path,
-    season_label: str,
-    canvas,
-    records: list[dict],
-    center: tuple[float, float],
-    zoom: int,
-) -> tuple[list[list[str]], dict[str, dict]]:
-    """Photo-variant counterpart of `rkby_maps.pin_map.render_pin_layer`
-    (FR-011/FR-013, research.md §4/§8)."""
-    s_dir = season_dir(data_dir, season_label)
-    by_key = {record["match_key"]: record for record in records}
-    positions = pixel_positions(records, center, zoom)
-    groups = find_overlap_groups(positions, radius=PHOTO_RADIUS_PX)
-    grouped_keys = {key for group in groups for key in group}
-
-    for key, record in by_key.items():
-        if key not in grouped_keys:
-            circular_photo = crop_circular_photo(_photo_path(s_dir, record))
-            draw_photo_circle(canvas, positions[key], circular_photo)
-
-    for group in groups:
-        group_records = [by_key[key] for key in group]
-        circles = [
-            crop_circular_photo(_photo_path(s_dir, record)) for record in group_records
-        ]
-        draw_offset_photo_circles(canvas, group_position(group, positions), circles)
-
-    return groups, by_key
-
-
 def _generate_detail_maps(
     data_dir: Path,
     season_label: str,
@@ -273,6 +219,7 @@ def _generate_detail_maps(
     `rkby_maps.pin_map.records_within_frame`) -- so slugs are assigned up
     front, in deterministic group order, before the (parallelized) rendering
     itself reads them."""
+    s_dir = season_dir(data_dir, season_label)
     existing_slugs: set[str] = set()
     all_records = list(by_key.values())
     jobs = []
@@ -310,9 +257,7 @@ def _generate_detail_maps(
         if variant == "pins":
             render_pin_layer(canvas, frame_records, center, zoom)
         else:
-            _draw_photo_layer(
-                data_dir, season_label, canvas, frame_records, center, zoom
-            )
+            render_photo_layer(s_dir, canvas, frame_records, center, zoom)
         if show_scale_bar:
             draw_scale_bar(canvas, meters_per_pixel=meters_per_pixel(center[0], zoom))
         draw_attribution(canvas)
@@ -351,9 +296,8 @@ def _render_overview_photo_map(
     canvas = stitch_basemap(
         center=center, zoom=zoom, canvas_size=CANVAS_SIZE, cache_dir=tile_cache_dir
     )
-    groups, by_key = _draw_photo_layer(
-        data_dir, season_label, canvas, plottable, center, zoom
-    )
+    s_dir = season_dir(data_dir, season_label)
+    groups, by_key = render_photo_layer(s_dir, canvas, plottable, center, zoom)
     if show_scale_bar:
         draw_scale_bar(canvas, meters_per_pixel=meters_per_pixel(center[0], zoom))
     draw_attribution(canvas)

@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 import responses
+import yaml
 from PIL import Image
 from pypdf import PdfReader
 
@@ -25,11 +26,26 @@ from scripts.generate_rider_pairings import (
     load_config,
     main,
 )
-from scripts.rkby_maps.rendering import NEUTRAL_COLOR, role_color
+from scripts.rkby_maps.rendering import (
+    PHOTO_DIAMETER_PX,
+    PLACEHOLDER_PHOTO_PATH,
+    crop_circular_photo,
+)
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "pairing_seasons"
 TILE_FIXTURE_DIR = Path(__file__).parent.parent / "fixtures"
 TILE_URL_PATTERN = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.png")
+
+SAMPLE_PHOTO_PATH = TILE_FIXTURE_DIR / "sample_photo.jpg"
+# Read back rather than hardcoded: JPEG's RGB<->YCbCr round-trip isn't
+# perfectly lossless even for a solid-color source.
+SAMPLE_PHOTO_COLOR = Image.open(SAMPLE_PHOTO_PATH).convert("RGB").getpixel((0, 0))
+_PLACEHOLDER_CENTER = PHOTO_DIAMETER_PX // 2
+PLACEHOLDER_PHOTO_COLOR = (
+    crop_circular_photo(PLACEHOLDER_PHOTO_PATH)
+    .convert("RGB")
+    .getpixel((_PLACEHOLDER_CENTER, _PLACEHOLDER_CENTER))
+)
 
 
 def _register_tile_mock():
@@ -383,9 +399,21 @@ def test_maps_directory_is_never_committed_to_git(monkeypatch, tmp_path):
 
 
 @responses.activate
-def test_main_writes_an_overview_map_png_with_every_role_present(monkeypatch, tmp_path):
+def test_main_writes_an_overview_map_png_with_member_faces(monkeypatch, tmp_path):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
     _copy_fixture_seasons(tmp_path)
+    # mentor-far-victor is ~500km away in Munich -- far enough to stay its
+    # own individually-drawn circle rather than merging with the
+    # tightly-packed Hamburg-area members at the overview's own coarse zoom.
+    victor_path = (
+        tmp_path / "seasons" / "2025-26" / "applicants" / "mentor-far-victor.yaml"
+    )
+    victor_record = yaml.safe_load(victor_path.read_text())
+    victor_record["photo"] = "photos/mentor-far-victor.jpg"
+    victor_path.write_text(yaml.safe_dump(victor_record))
+    photos_dir = tmp_path / "seasons" / "2025-26" / "photos"
+    photos_dir.mkdir(parents=True)
+    (photos_dir / "mentor-far-victor.jpg").write_bytes(SAMPLE_PHOTO_PATH.read_bytes())
     _register_tile_mock()
 
     assert main([]) == 0
@@ -393,19 +421,9 @@ def test_main_writes_an_overview_map_png_with_every_role_present(monkeypatch, tm
     overview_path = tmp_path / "reports" / "maps" / "overview.png"
     assert overview_path.exists()
 
-    def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
-        hex_color = hex_color.lstrip("#")
-        return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
-
-    # At the whole-team overview's own (coarse, country-spanning) zoom, the
-    # tightly-packed Hamburg-area members -- Rider (cluster-alice), Service
-    # Crew (cluster-crew-dave), and Supporter (erin-late) among them -- fall
-    # within one merged/badged FR-013 pin (NEUTRAL_COLOR, since their roles
-    # differ); mentor-far-victor (Rider, ~500km away in Munich) is far
-    # enough to stay its own individually role-colored pin.
     present_colors = set(Image.open(overview_path).convert("RGB").getdata())
-    assert _hex_to_rgb(NEUTRAL_COLOR) in present_colors
-    assert _hex_to_rgb(role_color("Rider")) in present_colors  # mentor-far-victor
+    assert SAMPLE_PHOTO_COLOR in present_colors  # mentor-far-victor's own photo
+    assert PLACEHOLDER_PHOTO_COLOR in present_colors  # everyone else has none on file
 
 
 @responses.activate

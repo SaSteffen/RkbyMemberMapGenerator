@@ -48,9 +48,11 @@ regenerates map images either.
 
 - **overview.png**: every member of the run's Eligible Member Pool (data-model.md) —
   every current-season member of any role who is not excluded, not opted out, and
-  successfully geocoded — plotted as a role-colored pin (or a merged pin where two or
-  more overlap at this map's zoom level, e.g. members sharing an address). Zero
-  members still produces a valid PNG, centered on Germany's geographic center at the
+  successfully geocoded — plotted as their own circular photo (the Team Rynkeby
+  mascot placeholder standing in for anyone without a photo on file), with two or
+  more overlapping at this map's zoom level (e.g. members sharing an address) drawn
+  as offset side-by-side circles rather than one covering the other. Zero members
+  still produces a valid PNG, centered on Germany's geographic center at the
   configured minimum-width zoom (Acceptance Scenario 3.3) — never a missing file,
   never a script failure.
 - **cluster_<n>.png**: that Training Cluster's own rider members (always plotted,
@@ -58,10 +60,12 @@ regenerates map images either.
   Member Pool member of any role whose position lands inside the rendered frame, for
   context (FR-005). A cluster of exactly one rider still produces a valid PNG framed
   around that one rider at the configured minimum width.
-- Both variants use the exact same pin styling, role-color legend, overlap-merge
-  behavior, scale bar, and OSM attribution `generate_member_maps.py`'s own maps
-  already use (FR-004) — a reader who's seen one map type in this project recognizes
-  the other immediately.
+- Both variants use the exact same circular-photo styling, placeholder-mascot
+  fallback, overlap-offset behavior, scale bar, and OSM attribution
+  `generate_member_maps.py`'s own photo maps already use (FR-004) — a reader who's
+  seen one map type in this project recognizes the other immediately. *(Updated
+  post-launch: originally rendered as role-colored pins; switched to member photos
+  for a more personal, recognizable map.)*
 
 ## A member with no address / ungeocoded address (FR-009)
 

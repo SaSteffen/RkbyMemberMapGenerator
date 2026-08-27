@@ -215,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
     clusters = find_training_clusters(latest_records, args.cluster_radius_km)
 
     tile_cache_dir = config.data_dir / ".tile_cache"
-    write_report_maps(config.data_dir, latest_records, clusters, tile_cache_dir)
+    write_report_maps(config.data_dir, latest, latest_records, clusters, tile_cache_dir)
 
     text = render_report(
         latest,

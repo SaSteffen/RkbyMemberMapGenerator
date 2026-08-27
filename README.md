@@ -183,10 +183,11 @@ current-season riders who live close enough together to plausibly train together
 every eligible rider appears somewhere in this section, alone, paired, or grouped. The
 report also includes a Team Overview map showing every eligible current-season member
 of any role, and each Training Cluster's own section includes a map of that cluster
-plus any other nearby member for context (reusing the same OSM-tile/role-colored-pin
-rendering `generate_member_maps.py` uses for its own maps). It never scrapes and never
-geocodes — it only reads coordinates a prior `generate_member_maps.py` run already
-cached. See [specs/006-rider-pairing-suggester/](specs/006-rider-pairing-suggester/)
+plus any other nearby member for context -- both drawn with member photos (the Team
+Rynkeby mascot standing in for anyone without one on file), reusing the same OSM-tile/
+circular-photo rendering `generate_member_maps.py` uses for its own photo maps. It
+never scrapes and never geocodes — it only reads coordinates a prior
+`generate_member_maps.py` run already cached. See [specs/006-rider-pairing-suggester/](specs/006-rider-pairing-suggester/)
 and [specs/007-pairing-report-maps/](specs/007-pairing-report-maps/) for the full
 design.
 

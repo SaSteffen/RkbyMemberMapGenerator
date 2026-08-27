@@ -69,10 +69,12 @@ least one member — i.e., every cluster, since the minimum is now 1).
   frame); any other eligible member (any role) whose position lands inside the frame
   is drawn too (FR-005), consistent with how 002's own detail maps already behave.
 
-**Rendering**: `render_pin_layer(canvas, frame_records, center, zoom)` — individual
-role-colored pins, with same-scale overlaps (including the exact-same-address pair
-Edge Case) merged into one fallback pin exactly as 002 already renders, via the same
-promoted function.
+**Rendering** *(updated post-launch — faces, not pins)*: `render_photo_layer(s_dir,
+canvas, frame_records, center, zoom)` — individual circular member photos (the Team
+Rynkeby mascot standing in for anyone without a photo on file), with same-scale
+overlaps (including the exact-same-address pair Edge Case) drawn as offset side-by-side
+circles exactly as 002's own photo maps already render, via the promoted
+`scripts.rkby_maps.photo_map` module (mirrors `pin_map.py`'s promotion, Decision 2).
 
 **Output**: `<RKBY_DATA_DIR>/reports/maps/cluster_<n>.png`, `<n>` = this cluster's
 1-based position in the same sorted order `render_report` already numbers its
@@ -94,9 +96,9 @@ already uses (falls back to `DEFAULT_CENTER`, geographic center of Germany, and 
 `min_width_km` floor's zoom when `eligible_member_pool` is empty — Acceptance
 Scenario 3.3).
 
-**Rendering**: `render_pin_layer(canvas, eligible_member_pool, center, zoom)` —
-same role-colored-pin/overlap-merge rendering as Cluster Maps, over the full pool
-instead of one cluster's frame.
+**Rendering** *(updated post-launch — faces, not pins)*: `render_photo_layer(s_dir,
+canvas, eligible_member_pool, center, zoom)` — same circular-photo/overlap-offset
+rendering as Cluster Maps, over the full pool instead of one cluster's frame.
 
 **Output**: `<RKBY_DATA_DIR>/reports/maps/overview.png`.
 
