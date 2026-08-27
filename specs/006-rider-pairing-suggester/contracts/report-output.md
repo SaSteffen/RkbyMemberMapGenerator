@@ -27,7 +27,7 @@ it, but every prior version stays recoverable from this repository's git history
 ## New Riders
 
 ### <First> <Last>
-![<First> <Last>](../seasons/<season>/<photo path>)   <!-- only when a photo is on file -->
+<img src="../seasons/<season>/<photo path>" alt="<First> <Last>" width="80">   <!-- only when a photo is on file -->
 
 - Address: <address>
 - Phone: <phone>          <!-- omitted if null -->
@@ -35,7 +35,7 @@ it, but every prior version stays recoverable from this repository's git history
 
 Suggested contacts:
 
-1. **<First> <Last>** — <distance> km away<!--, N years apart--><!--, same sex-->
+1. **<First> <Last>**
    - Address: <address>
    - Phone: <phone> / Email: <email>
 2. ...
@@ -50,7 +50,7 @@ Suggested contacts:
 ### Cluster 1 (<N> riders)
 
 - **<First> <Last>** — <address> — <phone>/<email>
-  ![<First> <Last>](../seasons/<season>/<photo path>)
+  <img src="../seasons/<season>/<photo path>" alt="<First> <Last>" width="80">
 - ...
 
 <!-- "No training clusters found this season." when there are none -->
@@ -65,15 +65,16 @@ Notes on the structure:
   phone/email are on file. Nothing is withheld for privacy-minimization — this file is
   for internal team use only and never leaves `RKBY_DATA_DIR` (Constitution Check row
   I).
-- **Photo**: a Markdown image reference to the person's own `photo` field, path
-  computed relative to the report file's own location
-  (`reports/rider_pairings.md` → `../seasons/<season>/<photo path>`); simply omitted
-  — no placeholder image — when the record has no photo on file (Edge Cases).
+- **Photo**: an `<img>` reference to the person's own `photo` field, path computed
+  relative to the report file's own location (`reports/rider_pairings.md` →
+  `../seasons/<season>/<photo path>`) and rendered at a small fixed `width` (an
+  avatar, not the scraped photo's native resolution) so the report and its PDF
+  export stay readable as a list rather than a photo gallery; simply omitted — no
+  placeholder image — when the record has no photo on file (Edge Cases).
 - **Suggested-contact ordering** matches `rank` (data-model.md § Suggested Pairing) —
-  closest/best match first (Acceptance Scenario 1.4).
-- **Ranking factors shown per suggestion** (distance always; age gap and same-sex only
-  when known) are display-only annotations of already-computed values — they don't
-  change the contract's parseability, only its readability for a human reader.
+  closest/best match first (Acceptance Scenario 1.4). The underlying ranking factors
+  (distance, age gap, same-sex) are used to compute `rank` but are not shown in the
+  report text — the reader sees only the resulting order.
 - **Training Clusters** section lists every Training Cluster (data-model.md), each
   member with the same full contact info + photo treatment as above. Riders-only —
   Service Crew/Supporter members never appear here even if geographically co-located

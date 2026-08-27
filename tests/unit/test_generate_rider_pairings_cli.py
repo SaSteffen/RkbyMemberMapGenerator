@@ -266,7 +266,10 @@ def test_max_suggestions_caps_suggested_contacts_per_new_rider(monkeypatch, tmp_
 
     text = (tmp_path / "reports" / "rider_pairings.md").read_text()
     nora_block = text[text.index("Nora Newrider") : text.index("## Training Clusters")]
-    assert nora_block.count("km away") == 1
+    ranked_lines = [
+        line for line in nora_block.splitlines() if line.startswith(("1. **", "2. **"))
+    ]
+    assert ranked_lines == ["1. **Patricia Crewformerly**"]
 
 
 # --- --pdf-only mode -----------------------------------------------------------------

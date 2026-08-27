@@ -105,6 +105,17 @@ def test_photo_reference_resolved_relative_to_report_location_when_present():
     assert "../seasons/2025-26/photos/alpha-new.jpg" in text
 
 
+def test_photo_reference_is_rendered_small():
+    suggestions = {"alpha-new": []}
+
+    text = render_report(
+        SEASON_LABEL, GENERATED_AT, [ALPHA_NEW_RIDER], suggestions, MEMBERS_BY_KEY, []
+    )
+
+    assert '<img src="../seasons/2025-26/photos/alpha-new.jpg"' in text
+    assert 'width="80"' in text
+
+
 def test_no_photo_reference_when_record_has_none_on_file():
     suggestions = {"zeta-new": []}
 
@@ -113,14 +124,14 @@ def test_no_photo_reference_when_record_has_none_on_file():
     )
 
     assert (
-        "!["
+        "<img"
         not in text.split("## Training Clusters")[0]
         .split("Zeta Zuletzt", 1)[1]
         .split("### ", 1)[0]
     )
 
 
-def test_suggested_contacts_ordered_by_rank_with_distance_always_shown():
+def test_suggested_contacts_ordered_by_rank():
     pairings = [
         SuggestedPairing(
             new_rider_match_key="alpha-new",
@@ -152,11 +163,9 @@ def test_suggested_contacts_ordered_by_rank_with_distance_always_shown():
     first_index = text.index("Mentor One")
     second_index = text.index("Mentor Two")
     assert first_index < second_index
-    assert "1.2" in text  # distance always shown (rounded)
-    assert "9.9" in text
 
 
-def test_age_gap_and_same_sex_annotations_shown_only_when_known():
+def test_ranking_criteria_are_not_shown_in_the_report():
     pairings = [
         SuggestedPairing(
             new_rider_match_key="alpha-new",
@@ -165,14 +174,6 @@ def test_age_gap_and_same_sex_annotations_shown_only_when_known():
             distance_km=1.0,
             age_gap_years=5,
             same_sex=True,
-        ),
-        SuggestedPairing(
-            new_rider_match_key="alpha-new",
-            mentor_match_key="mentor-two",
-            rank=2,
-            distance_km=2.0,
-            age_gap_years=None,
-            same_sex=None,
         ),
     ]
 
@@ -185,12 +186,10 @@ def test_age_gap_and_same_sex_annotations_shown_only_when_known():
         [],
     )
 
-    mentor_one_block = text[text.index("Mentor One") : text.index("Mentor Two")]
-    assert "5 years apart" in mentor_one_block
-    assert "same sex" in mentor_one_block
-
-    mentor_two_block = text[text.index("Mentor Two") :]
-    assert "years apart" not in mentor_two_block
+    mentor_one_block = text[text.index("Mentor One") :]
+    assert "km away" not in mentor_one_block
+    assert "years apart" not in mentor_one_block
+    assert "same sex" not in mentor_one_block
 
 
 # --- Training Clusters section (empty-state, US1 scope) -----------------------

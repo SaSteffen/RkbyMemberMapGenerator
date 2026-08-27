@@ -7,6 +7,10 @@ from __future__ import annotations
 
 from scripts.rkby_pairing.ranking import SuggestedPairing
 
+# Small avatar size, not the scraped photo's native resolution -- keeps the
+# report and its PDF export readable as a list rather than a photo gallery.
+PHOTO_WIDTH_PX = 80
+
 
 def _full_name(record: dict) -> str:
     return f"{record['first_name']} {record['last_name']}".strip()
@@ -16,7 +20,9 @@ def _photo_line(record: dict, season_label: str) -> str | None:
     photo = record.get("photo")
     if not photo:
         return None
-    return f"![{_full_name(record)}](../seasons/{season_label}/{photo})"
+    name = _full_name(record)
+    path = f"../seasons/{season_label}/{photo}"
+    return f'<img src="{path}" alt="{name}" width="{PHOTO_WIDTH_PX}">'
 
 
 def _contact_lines(record: dict, *, indent: str = "") -> list[str]:
@@ -38,15 +44,6 @@ def _sort_key(record: dict) -> tuple[str, str]:
     return (record.get("last_name") or "", record.get("first_name") or "")
 
 
-def _suggestion_annotation(pairing: SuggestedPairing) -> str:
-    parts = [f"{pairing.distance_km:.1f} km away"]
-    if pairing.age_gap_years is not None:
-        parts.append(f"{pairing.age_gap_years} years apart")
-    if pairing.same_sex is not None:
-        parts.append("same sex" if pairing.same_sex else "different sex")
-    return ", ".join(parts)
-
-
 def _render_suggested_contacts(
     pairings: list[SuggestedPairing], members_by_key: dict[str, dict], season_label: str
 ) -> list[str]:
@@ -56,9 +53,7 @@ def _render_suggested_contacts(
     lines = []
     for pairing in sorted(pairings, key=lambda p: p.rank):
         mentor = members_by_key[pairing.mentor_match_key]
-        lines.append(
-            f"{pairing.rank}. **{_full_name(mentor)}** — {_suggestion_annotation(pairing)}"
-        )
+        lines.append(f"{pairing.rank}. **{_full_name(mentor)}**")
         photo_line = _photo_line(mentor, season_label)
         if photo_line:
             lines.append(f"   {photo_line}")
