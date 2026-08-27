@@ -30,6 +30,37 @@ body {
   background: #fff;
 }
 
+/* The hover popup must never take part in hit-testing. It opens directly
+   over the marker that spawned it -- Leaflet anchors it above the icon, and
+   its tip (plus a tall photo) reaches back down across the icon itself --
+   so if the popup could receive the pointer, a perfectly still mouse
+   resting on a marker would loop forever: marker `mouseover` opens the
+   popup, the popup lands under the cursor, the marker sees `mouseout`
+   (pointer moved onto the popup) and closes it again, the marker is topmost
+   once more and fires `mouseover`... at frame rate, rebuilding a full popup
+   (photo included) every cycle, which is what froze the map after a season
+   toggle re-framed the view and dropped a marker under a resting cursor.
+   Leaflet's own hover overlay, `L.Tooltip`, is `pointer-events: none` for
+   exactly this reason (leaflet.css `.leaflet-tooltip`); a popup used as a
+   hover affordance needs the same, and nothing inside ours is clickable. */
+.rkby-popup {
+  pointer-events: none;
+}
+
+/* Leaflet gives the tip its own `pointer-events: auto` (leaflet.css
+   `.leaflet-popup-tip`), which would otherwise survive the rule above --
+   and the tip is the part sitting right on top of the marker. */
+.rkby-popup .leaflet-popup-tip {
+  pointer-events: none;
+}
+
+/* The close button stays clickable -- it's the popup's only real control,
+   and it sits in the top-right corner, never over the bottom-centre marker
+   the popup is anchored to, so it can't re-create the loop above. */
+.rkby-popup .leaflet-popup-close-button {
+  pointer-events: auto;
+}
+
 .rkby-popup .leaflet-popup-content {
   margin: 10px 12px;
   min-width: 160px;

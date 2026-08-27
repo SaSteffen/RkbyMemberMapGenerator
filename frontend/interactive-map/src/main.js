@@ -133,6 +133,22 @@ async function main() {
       maxZoom: map.getMaxZoom(),
       maxNativeZoom: header.maxZoom,
       bounds,
+      // Rebuild the tile set only once the map has come to rest. A season
+      // toggle flies across many zoom levels (fitToMembers below), and by
+      // default L.GridLayer rebuilds its tiles at every level crossed --
+      // each rebuild makes protomaps-leaflet lay every on-screen label out
+      // again, and its label layout re-renders neighbouring tiles whenever a
+      // label crosses a tile edge. Past protomaps' hardcoded 16-tile label
+      // cache -- a ~2000px-wide viewport holds ~70 tiles at 256px -- that
+      // feedback saturates the main thread for seconds and the page stops
+      // responding to input at all. Measured on one toggle at 2048px: 132
+      // tile renders with the defaults against 9 with these two options, the
+      // animation itself unchanged. The trade is that the basemap stays
+      // stretched for the duration of the flight rather than re-rendering
+      // mid-flight, which is already Leaflet's own behavior on mobile
+      // (updateWhenIdle defaults to Browser.mobile).
+      updateWhenIdle: true,
+      updateWhenZooming: false,
     }).addTo(map);
 
     attributionText = await resolveAttribution(pmtilesArchive);
