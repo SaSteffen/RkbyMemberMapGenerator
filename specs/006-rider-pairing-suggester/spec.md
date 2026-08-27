@@ -47,6 +47,17 @@ in a past season) and is present in the latest season's roster.
    `ignore`d, or has no successfully geocoded address, **When** the script runs,
    **Then** that member never appears as a new rider needing pairing nor as a
    suggested contact.
+6. **Given** the generated report, **When** the organizer hand-edits it (e.g.
+   removes a suggestion, adds a note) and then exports it to PDF, **Then** the PDF
+   reflects the edited content, not a freshly regenerated version.
+7. **Given** a mentioned member who has a stored photo, **When** the report is
+   generated (and later exported to PDF), **Then** that member's photo appears next
+   to their name so the reader can recognize them on sight.
+8. **Given** a report the organizer has hand-edited and that was auto-committed to
+   the data repository, **When** the script is run again later and regenerates the
+   report from fresh data, **Then** the new version is written and committed, and
+   the earlier hand-edited version remains recoverable from the data repository's
+   git history rather than being lost.
 
 ---
 
@@ -99,6 +110,15 @@ cluster, separately from the individual mentor suggestions.
 - The same experienced contact is a good match for many new riders: they may appear
   in more than one new rider's suggestion list — there is no cap on how many new
   riders one contact is suggested to.
+- A mentioned member has no stored photo: the report still generates normally,
+  simply without an image next to that person's name.
+- The organizer hand-edits the Markdown report and later re-runs the pairing
+  computation: the re-run fully regenerates the report from current data (same
+  behavior as this project's other generated artifacts, e.g. `maps/`), so the
+  working copy no longer shows the hand-edited version — but because every write is
+  auto-committed (FR-014), the previous hand-edited version is never actually lost;
+  it remains recoverable from the data repository's git history. Only a PDF export
+  performed before the next regeneration captures the hand-edited content directly.
 
 ## Requirements *(mandatory)*
 
@@ -134,16 +154,17 @@ cluster, separately from the individual mentor suggestions.
   excluded/ignored/geocoded eligibility as above) whose home locations lie close
   enough together to plausibly train together, and MUST exclude non-riders from
   clusters even if they live inside the qualifying area.
-- **FR-008**: System MUST persist its suggested pairings and training clusters to a
-  local, human-readable output file(s) alongside the project's other generated
-  artifacts, and MUST NOT commit that output to version control (member names,
-  contact details, and approximate locations are personal data under the project's
-  privacy rules).
-- **FR-009**: System MUST include, per suggested pairing, enough information for the
-  new rider to actually reach out (name and at least one available contact method
-  such as phone or email) while omitting personal data not needed for that purpose
-  (e.g., birthday, food restrictions, raw street address beyond what's needed to
-  convey approximate distance/area).
+- **FR-008**: System MUST persist its suggested pairings and training clusters as a
+  single Markdown report file alongside the project's other generated artifacts, and
+  MUST NOT commit that file (or any PDF exported from it, per FR-012) to version
+  control, consistent with every other generated artifact in this project.
+- **FR-009**: System MUST include, per suggested pairing and per training-cluster
+  member, full contact information already on file (name, address, and phone and/or
+  email) so the reader never needs to look up anything elsewhere — this report is
+  for internal team use only, where members already have visibility into each
+  other's contact details, so no fields are withheld for privacy-minimization
+  purposes the way an artifact shared outside the team would need to (constitution
+  Principle I still applies to keeping the file itself local and uncommitted).
 - **FR-010**: System MUST exclude any member flagged `ignore: true` in the latest
   season from appearing anywhere in the output, whether as a new rider, a mentor
   candidate, or a training-cluster member — this is the existing mechanism by which
@@ -151,6 +172,21 @@ cluster, separately from the individual mentor suggestions.
 - **FR-011**: System MUST be runnable independently of the other project scripts,
   reading only already-scraped and already-geocoded local data (no new scraping, no
   new geocoding calls).
+- **FR-012**: System MUST provide a way to render the report's current Markdown
+  content — including any manual edits already made to it — into a PDF file,
+  independently of and without re-running the pairing computation, so that
+  hand-edits made after generation are reflected in the PDF.
+- **FR-013**: System MUST show, next to each mentioned member's name, a link/image
+  reference to that member's already-stored photo when one exists (the same photo
+  file already used by the existing member-map generator's photo variant), so a
+  reader can visually recognize who's being suggested; no new photo is fetched.
+- **FR-014**: System MUST auto-commit the pairing report's Markdown file to the
+  local git-backed data repository (`RKBY_DATA_DIR`) whenever the script writes or
+  updates it, reusing the project's existing auto-commit mechanism (already used by
+  the scraper) — so a later run that overwrites a previously hand-edited report
+  never silently loses that hand-edited version; it stays recoverable from the data
+  repository's git history. This MUST be a no-op, not an error, when `RKBY_DATA_DIR`
+  is not itself a git repository, matching the existing mechanism's behavior.
 
 ### Key Entities
 
@@ -182,6 +218,9 @@ cluster, separately from the individual mentor suggestions.
 - **SC-005**: An organizer can hand a new rider their suggested contacts and every
   listed contact is reachable using only the information provided in the output
   (no need to look up additional data elsewhere).
+- **SC-006**: The report can be exported to a PDF at any time after generation,
+  including after manual edits, and the resulting PDF shows each mentioned member's
+  photo (where one exists) next to their name.
 
 ## Assumptions
 
@@ -212,3 +251,23 @@ cluster, separately from the individual mentor suggestions.
 - If a new rider's or mentor candidate's birthday or sex is unknown, that specific
   ranking factor is simply skipped for affected pairings rather than blocking the
   pairing or the whole run.
+- The report is a single Markdown file (not per-rider files), so the organizer can
+  review the whole season's pairings in one place and hand-edit it directly before
+  sharing — since privacy-minimization does not apply here (Assumptions above),
+  there's no need to split it up to limit what any one recipient sees.
+- Photos are referenced from the report the same way the map generator already uses
+  them (the path already stored on each record), not re-embedded or copied into a
+  new location — so the report and its exported PDF must be generated/viewed with
+  access to the same local data directory the photos already live in.
+- The concrete mechanism for Markdown-to-PDF conversion (a bundled step in the
+  script vs. a documented external command) is left for the planning phase to
+  decide, weighed against the constitution's minimal-dependencies principle
+  (Principle IV) — this spec only requires that the capability exists and honors
+  manual edits (FR-012).
+- Cross-referencing this report with the member maps (e.g., pulling in a detail-map
+  image per pairing) was raised as a possible future enhancement, not part of this
+  feature — out of scope here.
+- Only the Markdown report is auto-committed (FR-014); the exported PDF is treated
+  like this project's other rendered/derived output (e.g. the map PNGs) — fully
+  reproducible on demand from whatever `.md` content currently exists, gitignored,
+  and not itself committed.

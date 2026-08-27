@@ -32,9 +32,8 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- No [NEEDS CLARIFICATION] markers were needed: the two most ambiguous points (mentor
-  eligibility across role changes, and the number of suggested contacts) were
-  directly resolved by the requester's own description; the remaining open point
-  (exact output format/location) has a strong existing precedent in this codebase
-  (every other script already writes local, human-readable, gitignored output next
-  to its siblings) and is documented as an Assumption rather than blocking.
+- No [NEEDS CLARIFICATION] markers were needed. Mentor eligibility across role
+  changes, the number of suggested contacts, and the output format (single
+  hand-editable Markdown report with per-member photo links, exportable to PDF on
+  demand) were all resolved directly through discussion with the requester and are
+  captured in Requirements/Assumptions rather than left open.
