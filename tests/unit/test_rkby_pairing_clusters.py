@@ -84,16 +84,18 @@ def _rider(match_key, lat, lon, role="Rider", **overrides):
     return record
 
 
-def test_two_nearby_riders_with_no_third_nearby_form_no_cluster():
+def test_two_nearby_riders_with_no_third_nearby_still_form_a_two_member_cluster():
     records = {
         "a": _rider("a", 53.55, 9.99),
         "b": _rider("b", 53.5501, 9.9901),  # a few meters from a
-        "c": _rider("c", 50.0, 10.0),  # far away, not part of any group
+        "c": _rider("c", 50.0, 10.0),  # far away -- its own one-member cluster
     }
 
     clusters = find_training_clusters(records, cluster_radius_km=5)
 
-    assert clusters == []
+    matching = [c for c in clusters if set(c.member_match_keys) == {"a", "b"}]
+    assert len(matching) == 1
+    assert any(c.member_match_keys == ["c"] for c in clusters)
 
 
 def test_cluster_radius_km_changes_which_groups_qualify():
@@ -108,7 +110,9 @@ def test_cluster_radius_km_changes_which_groups_qualify():
     narrow = find_training_clusters(records, cluster_radius_km=2)
     wide = find_training_clusters(records, cluster_radius_km=10)
 
-    assert narrow == []
+    narrow_matching = [c for c in narrow if set(c.member_match_keys) == {"a", "b"}]
+    assert len(narrow_matching) == 1
+    assert any(c.member_match_keys == ["c"] for c in narrow)  # c alone, below radius
     assert len(wide) == 1
     assert set(wide[0].member_match_keys) == {"a", "b", "c"}
 
@@ -126,4 +130,27 @@ def test_excluded_ignored_and_ungeocoded_riders_are_never_cluster_nodes():
 
     clusters = find_training_clusters(records, cluster_radius_km=5)
 
-    assert clusters == []  # only "a"/"b" would be eligible -- size 2, below the cap
+    assert len(clusters) == 1
+    assert set(clusters[0].member_match_keys) == {"a", "b"}
+
+
+def test_a_rider_with_no_one_else_nearby_forms_their_own_one_member_cluster():
+    records = {"a": _rider("a", 53.55, 9.99)}
+
+    clusters = find_training_clusters(records, cluster_radius_km=5)
+
+    assert len(clusters) == 1
+    assert clusters[0].member_match_keys == ["a"]
+
+
+def test_a_rider_becomes_a_one_member_cluster_once_the_rest_of_their_cluster_is_removed():
+    records = {
+        "a": _rider("a", 53.55, 9.99),
+        "b": _rider("b", 53.5501, 9.9901, excluded=True),
+        "c": _rider("c", 53.5502, 9.9902, ignore=True),
+    }
+
+    clusters = find_training_clusters(records, cluster_radius_km=5)
+
+    assert len(clusters) == 1
+    assert clusters[0].member_match_keys == ["a"]

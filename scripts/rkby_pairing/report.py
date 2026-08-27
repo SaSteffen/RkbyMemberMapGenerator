@@ -84,7 +84,12 @@ def _render_new_rider_section(
 def _render_cluster_section(
     index: int, cluster, members_by_key: dict, season_label: str
 ) -> list[str]:
-    lines = [f"### Cluster {index} ({len(cluster.member_match_keys)} riders)", ""]
+    lines = [
+        f"### Cluster {index} ({len(cluster.member_match_keys)} riders)",
+        "",
+        f'<img src="maps/cluster_{index}.png" alt="Cluster {index} map" width="100%">',
+        "",
+    ]
     for match_key in cluster.member_match_keys:
         member = members_by_key[match_key]
         lines.append(f"- **{_full_name(member)}**")
@@ -112,6 +117,10 @@ def render_report(
             "script overwrites it, but every prior version stays recoverable from "
             "this repository's git history."
         ),
+        "",
+        "## Team Overview",
+        "",
+        '<img src="maps/overview.png" alt="Team overview map" width="100%">',
         "",
         "## New Riders",
         "",

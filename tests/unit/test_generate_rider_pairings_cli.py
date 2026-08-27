@@ -1,16 +1,21 @@
 """Unit tests for `scripts/generate_rider_pairings.py`'s CLI skeleton
-(contracts/cli-and-env.md, FR-001/006/011/012/014): arg parsing
+(contracts/cli-and-env.md, FR-001/006/010/011/012/014): arg parsing
 (`--max-suggestions`, `--pdf`, `--pdf-only`), config loading (`RKBY_DATA_DIR`
-only), and end-to-end wiring against the T003 fixtures -- report writing,
-auto-commit scope, `--pdf`/`--pdf-only` behavior, and zero-season handling.
-`--cluster-radius-km` and populated-cluster wiring are extended in T021
-(US2) -- Training Clusters stays the empty-state placeholder here."""
+only), and end-to-end wiring against the T003/T006 fixtures -- report
+writing, map-file output, auto-commit scope, `--pdf`/`--pdf-only` behavior,
+and zero-season handling. Every run that reaches the report-writing step now
+also renders map PNGs (007), so every such test mocks OSM tile fetches
+(`responses`, mirroring `test_generate_member_maps_cli.py`'s tile-only
+pattern) -- no Nominatim mock needed, this feature geocodes nothing."""
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+import responses
+from PIL import Image
 from pypdf import PdfReader
 
 from scripts.generate_rider_pairings import (
@@ -20,8 +25,21 @@ from scripts.generate_rider_pairings import (
     load_config,
     main,
 )
+from scripts.rkby_maps.rendering import NEUTRAL_COLOR, role_color
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "pairing_seasons"
+TILE_FIXTURE_DIR = Path(__file__).parent.parent / "fixtures"
+TILE_URL_PATTERN = re.compile(r"https://tile\.openstreetmap\.org/\d+/\d+/\d+\.png")
+
+
+def _register_tile_mock():
+    responses.add(
+        responses.GET,
+        TILE_URL_PATTERN,
+        body=(TILE_FIXTURE_DIR / "osm_tile_fixture.png").read_bytes(),
+        status=200,
+        content_type="image/png",
+    )
 
 
 def _init_repo(path):
@@ -159,11 +177,13 @@ def test_main_with_no_seasons_present_exits_zero_and_writes_no_report(
 # --- End-to-end against the T003 fixtures ------------------------------------------
 
 
+@responses.activate
 def test_main_writes_the_report_with_new_riders_and_mentor_suggestions(
     monkeypatch, tmp_path
 ):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
     _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
 
     exit_code = main([])
 
@@ -176,11 +196,13 @@ def test_main_writes_the_report_with_new_riders_and_mentor_suggestions(
     assert "## Training Clusters" in text
 
 
+@responses.activate
 def test_main_wires_computed_training_clusters_into_the_written_report(
     monkeypatch, tmp_path
 ):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
     _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
 
     exit_code = main(["--cluster-radius-km", "5"])
 
@@ -196,11 +218,13 @@ def test_main_wires_computed_training_clusters_into_the_written_report(
     assert "Dave Clustercrew" not in clusters_section
 
 
+@responses.activate
 def test_main_logs_excluded_ignored_and_ungeocoded_members_as_skipped(
     monkeypatch, tmp_path
 ):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
     _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
 
     assert main([]) == 0
 
@@ -212,6 +236,7 @@ def test_main_logs_excluded_ignored_and_ungeocoded_members_as_skipped(
     assert "coach-adam" not in log_contents
 
 
+@responses.activate
 def test_main_auto_commits_exactly_the_markdown_file_never_the_pdf(
     monkeypatch, tmp_path
 ):
@@ -222,6 +247,7 @@ def test_main_auto_commits_exactly_the_markdown_file_never_the_pdf(
     # by an earlier scraper/map-generator run.
     _git("add", "seasons", cwd=tmp_path)
     _git("commit", "-m", "seed seasons", cwd=tmp_path)
+    _register_tile_mock()
 
     exit_code = main(["--pdf"])
 
@@ -238,9 +264,11 @@ def test_main_auto_commits_exactly_the_markdown_file_never_the_pdf(
     assert "reports/rider_pairings.pdf" not in ls_files_result.stdout
 
 
+@responses.activate
 def test_main_with_pdf_flag_also_writes_a_pdf_file(monkeypatch, tmp_path):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
     _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
 
     exit_code = main(["--pdf"])
 
@@ -250,17 +278,21 @@ def test_main_with_pdf_flag_also_writes_a_pdf_file(monkeypatch, tmp_path):
     assert "Nora Newrider" in _extract_pdf_text(pdf_path)
 
 
+@responses.activate
 def test_main_without_pdf_flag_does_not_write_a_pdf_file(monkeypatch, tmp_path):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
     _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
 
     assert main([]) == 0
     assert not (tmp_path / "reports" / "rider_pairings.pdf").exists()
 
 
+@responses.activate
 def test_max_suggestions_caps_suggested_contacts_per_new_rider(monkeypatch, tmp_path):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
     _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
 
     assert main(["--max-suggestions", "1"]) == 0
 
@@ -270,6 +302,123 @@ def test_max_suggestions_caps_suggested_contacts_per_new_rider(monkeypatch, tmp_
         line for line in nora_block.splitlines() if line.startswith(("1. **", "2. **"))
     ]
     assert ranked_lines == ["1. **Patricia Crewformerly**"]
+
+
+# --- Cluster map file output (US2, FR-003/004/005/010/011) ------------------------
+
+
+@responses.activate
+def test_main_writes_a_cluster_map_png_for_every_training_cluster_found(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
+
+    assert main([]) == 0
+
+    text = (tmp_path / "reports" / "rider_pairings.md").read_text()
+    cluster_numbers = sorted(int(n) for n in re.findall(r"### Cluster (\d+)", text))
+    assert cluster_numbers  # the fixture set has at least one Training Cluster
+
+    maps_dir = tmp_path / "reports" / "maps"
+    for n in cluster_numbers:
+        assert (maps_dir / f"cluster_{n}.png").exists()
+    # No extra cluster map files beyond what the report itself references.
+    written_cluster_files = {p.name for p in maps_dir.glob("cluster_*.png")}
+    assert written_cluster_files == {f"cluster_{n}.png" for n in cluster_numbers}
+
+
+@responses.activate
+def test_rerunning_after_a_cluster_shape_change_removes_a_stale_map_file(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
+    assert main([]) == 0
+
+    maps_dir = tmp_path / "reports" / "maps"
+    stale_file = maps_dir / "cluster_9.png"
+    stale_file.write_bytes(b"stale")
+
+    assert main([]) == 0
+
+    assert not stale_file.exists()
+
+
+@responses.activate
+def test_pdf_only_never_touches_reports_maps(monkeypatch, tmp_path):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
+    assert main([]) == 0
+
+    maps_dir = tmp_path / "reports" / "maps"
+    marker_file = maps_dir / "untouched-marker.png"
+    marker_file.write_bytes(b"marker")
+
+    assert main(["--pdf-only"]) == 0
+
+    assert marker_file.exists()
+    assert marker_file.read_bytes() == b"marker"
+
+
+@responses.activate
+def test_maps_directory_is_never_committed_to_git(monkeypatch, tmp_path):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    _copy_fixture_seasons(tmp_path)
+    _init_repo(tmp_path)
+    _git("add", "seasons", cwd=tmp_path)
+    _git("commit", "-m", "seed seasons", cwd=tmp_path)
+    _register_tile_mock()
+
+    assert main([]) == 0
+
+    status_result = _git("status", "--porcelain", "--", "reports/maps/", cwd=tmp_path)
+    assert status_result.stdout == ""
+
+
+# --- Overview map file output (US3, FR-006/007/008) --------------------------------
+
+
+@responses.activate
+def test_main_writes_an_overview_map_png_with_every_role_present(monkeypatch, tmp_path):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
+
+    assert main([]) == 0
+
+    overview_path = tmp_path / "reports" / "maps" / "overview.png"
+    assert overview_path.exists()
+
+    def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+        hex_color = hex_color.lstrip("#")
+        return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+
+    # At the whole-team overview's own (coarse, country-spanning) zoom, the
+    # tightly-packed Hamburg-area members -- Rider (cluster-alice), Service
+    # Crew (cluster-crew-dave), and Supporter (erin-late) among them -- fall
+    # within one merged/badged FR-013 pin (NEUTRAL_COLOR, since their roles
+    # differ); mentor-far-victor (Rider, ~500km away in Munich) is far
+    # enough to stay its own individually role-colored pin.
+    present_colors = set(Image.open(overview_path).convert("RGB").getdata())
+    assert _hex_to_rgb(NEUTRAL_COLOR) in present_colors
+    assert _hex_to_rgb(role_color("Rider")) in present_colors  # mentor-far-victor
+
+
+@responses.activate
+def test_main_writes_an_overview_map_even_with_zero_eligible_members(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
+    (tmp_path / "seasons" / "2025-26" / "applicants").mkdir(parents=True)
+    _register_tile_mock()
+
+    assert main([]) == 0
+
+    assert (tmp_path / "reports" / "maps" / "overview.png").exists()
 
 
 # --- --pdf-only mode -----------------------------------------------------------------
@@ -283,11 +432,13 @@ def test_pdf_only_exits_nonzero_when_no_report_exists_yet(monkeypatch, tmp_path)
     assert not (tmp_path / "reports" / "rider_pairings.pdf").exists()
 
 
+@responses.activate
 def test_pdf_only_skips_computation_and_renders_current_md_content_verbatim(
     monkeypatch, tmp_path
 ):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
     _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
     assert main([]) == 0
 
     md_path = tmp_path / "reports" / "rider_pairings.md"
@@ -303,11 +454,16 @@ def test_pdf_only_skips_computation_and_renders_current_md_content_verbatim(
 
     pdf_text = _extract_pdf_text(tmp_path / "reports" / "rider_pairings.pdf")
     assert "HAND-EDITED NOTE: already called Nora." in pdf_text
+    # The already-written maps/overview.png (US3) carries through unchanged,
+    # since --pdf-only just re-renders whatever the .md currently says.
+    assert "Team Overview" in pdf_text
 
 
+@responses.activate
 def test_pdf_only_never_auto_commits(monkeypatch, tmp_path):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
     _copy_fixture_seasons(tmp_path)
+    _register_tile_mock()
     assert main([]) == 0
     _init_repo(tmp_path)
     _git("add", "-A", cwd=tmp_path)

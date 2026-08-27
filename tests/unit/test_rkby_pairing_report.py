@@ -265,6 +265,12 @@ def test_populated_training_clusters_section_renders_one_subsection_per_cluster(
     assert "Clustera Riderone" in text
     assert "Clusterb Ridertwo" in text
     assert "Clusterc Riderthree" in text
+    cluster_section = text[text.index("### Cluster 1") :]
+    image_index = cluster_section.index(
+        '<img src="maps/cluster_1.png" alt="Cluster 1 map" width="100%">'
+    )
+    roster_index = cluster_section.index("Clustera Riderone")
+    assert image_index < roster_index
 
 
 def test_cluster_members_get_the_same_contact_info_and_photo_treatment():
@@ -307,6 +313,8 @@ def test_multiple_clusters_each_get_their_own_numbered_subsection():
     assert "Cluster 1 (2 riders)" in text
     assert "Cluster 2 (2 riders)" in text
     assert text.index("Cluster 1") < text.index("Cluster 2")
+    assert '<img src="maps/cluster_1.png" alt="Cluster 1 map" width="100%">' in text
+    assert '<img src="maps/cluster_2.png" alt="Cluster 2 map" width="100%">' in text
 
 
 def test_report_header_includes_season_label_and_generated_date():
@@ -321,3 +329,45 @@ def test_report_header_includes_season_label_and_generated_date():
 
     assert SEASON_LABEL in text.splitlines()[0]
     assert GENERATED_AT in text
+
+
+# --- Team Overview section (US3, contracts/report-output.md, FR-006/008) ------
+
+
+def test_team_overview_section_is_the_first_section_after_the_intro_line():
+    text = render_report(
+        SEASON_LABEL,
+        GENERATED_AT,
+        [ALPHA_NEW_RIDER],
+        {"alpha-new": []},
+        MEMBERS_BY_KEY,
+        [],
+    )
+
+    assert "## Team Overview" in text
+    assert text.index("## Team Overview") < text.index("## New Riders")
+
+
+def test_team_overview_section_contains_exactly_the_overview_map_image():
+    text = render_report(
+        SEASON_LABEL,
+        GENERATED_AT,
+        [ALPHA_NEW_RIDER],
+        {"alpha-new": []},
+        MEMBERS_BY_KEY,
+        [],
+    )
+
+    overview_section = text[
+        text.index("## Team Overview") : text.index("## New Riders")
+    ]
+    assert '<img src="maps/overview.png" alt="Team overview map" width="100%">' in (
+        overview_section
+    )
+
+
+def test_team_overview_section_is_present_even_with_no_new_riders_or_clusters():
+    text = render_report(SEASON_LABEL, GENERATED_AT, [], {}, {}, [])
+
+    assert "## Team Overview" in text
+    assert '<img src="maps/overview.png" alt="Team overview map" width="100%">' in text

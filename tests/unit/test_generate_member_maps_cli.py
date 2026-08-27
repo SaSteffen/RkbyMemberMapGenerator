@@ -14,9 +14,6 @@ import yaml
 from PIL import Image
 
 from scripts.generate_member_maps import (
-    CANVAS_SIZE,
-    DETAIL_MAP_EDGE_MARGIN_PX,
-    DETAIL_MAP_PADDING_KM,
     Config,
     ConfigError,
     build_arg_parser,
@@ -24,6 +21,7 @@ from scripts.generate_member_maps import (
     main,
 )
 from scripts.rkby_maps.basemap import TILE_SIZE, zoom_for_bounding_box
+from scripts.rkby_maps.pin_map import CANVAS_SIZE, EDGE_MARGIN_PX, PADDING_KM
 from scripts.rkby_maps.rendering import (
     NEUTRAL_COLOR,
     PHOTO_DIAMETER_PX,
@@ -575,7 +573,7 @@ def test_detail_map_includes_frame_members_and_omits_ones_too_close_to_the_edge(
     min_width_km = 5
     center, zoom = zoom_for_bounding_box(
         [(cluster_lat, cluster_lon_a), (cluster_lat, cluster_lon_b)],
-        padding_km=DETAIL_MAP_PADDING_KM,
+        padding_km=PADDING_KM,
         min_width_km=min_width_km,
         canvas_size=CANVAS_SIZE,
     )
@@ -588,9 +586,9 @@ def test_detail_map_includes_frame_members_and_omits_ones_too_close_to_the_edge(
 
     # Well clear of the edge margin -- must appear on the detail map even
     # though it's no part of the triggering pair.
-    appearing_lon = _lon_at_pixel_x(DETAIL_MAP_EDGE_MARGIN_PX + 150)
+    appearing_lon = _lon_at_pixel_x(EDGE_MARGIN_PX + 150)
     # Inside the edge margin -- must be omitted from this detail map.
-    omitted_lon = _lon_at_pixel_x(DETAIL_MAP_EDGE_MARGIN_PX - 20)
+    omitted_lon = _lon_at_pixel_x(EDGE_MARGIN_PX - 20)
 
     _write_record(
         a_dir,

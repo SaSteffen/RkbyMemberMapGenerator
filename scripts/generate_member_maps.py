@@ -22,11 +22,9 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.rkby_maps.basemap import (
-    lonlat_to_pixel,
     meters_per_pixel,
     stitch_basemap,
     zoom_for_bounding_box,
-    zoom_for_min_width_km,
 )
 from scripts.rkby_maps.clustering import (
     detail_map_slug,
@@ -34,20 +32,25 @@ from scripts.rkby_maps.clustering import (
     is_fr014_exception,
 )
 from scripts.rkby_maps.geocoding import geocode_record_if_needed
+from scripts.rkby_maps.pin_map import (
+    CANVAS_SIZE,
+    DEFAULT_MIN_WIDTH_KM,
+    EDGE_MARGIN_PX,
+    PADDING_KM,
+    group_position,
+    overview_center_and_zoom,
+    pixel_positions,
+    records_within_frame,
+    render_pin_layer,
+)
 from scripts.rkby_maps.rendering import (
     PHOTO_RADIUS_PX,
-    PIN_RADIUS_PX,
     PLACEHOLDER_PHOTO_PATH,
-    RESOLUTION_SCALE,
     crop_circular_photo,
     draw_attribution,
-    draw_merged_pin,
     draw_offset_photo_circles,
     draw_photo_circle,
-    draw_pin,
     draw_scale_bar,
-    merged_role_color,
-    role_color,
 )
 from scripts.rkby_records import (
     _dump_record_yaml,
@@ -58,25 +61,6 @@ from scripts.rkby_records import (
     season_dir,
     setup_run_logger,
 )
-
-DEFAULT_MIN_WIDTH_KM = 15
-CANVAS_SIZE = (1600 * RESOLUTION_SCALE, 1200 * RESOLUTION_SCALE)
-# Geographic center of Germany -- used only as the overview map's center for
-# a season with zero plottable members (Assumptions: "Empty/degenerate
-# seasons" still produce a near-empty overview rather than being skipped).
-DEFAULT_CENTER = (51.1657, 10.4515)
-# Fixed padding margin (research.md §5) added around a bounding box -- of
-# either an overlap group (detail maps) or the season's full member set
-# (the overview) -- before flooring the result at --min-width-km.
-DETAIL_MAP_PADDING_KM = 0.5
-# A detail map is framed around its triggering overlap group, but --min-width-km
-# often floors that frame far wider than the group itself -- other plottable
-# members frequently fall inside it too and must be drawn, not just the group
-# that triggered it (research.md §5). A member within this many pixels of the
-# canvas edge is left off that specific map instead: a marker clipped by (or
-# crowding right up against) the border reads worse than one member simply not
-# appearing on this particular detail map -- they still appear on the overview.
-DETAIL_MAP_EDGE_MARGIN_PX = 50 * RESOLUTION_SCALE
 
 _GITIGNORE_ENTRIES = ("maps/", ".tile_cache/")
 
@@ -215,33 +199,6 @@ def _resolve_plottable_members(
     return plottable
 
 
-def _overview_center_and_zoom(
-    members: list[dict], min_width_km: float
-) -> tuple[tuple[float, float], int]:
-    """The overview's own bounding box (all of `members`, plus a fixed
-    padding margin), floored at `min_width_km` (research.md §5's sizing
-    formula, applied here to the full member set rather than a single
-    overlap group) -- a nationally-spread team naturally renders wider than
-    the configured minimum so everyone fits, while a tight regional team is
-    floored at the minimum. Computed independently per variant (pin overview
-    vs. photo overview), since their eligible member sets can differ."""
-    if not members:
-        zoom = zoom_for_min_width_km(
-            min_width_km=min_width_km,
-            latitude=DEFAULT_CENTER[0],
-            canvas_width_px=CANVAS_SIZE[0],
-        )
-        return DEFAULT_CENTER, zoom
-
-    points = [(record["latitude"], record["longitude"]) for record in members]
-    return zoom_for_bounding_box(
-        points,
-        padding_km=DETAIL_MAP_PADDING_KM,
-        min_width_km=min_width_km,
-        canvas_size=CANVAS_SIZE,
-    )
-
-
 def _delete_existing_season_maps(variant_dir: Path, season_prefix: str) -> None:
     """Idempotent regeneration (data-model.md § Local Data Repository): a
     stale map from a since-changed data set is deleted, not left alongside a
@@ -249,86 +206,6 @@ def _delete_existing_season_maps(variant_dir: Path, season_prefix: str) -> None:
     `maps/photos/`)."""
     for stale_map in variant_dir.glob(f"{season_prefix}_*.png"):
         stale_map.unlink()
-
-
-def _pixel_positions(
-    records: list[dict], center: tuple[float, float], zoom: int
-) -> dict[str, tuple[float, float]]:
-    return {
-        record["match_key"]: lonlat_to_pixel(
-            record["latitude"],
-            record["longitude"],
-            center=center,
-            zoom=zoom,
-            canvas_size=CANVAS_SIZE,
-        )
-        for record in records
-    }
-
-
-def _group_position(
-    group: list[str], positions: dict[str, tuple[float, float]]
-) -> tuple[float, float]:
-    xs = [positions[key][0] for key in group]
-    ys = [positions[key][1] for key in group]
-    return sum(xs) / len(xs), sum(ys) / len(ys)
-
-
-def _records_within_frame(
-    records: list[dict],
-    always_include: set[str],
-    center: tuple[float, float],
-    zoom: int,
-    canvas_size: tuple[int, int],
-    edge_margin_px: float,
-) -> list[dict]:
-    """Every plottable member who actually lands inside a detail map's
-    rendered frame at `(center, zoom)`, not just the overlap group that
-    triggered it (DETAIL_MAP_EDGE_MARGIN_PX). `always_include` members (the
-    triggering group) are kept regardless of where they land, since they
-    define the frame itself; everyone else within `edge_margin_px` of the
-    canvas border is left off this particular map."""
-    canvas_width, canvas_height = canvas_size
-    positions = _pixel_positions(records, center, zoom)
-    selected = []
-    for record in records:
-        key = record["match_key"]
-        x, y = positions[key]
-        in_frame = (
-            edge_margin_px <= x <= canvas_width - edge_margin_px
-            and edge_margin_px <= y <= canvas_height - edge_margin_px
-        )
-        if key in always_include or in_frame:
-            selected.append(record)
-    return selected
-
-
-def _draw_pin_layer(
-    canvas, records: list[dict], center: tuple[float, float], zoom: int
-) -> tuple[list[list[str]], dict[str, dict]]:
-    """Draw an individual role-colored pin per record, or one merged
-    fallback pin per group overlapping at this canvas's own scale
-    (FR-011/FR-013, research.md §4/§8). Returns the detected overlap groups
-    plus a match_key -> record lookup, for detail-map generation (FR-012)."""
-    by_key = {record["match_key"]: record for record in records}
-    positions = _pixel_positions(records, center, zoom)
-    groups = find_overlap_groups(positions, radius=PIN_RADIUS_PX)
-    grouped_keys = {key for group in groups for key in group}
-
-    for key, record in by_key.items():
-        if key not in grouped_keys:
-            draw_pin(canvas, positions[key], color=role_color(record.get("role")))
-
-    for group in groups:
-        group_records = [by_key[key] for key in group]
-        draw_merged_pin(
-            canvas,
-            _group_position(group, positions),
-            count=len(group_records),
-            color=merged_role_color(group_records),
-        )
-
-    return groups, by_key
 
 
 def _photo_path(s_dir: Path, record: dict) -> Path:
@@ -349,11 +226,11 @@ def _draw_photo_layer(
     center: tuple[float, float],
     zoom: int,
 ) -> tuple[list[list[str]], dict[str, dict]]:
-    """Photo-variant counterpart of `_draw_pin_layer` (FR-011/FR-013,
-    research.md §4/§8)."""
+    """Photo-variant counterpart of `rkby_maps.pin_map.render_pin_layer`
+    (FR-011/FR-013, research.md §4/§8)."""
     s_dir = season_dir(data_dir, season_label)
     by_key = {record["match_key"]: record for record in records}
-    positions = _pixel_positions(records, center, zoom)
+    positions = pixel_positions(records, center, zoom)
     groups = find_overlap_groups(positions, radius=PHOTO_RADIUS_PX)
     grouped_keys = {key for group in groups for key in group}
 
@@ -367,7 +244,7 @@ def _draw_photo_layer(
         circles = [
             crop_circular_photo(_photo_path(s_dir, record)) for record in group_records
         ]
-        draw_offset_photo_circles(canvas, _group_position(group, positions), circles)
+        draw_offset_photo_circles(canvas, group_position(group, positions), circles)
 
     return groups, by_key
 
@@ -393,9 +270,9 @@ def _generate_detail_maps(
 
     Once a detail map's frame is decided, every plottable member who lands
     inside it is drawn -- not just the triggering group (see
-    `_records_within_frame`) -- so slugs are assigned up front, in
-    deterministic group order, before the (parallelized) rendering itself
-    reads them."""
+    `rkby_maps.pin_map.records_within_frame`) -- so slugs are assigned up
+    front, in deterministic group order, before the (parallelized) rendering
+    itself reads them."""
     existing_slugs: set[str] = set()
     all_records = list(by_key.values())
     jobs = []
@@ -408,17 +285,17 @@ def _generate_detail_maps(
         points = [(record["latitude"], record["longitude"]) for record in group_records]
         center, zoom = zoom_for_bounding_box(
             points,
-            padding_km=DETAIL_MAP_PADDING_KM,
+            padding_km=PADDING_KM,
             min_width_km=min_width_km,
             canvas_size=CANVAS_SIZE,
         )
-        frame_records = _records_within_frame(
+        frame_records = records_within_frame(
             all_records,
             always_include=set(group),
             center=center,
             zoom=zoom,
             canvas_size=CANVAS_SIZE,
-            edge_margin_px=DETAIL_MAP_EDGE_MARGIN_PX,
+            edge_margin_px=EDGE_MARGIN_PX,
         )
 
         slug = detail_map_slug(group_records[0]["address"], existing_slugs)
@@ -431,7 +308,7 @@ def _generate_detail_maps(
             center=center, zoom=zoom, canvas_size=CANVAS_SIZE, cache_dir=tile_cache_dir
         )
         if variant == "pins":
-            _draw_pin_layer(canvas, frame_records, center, zoom)
+            render_pin_layer(canvas, frame_records, center, zoom)
         else:
             _draw_photo_layer(
                 data_dir, season_label, canvas, frame_records, center, zoom
@@ -455,7 +332,7 @@ def _render_overview_pin_map(
     canvas = stitch_basemap(
         center=center, zoom=zoom, canvas_size=CANVAS_SIZE, cache_dir=tile_cache_dir
     )
-    groups, by_key = _draw_pin_layer(canvas, plottable, center, zoom)
+    groups, by_key = render_pin_layer(canvas, plottable, center, zoom)
     if show_scale_bar:
         draw_scale_bar(canvas, meters_per_pixel=meters_per_pixel(center[0], zoom))
     draw_attribution(canvas)
@@ -501,7 +378,7 @@ def _process_season(
     # with the placeholder mascot rather than skipped, so the overview's
     # bounding box (and therefore zoom) is identical -- reuse pin_center/zoom
     # for the photo overview too.
-    pin_center, pin_zoom = _overview_center_and_zoom(plottable, args.min_width_km)
+    pin_center, pin_zoom = overview_center_and_zoom(plottable, args.min_width_km)
 
     # The two overview variants are fully independent renders (own tile
     # fetches, own drawing) -- generate them concurrently.

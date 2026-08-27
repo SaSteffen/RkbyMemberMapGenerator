@@ -178,11 +178,16 @@ regenerated every run.
 `scripts/generate_rider_pairings.py` reads the latest season already scraped and
 geocoded into `$RKBY_DATA_DIR` and writes one Markdown report: a ranked list of
 experienced mentor-candidate contacts for every new rider (proximity primary, age-gap
-secondary, same-sex tertiary tie-break), plus training clusters of three or more
-current-season riders who live close enough together to plausibly train together. It
-never scrapes and never geocodes — it only reads coordinates a prior
-`generate_member_maps.py` run already cached. See
-[specs/006-rider-pairing-suggester/](specs/006-rider-pairing-suggester/) for the full
+secondary, same-sex tertiary tie-break), plus training clusters of one or more
+current-season riders who live close enough together to plausibly train together --
+every eligible rider appears somewhere in this section, alone, paired, or grouped. The
+report also includes a Team Overview map showing every eligible current-season member
+of any role, and each Training Cluster's own section includes a map of that cluster
+plus any other nearby member for context (reusing the same OSM-tile/role-colored-pin
+rendering `generate_member_maps.py` uses for its own maps). It never scrapes and never
+geocodes — it only reads coordinates a prior `generate_member_maps.py` run already
+cached. See [specs/006-rider-pairing-suggester/](specs/006-rider-pairing-suggester/)
+and [specs/007-pairing-report-maps/](specs/007-pairing-report-maps/) for the full
 design.
 
 Only `RKBY_DATA_DIR` is required (no intranet credentials):
@@ -201,6 +206,12 @@ next regeneration overwrites the working copy). `--pdf`/`--pdf-only` additionall
 render `$RKBY_DATA_DIR/reports/rider_pairings.pdf` (gitignored, never committed) from
 the report's *current* on-disk Markdown content, independent of the pairing
 computation.
+
+Every run (other than `--pdf-only`) also writes the Team Overview map and each
+Training Cluster's map as PNG files under `$RKBY_DATA_DIR/reports/maps/` (gitignored,
+never committed — same untracked-local-artifact handling as `rider_pairings.pdf`).
+That directory's entire contents are cleared and regenerated fresh on every run, so a
+stale map from a since-changed cluster list is never left behind.
 
 ## Getting started
 

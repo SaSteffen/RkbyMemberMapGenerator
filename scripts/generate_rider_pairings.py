@@ -28,6 +28,7 @@ from scripts.rkby_pairing.clusters import (
     find_training_clusters,
 )
 from scripts.rkby_pairing.eligibility import find_mentor_candidates, find_new_riders
+from scripts.rkby_pairing.maps import write_report_maps
 from scripts.rkby_pairing.pdf import render_pdf
 from scripts.rkby_pairing.ranking import rank_mentor_candidates
 from scripts.rkby_pairing.report import render_report
@@ -212,6 +213,9 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     clusters = find_training_clusters(latest_records, args.cluster_radius_km)
+
+    tile_cache_dir = config.data_dir / ".tile_cache"
+    write_report_maps(config.data_dir, latest_records, clusters, tile_cache_dir)
 
     text = render_report(
         latest,
