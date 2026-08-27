@@ -55,7 +55,7 @@ already exist with `__init__.py` from 002/006). Proceed directly to Phase 2.
 parallel with this phase. Phases 4 and 5 (US2/US3) cannot start until this phase is
 complete.
 
-- [ ] T001 [P] Write failing tests in `tests/unit/test_rkby_maps_pin_map.py` for the
+- [X] T001 [P] Write failing tests in `tests/unit/test_rkby_maps_pin_map.py` for the
       promoted pin-map helpers that will live in `scripts/rkby_maps/pin_map.py`, mirroring
       the module-per-file convention `test_basemap.py`/`test_clustering.py`/
       `test_rendering.py` already establish for their own `scripts/rkby_maps/` siblings.
@@ -88,7 +88,7 @@ complete.
         matches `zoom_for_bounding_box(points, padding_km=PADDING_KM,
         min_width_km=min_width_km, canvas_size=CANVAS_SIZE)` computed independently in
         the test for comparison.
-- [ ] T002 Implement `scripts/rkby_maps/pin_map.py`: move (not duplicate) `CANVAS_SIZE`,
+- [X] T002 Implement `scripts/rkby_maps/pin_map.py`: move (not duplicate) `CANVAS_SIZE`,
       `DEFAULT_MIN_WIDTH_KM`, `DEFAULT_CENTER`, `PADDING_KM` (renamed from
       `DETAIL_MAP_PADDING_KM`), `EDGE_MARGIN_PX` (renamed from
       `DETAIL_MAP_EDGE_MARGIN_PX`), and public `pixel_positions()` (from
@@ -97,7 +97,7 @@ complete.
       (from `_draw_pin_layer`), `overview_center_and_zoom()` (from
       `_overview_center_and_zoom`) out of `scripts/generate_member_maps.py`, unchanged in
       behavior (research.md Decision 2) — makes T001 pass.
-- [ ] T003 Refactor `scripts/generate_member_maps.py` to import `CANVAS_SIZE`,
+- [X] T003 Refactor `scripts/generate_member_maps.py` to import `CANVAS_SIZE`,
       `DEFAULT_MIN_WIDTH_KM`, `DEFAULT_CENTER`, and the five promoted functions from
       `scripts.rkby_maps.pin_map` instead of defining its own private copies; delete the
       now-redundant private definitions (`_pixel_positions`, `_group_position`,
@@ -106,7 +106,7 @@ complete.
       `DETAIL_MAP_PADDING_KM`/`DETAIL_MAP_EDGE_MARGIN_PX` constants); update every call
       site (`_generate_detail_maps`, `_draw_photo_layer`, `_render_overview_pin_map`,
       `_process_season`) to the new public names. Behavior unchanged.
-- [ ] T004 Update `tests/unit/test_generate_member_maps_cli.py`'s import of `CANVAS_SIZE`,
+- [X] T004 Update `tests/unit/test_generate_member_maps_cli.py`'s import of `CANVAS_SIZE`,
       `DETAIL_MAP_EDGE_MARGIN_PX`, `DETAIL_MAP_PADDING_KM` (used by
       `test_detail_map_includes_frame_members_and_omits_ones_too_close_to_the_edge`) to
       pull `CANVAS_SIZE`, `EDGE_MARGIN_PX`, `PADDING_KM` from `scripts.rkby_maps.pin_map`
@@ -137,7 +137,7 @@ trio together — with none missing.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T005 [P] [US1] Update `tests/unit/test_rkby_pairing_clusters.py` for the removed
+- [X] T005 [P] [US1] Update `tests/unit/test_rkby_pairing_clusters.py` for the removed
       3-member minimum (research.md Decision 1, FR-001/FR-002):
       - Rewrite `test_two_nearby_riders_with_no_third_nearby_form_no_cluster` (rename to
         reflect the new expectation, e.g.
@@ -165,7 +165,7 @@ trio together — with none missing.
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] In `scripts/rkby_pairing/clusters.py::find_training_clusters`, change
+- [X] T006 [US1] In `scripts/rkby_pairing/clusters.py::find_training_clusters`, change
       the `find_overlap_groups(...)` call's `min_group_size` argument from `3` to `1`
       (research.md Decision 1) — makes T005 pass. No other line in the function changes.
 
@@ -189,7 +189,7 @@ members plotted at their home locations.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T007 [P] [US2] Write failing tests in `tests/unit/test_rkby_pairing_maps.py`
+- [X] T007 [P] [US2] Write failing tests in `tests/unit/test_rkby_pairing_maps.py`
       (new file) for cluster-map rendering (FR-003/FR-004/FR-005, data-model.md § Cluster
       Map), using `responses`-mocked OSM tile fetches only — no Nominatim mock needed,
       this feature geocodes nothing (mirror
@@ -213,7 +213,7 @@ members plotted at their home locations.
         padding_km=pin_map.PADDING_KM, min_width_km=pin_map.DEFAULT_MIN_WIDTH_KM,
         canvas_size=pin_map.CANVAS_SIZE)` computed independently in the test would give
         (Edge Cases: very large single cluster).
-- [ ] T008 [P] [US2] Extend `tests/unit/test_rkby_pairing_report.py` for the per-cluster
+- [X] T008 [P] [US2] Extend `tests/unit/test_rkby_pairing_report.py` for the per-cluster
       map image (contracts/report-output.md): extend
       `test_populated_training_clusters_section_renders_one_subsection_per_cluster` and
       `test_multiple_clusters_each_get_their_own_numbered_subsection` to also assert
@@ -223,7 +223,7 @@ members plotted at their home locations.
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Implement `scripts/rkby_pairing/maps.py` (new file):
+- [X] T009 [US2] Implement `scripts/rkby_pairing/maps.py` (new file):
       - `eligible_member_pool(latest_records: dict[str, dict]) -> list[dict]`
         (data-model.md § Eligible Member Pool, FR-007) — every record in
         `latest_records.values()` for which `rkby_pairing.eligibility.is_eligible_base`
@@ -241,13 +241,13 @@ members plotted at their home locations.
         `rkby_maps.rendering.draw_scale_bar` + `draw_attribution`, mirroring
         `generate_member_maps.py`'s own `_generate_detail_maps` per-group rendering shape
         — makes T007 pass.
-- [ ] T010 [US2] Extend `_render_cluster_section` in `scripts/rkby_pairing/report.py` to
+- [X] T010 [US2] Extend `_render_cluster_section` in `scripts/rkby_pairing/report.py` to
       insert `<img src="maps/cluster_{index}.png" alt="Cluster {index} map"
       width="100%">` immediately after the `### Cluster <n> (...)` heading, before the
       member roster (contracts/report-output.md) — makes T008 pass. `{index}` is the
       same 1-based `enumerate(clusters, start=1)` value the heading already uses, so
       `render_report`'s signature does not change.
-- [ ] T011 [P] [US2] Extend `tests/unit/test_generate_rider_pairings_cli.py` with
+- [X] T011 [P] [US2] Extend `tests/unit/test_generate_rider_pairings_cli.py` with
       `responses`-mocked-tile end-to-end tests (mirror
       `test_generate_member_maps_cli.py`'s tile-mock pattern) against the fixture seasons:
       - `main([])` writes `reports/maps/cluster_<n>.png` for every Training Cluster the
@@ -261,7 +261,7 @@ members plotted at their home locations.
       - `git status --porcelain -- reports/maps/` (reusing this file's existing
         `_init_repo`/`_git` helpers) shows nothing after a run inside a
         git-initialized `RKBY_DATA_DIR` (FR-011).
-- [ ] T012 [US2] Wire cluster-map generation into `scripts/generate_rider_pairings.py`'s
+- [X] T012 [US2] Wire cluster-map generation into `scripts/generate_rider_pairings.py`'s
       `main()`: after computing `clusters`, call a new
       `rkby_pairing.maps.write_report_maps(config.data_dir, latest_records, clusters,
       tile_cache_dir=config.data_dir / ".tile_cache")`. Implement `write_report_maps` in
@@ -293,7 +293,7 @@ includes one overview map on which members of all three roles appear.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T013 [P] [US3] Extend `tests/unit/test_rkby_pairing_maps.py` with failing tests for
+- [X] T013 [P] [US3] Extend `tests/unit/test_rkby_pairing_maps.py` with failing tests for
       a not-yet-implemented `render_overview_map(eligible_pool, tile_cache_dir) ->
       PIL.Image` (data-model.md § Overview Map, FR-006/FR-007):
       - Every role present in `eligible_pool` (Rider, Service Crew, Supporter) renders as
@@ -302,14 +302,14 @@ includes one overview map on which members of all three roles appear.
         centered via `pin_map.overview_center_and_zoom([],
         pin_map.DEFAULT_MIN_WIDTH_KM)`'s `DEFAULT_CENTER` fallback, without raising
         (Acceptance Scenario 3.3).
-- [ ] T014 [P] [US3] Extend `tests/unit/test_rkby_pairing_report.py` with failing tests
+- [X] T014 [P] [US3] Extend `tests/unit/test_rkby_pairing_report.py` with failing tests
       for the new `## Team Overview` section (contracts/report-output.md):
       - It is the first section after the intro line, appearing before `## New Riders`.
       - It contains exactly `<img src="maps/overview.png" alt="Team overview map"
         width="100%">`.
       - It is present with that same image reference even when `new_riders` and
         `clusters` are both empty (FR-008 — never conditionally omitted).
-- [ ] T015 [P] [US3] Extend `tests/unit/test_generate_rider_pairings_cli.py` with
+- [X] T015 [P] [US3] Extend `tests/unit/test_generate_rider_pairings_cli.py` with
       `responses`-mocked-tile end-to-end tests against the fixture seasons:
       - `main([])` writes `reports/maps/overview.png` containing pins for members of
         every role present in the fixture set (Rider via `cluster-alice`, Service Crew
@@ -324,19 +324,19 @@ includes one overview map on which members of all three roles appear.
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Implement `render_overview_map(eligible_pool, tile_cache_dir) ->
+- [X] T016 [US3] Implement `render_overview_map(eligible_pool, tile_cache_dir) ->
       PIL.Image` in `scripts/rkby_pairing/maps.py` (data-model.md § Overview Map):
       `center, zoom = pin_map.overview_center_and_zoom(eligible_pool,
       min_width_km=pin_map.DEFAULT_MIN_WIDTH_KM)`, then
       `rkby_maps.basemap.stitch_basemap` + `pin_map.render_pin_layer(canvas,
       eligible_pool, center, zoom)` + `draw_scale_bar` + `draw_attribution` — makes T013
       pass.
-- [ ] T017 [US3] Add a new `## Team Overview` section to `render_report` in
+- [X] T017 [US3] Add a new `## Team Overview` section to `render_report` in
       `scripts/rkby_pairing/report.py`, placed immediately after the intro line and
       before `## New Riders`, containing exactly `<img src="maps/overview.png"
       alt="Team overview map" width="100%">` — makes T014 pass. Always rendered,
       independent of whether `new_riders`/`clusters` are empty (FR-008).
-- [ ] T018 [US3] Extend `rkby_pairing.maps.write_report_maps` (T012) to also render and
+- [X] T018 [US3] Extend `rkby_pairing.maps.write_report_maps` (T012) to also render and
       save `overview.png` via T016's `render_overview_map`, using T009's
       `eligible_member_pool(latest_records)` as its member pool — inside the same single
       `reports/maps/` clear-then-write pass T012 already established, not a second clear
@@ -353,18 +353,18 @@ Training Clusters, a map on every cluster's section, and a Team Overview map up 
 **Purpose**: Bring documentation and the full test/lint suite in line with the
 now-complete feature.
 
-- [ ] T019 [P] Update README.md's "Running the rider pairing suggester" section (around
+- [X] T019 [P] Update README.md's "Running the rider pairing suggester" section (around
       line 176-186): change "training clusters of three or more current-season riders"
       to "training clusters of one or more current-season riders" (FR-001), and mention
       the new Team Overview map and per-cluster maps now written to
       `$RKBY_DATA_DIR/reports/maps/` (gitignored, never committed, regenerated fresh on
       every run).
-- [ ] T020 [P] Walk through `specs/007-pairing-report-maps/quickstart.md` Scenarios 1-6
+- [X] T020 [P] Walk through `specs/007-pairing-report-maps/quickstart.md` Scenarios 1-6
       end-to-end against a throwaway synthetic `RKBY_DATA_DIR` (never real member data,
       Constitution I/V) — confirm every documented "Expected outcome" holds, including
       the PDF export (Scenario 4), stale-map cleanup after a data change (Scenario 5),
       and the gitignored/uncommitted `reports/maps/` check (Scenario 6).
-- [ ] T021 Run `uv run ruff check .`, `uv run ruff format .`, and `uv run pytest` for the
+- [X] T021 Run `uv run ruff check .`, `uv run ruff format .`, and `uv run pytest` for the
       full suite; fix any lint/format/test failures before considering the feature done.
 
 ---
