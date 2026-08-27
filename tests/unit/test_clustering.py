@@ -71,6 +71,50 @@ def test_find_overlap_groups_with_no_members_returns_empty_list():
     assert find_overlap_groups({}, radius=10) == []
 
 
+# --- distance_fn / min_group_size (006-rider-pairing-suggester, research.md §7) ---
+
+
+def test_custom_distance_fn_is_used_instead_of_the_default_pixel_euclidean():
+    # Under pixel-Euclidean these two are ~14.1 apart (outside radius=10), but
+    # a custom distance_fn reporting a much smaller value must be what
+    # actually decides overlap.
+    positions = {"a": (0, 0), "b": (10, 10)}
+
+    def _always_close(_a, _b):
+        return 1.0
+
+    groups = find_overlap_groups(positions, radius=10, distance_fn=_always_close)
+
+    assert groups == [["a", "b"]]
+
+
+def test_min_group_size_3_excludes_a_connected_pair_the_default_would_include():
+    positions = {"a": (0, 0), "b": (5, 0)}
+
+    default_groups = find_overlap_groups(positions, radius=10)
+    stricter_groups = find_overlap_groups(positions, radius=10, min_group_size=3)
+
+    assert default_groups == [["a", "b"]]
+    assert stricter_groups == []
+
+
+def test_min_group_size_3_includes_a_connected_trio():
+    positions = {"a": (0, 0), "b": (5, 0), "c": (10, 0)}
+
+    groups = find_overlap_groups(positions, radius=10, min_group_size=3)
+
+    assert len(groups) == 1
+    assert set(groups[0]) == {"a", "b", "c"}
+
+
+def test_existing_default_behavior_is_unchanged_with_no_new_arguments():
+    # Same scenario as test_two_close_members_form_one_overlap_group, called
+    # with no distance_fn/min_group_size at all.
+    positions = {"a": (0, 0), "b": (5, 0)}
+
+    assert find_overlap_groups(positions, radius=10) == [["a", "b"]]
+
+
 # --- FR-014 same-exact-address-pair short-circuit ---------------------------------
 
 

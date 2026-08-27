@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: mentor-near-oscar
+alias_match_keys: null
+first_name: Oscar
+last_name: Nearby
+address: Naehestr. 3, 20144 Hamburg, Germany
+phone: +49 40 2222222
+email: oscar.nearby@example.test
+role: Rider
+additional_roles: null
+birthday: '1988-09-02'
+sex: Male
+num_previous_seasons: 3
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: photos/mentor-near-oscar.jpg
+latitude: 53.56
+longitude: 9.98

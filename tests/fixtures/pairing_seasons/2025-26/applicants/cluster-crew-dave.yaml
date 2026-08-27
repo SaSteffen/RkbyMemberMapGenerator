@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: cluster-crew-dave
+alias_match_keys: null
+first_name: Dave
+last_name: Clustercrew
+address: Clusterweg 1, 21129 Hamburg, Germany
+phone: +49 40 7777774
+email: null
+role: Service Crew
+additional_roles: null
+birthday: '1983-06-30'
+sex: Male
+num_previous_seasons: 3
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: 53.6
+longitude: 10.1

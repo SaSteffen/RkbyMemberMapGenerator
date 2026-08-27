@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: new-rider-quinn
+alias_match_keys: null
+first_name: Quinn
+last_name: Alsonew
+address: Zweitstr. 9, 20099 Hamburg, Germany
+phone: +49 40 6666666
+email: null
+role: Rider
+additional_roles: null
+birthday: '2001-03-08'
+sex: Diverse
+num_previous_seasons: 0
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: 53.548
+longitude: 9.985

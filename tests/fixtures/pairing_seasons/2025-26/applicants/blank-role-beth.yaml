@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: blank-role-beth
+alias_match_keys: null
+first_name: Beth
+last_name: Blankrole
+address: Leerstr. 14, 20095 Hamburg, Germany
+phone: null
+email: null
+role: null
+additional_roles: null
+birthday: '1995-08-19'
+sex: Female
+num_previous_seasons: null
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: 53.5495
+longitude: 9.9915

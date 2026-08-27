@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: cluster-bob
+alias_match_keys: null
+first_name: Bob
+last_name: Clustertwo
+address: Clusterweg 2, 21129 Hamburg, Germany
+phone: +49 40 7777772
+email: null
+role: Rider
+additional_roles: null
+birthday: '1994-03-22'
+sex: Male
+num_previous_seasons: 2
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: 53.6003
+longitude: 10.1002

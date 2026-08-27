@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: erin-early
+alias_match_keys: null
+first_name: Erin
+last_name: Early
+address: Alte Str. 1, 21000 Fruehstadt, Germany
+phone: null
+email: null
+role: Rider
+additional_roles: null
+birthday: '1990-04-12'
+sex: Female
+num_previous_seasons: 1
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: null
+longitude: null

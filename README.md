@@ -18,9 +18,10 @@ See [REQUIREMENTS.md](REQUIREMENTS.md) for the full background and
 governing principles (privacy, data handling, script structure).
 
 > **Status:** `scripts/scrape_applicants.py` (applicant scraper & data persistence),
-> `scripts/generate_member_maps.py` (member map generator), and
-> `scripts/report_member_analytics.ipynb` (member analytics report) are implemented.
-> The rider-pairing suggester and birthday calendar are not built yet.
+> `scripts/generate_member_maps.py` (member map generator),
+> `scripts/report_member_analytics.ipynb` (member analytics report), and
+> `scripts/generate_rider_pairings.py` (rider pairing suggester) are implemented.
+> The birthday calendar is not built yet.
 
 ## Privacy first
 
@@ -40,9 +41,11 @@ below. Any credentials used to scrape the intranet belong in a gitignored `.env`
 │   ├── scrape_applicants.py     # applicant scraper & data persistence (implemented)
 │   ├── generate_member_maps.py  # member map generator (implemented)
 │   ├── report_member_analytics.ipynb  # member analytics report (implemented)
+│   ├── generate_rider_pairings.py  # rider pairing suggester (implemented)
 │   ├── rkby_records.py          # shared season/record I/O (used by every script above)
 │   ├── rkby_maps/                # map-generator internals: basemap, rendering, geocoding, clustering
 │   ├── rkby_report/              # analytics-report internals: frame/aggregate/plots, geo, buckets
+│   ├── rkby_pairing/             # pairing-suggester internals: eligibility, ranking, clusters, report, pdf
 │   └── schemas/                  # JSON Schema for the persisted YAML record format
 ├── tests/                    # pytest unit tests, obfuscated fixtures (no real data)
 ├── REQUIREMENTS.md          # original feature idea and technical background
@@ -169,6 +172,35 @@ for the full contract.
 
 Output lands in `$RKBY_DATA_DIR/interactive_map/` (gitignored), fully
 regenerated every run.
+
+## Running the rider pairing suggester
+
+`scripts/generate_rider_pairings.py` reads the latest season already scraped and
+geocoded into `$RKBY_DATA_DIR` and writes one Markdown report: a ranked list of
+experienced mentor-candidate contacts for every new rider (proximity primary, age-gap
+secondary, same-sex tertiary tie-break), plus training clusters of three or more
+current-season riders who live close enough together to plausibly train together. It
+never scrapes and never geocodes — it only reads coordinates a prior
+`generate_member_maps.py` run already cached. See
+[specs/006-rider-pairing-suggester/](specs/006-rider-pairing-suggester/) for the full
+design.
+
+Only `RKBY_DATA_DIR` is required (no intranet credentials):
+
+```bash
+uv run scripts/generate_rider_pairings.py                                  # defaults
+uv run scripts/generate_rider_pairings.py --max-suggestions 5 --cluster-radius-km 8
+uv run scripts/generate_rider_pairings.py --pdf        # also export a PDF
+uv run scripts/generate_rider_pairings.py --pdf-only    # re-export current .md, no recompute
+```
+
+The report lands at `$RKBY_DATA_DIR/reports/rider_pairings.md` (gitignored, but
+auto-committed to the `RKBY_DATA_DIR` git repository on every write, so a hand-edit is
+never lost — it stays recoverable from that repository's git history even after the
+next regeneration overwrites the working copy). `--pdf`/`--pdf-only` additionally
+render `$RKBY_DATA_DIR/reports/rider_pairings.pdf` (gitignored, never committed) from
+the report's *current* on-disk Markdown content, independent of the pairing
+computation.
 
 ## Getting started
 

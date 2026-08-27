@@ -238,13 +238,22 @@ def _is_git_work_tree(data_dir: Path) -> bool:
 
 
 def auto_commit(
-    data_dir: Path, paths: list[str], message: str, logger: logging.Logger
+    data_dir: Path,
+    paths: list[str],
+    message: str,
+    logger: logging.Logger,
+    force: bool = False,
 ) -> None:
     """If `RKBY_DATA_DIR` is a git work tree, stage + commit the given paths
     (relative to data_dir, only those that currently exist). No-op if not a
     git repo, none of the paths exist, or nothing actually changed; a commit
     failure is logged as a warning and never raised -- the already-written
-    data is valid regardless of whether the commit succeeds."""
+    data is valid regardless of whether the commit succeeds.
+
+    `force=True` (006-rider-pairing-suggester, research.md §11): stages a
+    path even if it's covered by the target repo's own `.gitignore` -- needed
+    when a blanket `reports/` ignore entry would otherwise silently prevent
+    `git add` from ever staging `reports/rider_pairings.md`."""
     if not _is_git_work_tree(data_dir):
         return
 
@@ -252,7 +261,8 @@ def auto_commit(
     if not existing_paths:
         return
 
-    add_result = _run_git(data_dir, "add", *existing_paths)
+    add_args = ("-f", *existing_paths) if force else tuple(existing_paths)
+    add_result = _run_git(data_dir, "add", *add_args)
     if add_result.returncode != 0:
         logger.warning(
             "git add failed for %s: %s", existing_paths, add_result.stderr.strip()

@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: cluster-carol
+alias_match_keys: null
+first_name: Carol
+last_name: Clusterthree
+address: Clusterweg 3, 21129 Hamburg, Germany
+phone: +49 40 7777773
+email: null
+role: Rider
+additional_roles: null
+birthday: '1979-11-05'
+sex: Female
+num_previous_seasons: 6
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: 53.6001
+longitude: 10.0998

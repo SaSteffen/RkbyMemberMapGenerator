@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: ignored-yara
+alias_match_keys: null
+first_name: Yara
+last_name: Ignored
+address: Ignorierstr. 11, 20095 Hamburg, Germany
+phone: null
+email: null
+role: Rider
+additional_roles: null
+birthday: '1993-05-17'
+sex: Female
+num_previous_seasons: 4
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: true
+photo: null
+latitude: 53.5518
+longitude: 9.9948

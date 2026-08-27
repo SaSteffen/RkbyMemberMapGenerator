@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: excluded-xena
+alias_match_keys: null
+first_name: Xena
+last_name: Excluded
+address: Ausschlussstr. 10, 20095 Hamburg, Germany
+phone: null
+email: null
+role: Rider
+additional_roles: null
+birthday: '1999-07-01'
+sex: Female
+num_previous_seasons: 0
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: true
+excluded_observed_at: '2026-02-01T00:00:00+00:00'
+ignore: false
+photo: null
+latitude: 53.5515
+longitude: 9.9945

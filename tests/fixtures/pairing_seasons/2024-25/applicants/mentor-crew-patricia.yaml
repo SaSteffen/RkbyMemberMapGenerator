@@ -1,0 +1,23 @@
+# Synthetic fixture -- never real member data (Constitution I/V).
+# Validate against scripts/schemas/applicant_record.schema.json.
+match_key: mentor-crew-patricia
+alias_match_keys: null
+first_name: Patricia
+last_name: Crewformerly
+address: Vorjahrstr. 2, 20095 Hamburg, Germany
+phone: null
+email: null
+role: Rider
+additional_roles: null
+birthday: '1985-02-20'
+sex: Female
+num_previous_seasons: 2
+motive_for_participation: null
+food_restrictions: null
+status: 'yes'
+excluded: false
+excluded_observed_at: null
+ignore: false
+photo: null
+latitude: 53.548
+longitude: 9.999

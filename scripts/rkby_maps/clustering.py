@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Callable
 
 from scripts.rkby_records import normalize_name
 
@@ -17,12 +18,24 @@ def _distance(a: tuple[float, float], b: tuple[float, float]) -> float:
 def find_overlap_groups(
     positions: dict[str, tuple[float, float]],
     radius: float,
+    distance_fn: Callable[
+        [tuple[float, float], tuple[float, float]], float
+    ] = _distance,
+    min_group_size: int = 2,
 ) -> list[list[str]]:
-    """Connected components of members whose pixel distance is within the
-    combined marker radius (research.md §4: "distance is less than the sum
-    of their marker radii" -- both markers share `radius` here, so the
-    combined radius is `2 * radius`). Solo members with no overlapping
-    partner are left out of the result entirely."""
+    """Connected components of members whose distance (by `distance_fn`,
+    pixel-Euclidean by default) is within the combined marker radius
+    (research.md §4: "distance is less than the sum of their marker radii" --
+    both markers share `radius` here, so the combined radius is `2 *
+    radius`). Components smaller than `min_group_size` (2 by default -- "no
+    overlapping partner") are left out of the result entirely.
+
+    `distance_fn`/`min_group_size` (006-rider-pairing-suggester, research.md
+    §7): optional, backward-compatible parameters so a second consumer
+    (training-cluster detection, real-world haversine distance, minimum
+    group size 3) can reuse this exact connected-components algorithm
+    instead of a second copy -- every existing call site keeps working
+    unchanged with the defaults above."""
     keys = list(positions.keys())
     parent = {key: key for key in keys}
 
@@ -40,14 +53,16 @@ def find_overlap_groups(
     threshold = 2 * radius
     for i, a in enumerate(keys):
         for b in keys[i + 1 :]:
-            if _distance(positions[a], positions[b]) <= threshold:
+            if distance_fn(positions[a], positions[b]) <= threshold:
                 union(a, b)
 
     components: dict[str, list[str]] = {}
     for key in keys:
         components.setdefault(find(key), []).append(key)
 
-    return [members for members in components.values() if len(members) >= 2]
+    return [
+        members for members in components.values() if len(members) >= min_group_size
+    ]
 
 
 def is_fr014_exception(group: list[str], addresses: dict[str, str | None]) -> bool:

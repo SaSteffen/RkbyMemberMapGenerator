@@ -309,3 +309,86 @@ def test_auto_commit_failure_logs_warning_without_raising(tmp_path, monkeypatch)
     for handler in logger.handlers:
         handler.flush()
     assert "WARNING" in log_file.read_text()
+
+
+# --- auto_commit `force` parameter (006-rider-pairing-suggester, T010) ---------
+
+
+def test_auto_commit_default_force_false_cannot_add_a_gitignored_path(tmp_path):
+    _init_repo(tmp_path)
+    (tmp_path / ".gitignore").write_text("reports/\n")
+    (tmp_path / "reports").mkdir()
+    (tmp_path / "reports" / "rider_pairings.md").write_text("# report\n")
+
+    logger = logging.getLogger("test_auto_commit_force_false_gitignored")
+    auto_commit(tmp_path, ["reports/rider_pairings.md"], "test commit message", logger)
+
+    log_result = subprocess.run(
+        ["git", "log", "--oneline"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "test commit message" not in log_result.stdout
+
+
+def test_auto_commit_force_true_stages_and_commits_a_gitignored_path(tmp_path):
+    _init_repo(tmp_path)
+    (tmp_path / ".gitignore").write_text("reports/\n")
+    (tmp_path / "reports").mkdir()
+    (tmp_path / "reports" / "rider_pairings.md").write_text("# report\n")
+
+    logger = logging.getLogger("test_auto_commit_force_true_gitignored")
+    auto_commit(
+        tmp_path,
+        ["reports/rider_pairings.md"],
+        "test commit message",
+        logger,
+        force=True,
+    )
+
+    log_result = subprocess.run(
+        ["git", "log", "--oneline"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "test commit message" in log_result.stdout
+
+
+def test_auto_commit_force_true_still_a_noop_when_nothing_changed(tmp_path):
+    _init_repo(tmp_path)
+    (tmp_path / "some_dir").mkdir()
+    (tmp_path / "some_dir" / "file.yaml").write_text("a: 1\n")
+    _git("add", "some_dir", cwd=tmp_path)
+    _git("commit", "-m", "initial", cwd=tmp_path)
+    head_before = _head(tmp_path)
+
+    logger = logging.getLogger("test_auto_commit_force_true_noop")
+    auto_commit(tmp_path, ["some_dir"], "test commit message", logger, force=True)
+
+    assert _head(tmp_path) == head_before
+
+
+def test_auto_commit_every_default_force_test_still_passes_unmodified(tmp_path):
+    # Sanity check that the new optional `force` parameter's default
+    # preserves current behavior exactly -- same scenario as
+    # test_auto_commit_creates_a_commit_for_the_given_paths_when_git_detected,
+    # called with no `force` argument at all.
+    _init_repo(tmp_path)
+    (tmp_path / "some_dir").mkdir()
+    (tmp_path / "some_dir" / "file.yaml").write_text("a: 1\n")
+
+    logger = logging.getLogger("test_auto_commit_default_unmodified")
+    auto_commit(tmp_path, ["some_dir"], "test commit message", logger)
+
+    log_result = subprocess.run(
+        ["git", "log", "--oneline"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "test commit message" in log_result.stdout
