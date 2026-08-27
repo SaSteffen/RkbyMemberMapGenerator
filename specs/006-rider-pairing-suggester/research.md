@@ -153,17 +153,21 @@ new optional parameters, both defaulted to preserve 002's exact existing behavio
 def find_overlap_groups(
     positions: dict[str, tuple[float, float]],
     radius: float,
-    distance_fn: Callable[[tuple[float, float], tuple[float, float]], float] = _distance,
+    distance_fn: Callable[
+        [tuple[float, float], tuple[float, float]], float
+    ] = _distance,
     min_group_size: int = 2,
 ) -> list[list[str]]:
     ...
     threshold = 2 * radius
     for i, a in enumerate(keys):
-        for b in keys[i + 1:]:
+        for b in keys[i + 1 :]:
             if distance_fn(positions[a], positions[b]) <= threshold:
                 union(a, b)
     ...
-    return [members for members in components.values() if len(members) >= min_group_size]
+    return [
+        members for members in components.values() if len(members) >= min_group_size
+    ]
 ```
 
 `rkby_pairing/clusters.py` calls it as

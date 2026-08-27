@@ -43,10 +43,10 @@ parameters). Two existing modules are imported unchanged: `scripts/rkby_report/g
 
 **Purpose**: Project scaffolding this feature needs before any code is written.
 
-- [ ] T001 Add `markdown` and `xhtml2pdf` as runtime dependencies in `pyproject.toml`
+- [X] T001 Add `markdown` and `xhtml2pdf` as runtime dependencies in `pyproject.toml`
       (`[project.dependencies]`) and run `uv sync` (research.md §9, plan.md § Technical
       Context)
-- [ ] T002 [P] Create the new internal package `scripts/rkby_pairing/__init__.py`
+- [X] T002 [P] Create the new internal package `scripts/rkby_pairing/__init__.py`
       (empty) per plan.md § Project Structure
 
 ---
@@ -58,7 +58,7 @@ later test/implementation task in both user stories builds on.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 [P] Create a synthetic multi-season fixture set under
+- [X] T003 [P] Create a synthetic multi-season fixture set under
       `tests/fixtures/pairing_seasons/<season-label>/applicants/*.yaml` (research.md
       §12), following the existing `_RECORD_FIELD_ORDER` YAML shape from
       `scripts/rkby_records.py` (see `tests/fixtures/report_seasons/` for the pattern —
@@ -83,11 +83,11 @@ later test/implementation task in both user stories builds on.
       - a tight geographic group of 3+ current-season Riders (mixed experience levels)
         plus a Service Crew or Supporter member geocoded at the same location, for the
         training-cluster tests (Acceptance Scenarios 2.1-2.3)
-- [ ] T004 [P] Write failing tests in `tests/unit/test_rkby_pairing_roles.py` for
+- [X] T004 [P] Write failing tests in `tests/unit/test_rkby_pairing_roles.py` for
       `classify_role()`: `"Rider"`/`"Service Crew"`/`"Supporter"` in mixed case and with
       surrounding whitespace, an unrecognized string (e.g. `"Coach"`), `None`, and a
       blank string (research.md §4, spec.md Edge Cases)
-- [ ] T005 Implement `classify_role()` in `scripts/rkby_pairing/roles.py`, normalizing
+- [X] T005 Implement `classify_role()` in `scripts/rkby_pairing/roles.py`, normalizing
       `role.strip().lower()` and matching against
       `scripts.rkby_maps.rendering.ROLE_COLORS`'s keys (imported directly, not
       re-declared) — makes T004 pass (research.md §4, data-model.md § Role
@@ -113,7 +113,7 @@ is present in the latest season's roster.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T006 [P] [US1] Write failing tests in `tests/unit/test_rkby_pairing_eligibility.py`
+- [X] T006 [P] [US1] Write failing tests in `tests/unit/test_rkby_pairing_eligibility.py`
       against the T003 fixtures for: `find_new_riders()` (FR-002 — role Rider,
       `num_previous_seasons == 0` exactly, never `None`; excluded/ignored/ungeocoded
       records absent); `find_mentor_candidates()` (FR-003/004 — latest-season Rider role,
@@ -124,7 +124,7 @@ is present in the latest season's roster.
       ridden before" check finds Rider history even on an excluded/ignored *earlier*
       season's record, since eligibility only gates *this* season's role, research.md
       §3)
-- [ ] T007 [P] [US1] Write failing tests in `tests/unit/test_rkby_pairing_ranking.py`
+- [X] T007 [P] [US1] Write failing tests in `tests/unit/test_rkby_pairing_ranking.py`
       against small in-memory synthetic records (no fixtures needed) for the ranking
       sort key (research.md §5, data-model.md § Suggested Pairing): closer
       `distance_km` always ranks first regardless of age gap or sex; smaller
@@ -134,7 +134,7 @@ is present in the latest season's roster.
       but unknown sex is never penalized further than a known opposite-sex pair;
       `max_suggestions` caps the returned list length, and a new rider with fewer
       eligible candidates than the cap gets all of them, including zero
-- [ ] T008 [P] [US1] Write failing tests in `tests/unit/test_rkby_pairing_report.py`
+- [X] T008 [P] [US1] Write failing tests in `tests/unit/test_rkby_pairing_report.py`
       against the T003 fixtures and small in-memory pairing data for the report
       renderer (contracts/report-output.md): one `## New Riders` `###` subsection per
       New Rider in deterministic (alphabetical by last name) order, present even with an
@@ -147,7 +147,7 @@ is present in the latest season's roster.
       `## Training Clusters` section that renders "No training clusters found this
       season." when given an empty cluster list (US2 extends this same file with
       populated-cluster-section coverage)
-- [ ] T009 [P] [US1] Write failing tests in `tests/unit/test_rkby_pairing_pdf.py` for
+- [X] T009 [P] [US1] Write failing tests in `tests/unit/test_rkby_pairing_pdf.py` for
       the PDF renderer (research.md §9, contracts/report-output.md § PDF export
       contract): given a `.md` file on disk — including one containing a hand-edit not
       present in any freshly-generated version — produces a non-empty PDF file whose
@@ -157,14 +157,14 @@ is present in the latest season's roster.
       data and never rewrites the `.md` file, so calling it twice with no edit in
       between leaves the `.md` file byte-identical and produces valid PDF output both
       times
-- [ ] T010 [P] [US1] Write failing tests in `tests/unit/test_rkby_records.py`,
+- [X] T010 [P] [US1] Write failing tests in `tests/unit/test_rkby_records.py`,
       extending the existing `auto_commit` (generalized) test section, for a new
       optional `force: bool = False` parameter: `force=True` successfully stages and
       commits a path even when it's excluded by the target repo's own `.gitignore`;
       every existing test in this section (default `force=False`) keeps passing
       unmodified, confirming the new parameter's default preserves current behavior
       exactly
-- [ ] T011 [P] [US1] Write failing tests in `tests/unit/test_generate_rider_pairings_cli.py`
+- [X] T011 [P] [US1] Write failing tests in `tests/unit/test_generate_rider_pairings_cli.py`
       against the T003 fixtures for: `load_config()`/`ConfigError` (missing/invalid
       `RKBY_DATA_DIR`, mirrors `generate_member_maps.py`); `build_arg_parser()`
       (`--max-suggestions` positive-int, default 3; `--pdf`/`--pdf-only` flags;
@@ -181,24 +181,24 @@ is present in the latest season's roster.
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Implement `find_new_riders()` and `find_mentor_candidates()` in
+- [X] T012 [US1] Implement `find_new_riders()` and `find_mentor_candidates()` in
       `scripts/rkby_pairing/eligibility.py`, plus a shared, public
       `is_eligible_base()` (excluded/ignore/geocoded predicate, reused unchanged by
       `clusters.py` in US2) — resolve cross-season identity via
       `rkby_records.canonical_match_keys()` over every raw record from every season
       (not eligibility-filtered, research.md §3) — makes T006 pass
-- [ ] T013 [US1] Implement the ranking sort key in `scripts/rkby_pairing/ranking.py`,
+- [X] T013 [US1] Implement the ranking sort key in `scripts/rkby_pairing/ranking.py`,
       using `scripts.rkby_report.geo.haversine_km` for `distance_km` — makes T007 pass
-- [ ] T014 [US1] Implement the report renderer in `scripts/rkby_pairing/report.py`:
+- [X] T014 [US1] Implement the report renderer in `scripts/rkby_pairing/report.py`:
       document header, `## New Riders` section built on a shared contact-info+photo
       rendering helper (reused unchanged by US2's Training Clusters section), and a
       `## Training Clusters` placeholder that always renders "No training clusters
       found this season." until US2 wires in real clusters — makes T008 pass
-- [ ] T015 [US1] Implement the PDF renderer in `scripts/rkby_pairing/pdf.py`:
+- [X] T015 [US1] Implement the PDF renderer in `scripts/rkby_pairing/pdf.py`:
       `markdown.markdown()` the report's on-disk content to HTML, then render that HTML
       to PDF via `xhtml2pdf`, with image paths resolved relative to the `.md` file's
       own directory — makes T009 pass
-- [ ] T016 [US1] Add an optional `force: bool = False` parameter to `auto_commit()` in
+- [X] T016 [US1] Add an optional `force: bool = False` parameter to `auto_commit()` in
       `scripts/rkby_records.py` (appends `-f` to the `git add` invocation only when
       `True`; every existing call site keeps its current default behavior) — makes T010
       pass. Needed because `ensure_reports_dir_and_gitignore` (research.md §8) adds a
@@ -206,7 +206,7 @@ is present in the latest season's roster.
       re-include a file via a `!negation` pattern once its parent directory itself is
       excluded — so a plain `git add reports/rider_pairings.md` would otherwise fail
       and FR-014's auto-commit would silently never happen
-- [ ] T017 [US1] Implement `scripts/generate_rider_pairings.py`: `load_config()`/
+- [X] T017 [US1] Implement `scripts/generate_rider_pairings.py`: `load_config()`/
       `ConfigError`, `build_arg_parser()` (`--max-suggestions`, `--pdf`, `--pdf-only`),
       and `main()` wiring `rkby_records.discover_seasons`/`load_existing_records`
       (every season, needed for cross-season history) →
@@ -238,7 +238,7 @@ from the individual mentor suggestions.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T018 [P] [US2] Extend `tests/unit/test_clustering.py` with failing tests for
+- [X] T018 [P] [US2] Extend `tests/unit/test_clustering.py` with failing tests for
       `find_overlap_groups()`'s new optional `distance_fn` and `min_group_size`
       parameters (research.md §7): a custom `distance_fn` (e.g. real-valued distances)
       is used instead of the default pixel-Euclidean `_distance`; `min_group_size=3`
@@ -246,19 +246,19 @@ from the individual mentor suggestions.
       (`min_group_size=2`) would include; every existing test in this file keeps
       passing unmodified, confirming the new parameters' defaults preserve current
       behavior exactly
-- [ ] T019 [P] [US2] Write failing tests in `tests/unit/test_rkby_pairing_clusters.py`
+- [X] T019 [P] [US2] Write failing tests in `tests/unit/test_rkby_pairing_clusters.py`
       against the T003 fixtures for `find_training_clusters()` (FR-007, data-model.md §
       Training Cluster, Acceptance Scenarios 2.1-2.3): 3+ nearby current-season Riders
       (any experience level) form one cluster; 2 nearby Riders with no third nearby
       form no cluster; a Service Crew/Supporter member living inside an
       otherwise-qualifying cluster's footprint is never a member of it (never even a
       node in the graph); `cluster_radius_km` changes which groups qualify
-- [ ] T020 [P] [US2] Extend `tests/unit/test_rkby_pairing_report.py` with failing tests
+- [X] T020 [P] [US2] Extend `tests/unit/test_rkby_pairing_report.py` with failing tests
       for a populated `## Training Clusters` section: one `### Cluster N (<count>
       riders)` subsection per cluster, each member shown with the same full
       contact-info+photo treatment as a New Rider/Suggested Contact (reusing T014's
       shared helper, not a second copy)
-- [ ] T021 [P] [US2] Extend `tests/unit/test_generate_rider_pairings_cli.py` with
+- [X] T021 [P] [US2] Extend `tests/unit/test_generate_rider_pairings_cli.py` with
       failing tests for `--cluster-radius-km` (positive-number validation mirroring
       `--max-suggestions`, default `5`) and for the CLI's end-to-end wiring of computed
       clusters into the written report (a fixture-derived tight cluster from T003
@@ -266,22 +266,22 @@ from the individual mentor suggestions.
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Generalize `find_overlap_groups()` in
+- [X] T022 [US2] Generalize `find_overlap_groups()` in
       `scripts/rkby_maps/clustering.py` with two new optional, backward-compatible
       parameters — `distance_fn: Callable[[tuple[float, float], tuple[float, float]],
       float] = _distance` and `min_group_size: int = 2` — per the signature in
       research.md §7; both existing call sites in `scripts/generate_member_maps.py`
       keep working unchanged — makes T018 pass
-- [ ] T023 [US2] Implement `find_training_clusters()` in
+- [X] T023 [US2] Implement `find_training_clusters()` in
       `scripts/rkby_pairing/clusters.py`, calling `find_overlap_groups(positions,
       radius=cluster_radius_km / 2, distance_fn=haversine_km, min_group_size=3)` over
       the latest season's Rider-role-only pool (reusing `eligibility.is_eligible_base()`
       from T012 and `roles.classify_role()` from T005) — makes T019 pass
-- [ ] T024 [US2] Extend the report renderer in `scripts/rkby_pairing/report.py` to
+- [X] T024 [US2] Extend the report renderer in `scripts/rkby_pairing/report.py` to
       render a populated `## Training Clusters` section from real
       `find_training_clusters()` output, reusing T014's shared contact-info+photo
       helper — makes T020 pass
-- [ ] T025 [US2] Add `--cluster-radius-km` to `build_arg_parser()` and wire
+- [X] T025 [US2] Add `--cluster-radius-km` to `build_arg_parser()` and wire
       `find_training_clusters()` into `main()` in `scripts/generate_rider_pairings.py`
       — makes T021 pass
 
@@ -296,19 +296,19 @@ clusters alongside mentor suggestions.
 **Purpose**: Bring documentation and the full test/lint suite in line with the
 now-complete feature.
 
-- [ ] T026 [P] Add a "Running the rider pairing suggester" section to `README.md`
+- [X] T026 [P] Add a "Running the rider pairing suggester" section to `README.md`
       (mirroring the existing per-script sections, e.g. "Running the map generator")
       documenting `scripts/generate_rider_pairings.py`'s flags (`--max-suggestions`,
       `--cluster-radius-km`, `--pdf`, `--pdf-only`) and output location; update the
       project-structure listing and the "implemented" scripts statement near the top of
       the file to include it
-- [ ] T027 [P] Walk through `specs/006-rider-pairing-suggester/quickstart.md` Scenarios
+- [X] T027 [P] Walk through `specs/006-rider-pairing-suggester/quickstart.md` Scenarios
       1-5 end-to-end against a throwaway synthetic `RKBY_DATA_DIR` (never real member
       data) — confirm every documented "Expected outcome" holds, including that a
       hand-edit survives a `--pdf-only` export, and that a subsequent regeneration's
       auto-commit still leaves the hand-edited version recoverable via `git show
       <commit>:reports/rider_pairings.md` in that repo's history
-- [ ] T028 Run `uv run ruff check .`, `uv run ruff format .`, and `uv run pytest` for
+- [X] T028 Run `uv run ruff check .`, `uv run ruff format .`, and `uv run pytest` for
       the full suite; fix any lint/format/test failures before considering the feature
       done
 

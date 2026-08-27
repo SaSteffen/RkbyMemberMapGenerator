@@ -47,7 +47,19 @@ uv run scripts/generate_rider_pairings.py --pdf-only
 **Expected outcome**: `reports/rider_pairings.pdf` is created/updated and reflects
 your hand-edit verbatim — the pairing computation did not run (no new season data was
 read, no `.md` overwrite happened). Confirm by diffing `rider_pairings.md`'s mtime/git
-status before and after: it's unchanged by this command.
+status before and after: it's unchanged by this command. Note that `--pdf-only`
+deliberately never auto-commits (research.md §11) — at this point the hand-edit exists
+only in the working tree, `git status` shows it as a modified-but-uncommitted file.
+
+If you want this specific hand-edited version to stay recoverable after the next
+regeneration, commit it yourself now, in `RKBY_DATA_DIR`. `reports/` is gitignored
+(FR-008), so this needs an explicit force-add — the same one the script's own
+auto-commit uses:
+
+```bash
+git -C "$RKBY_DATA_DIR" add -f reports/rider_pairings.md
+git -C "$RKBY_DATA_DIR" commit -m "hand-edit: <describe the change>"
+```
 
 ## 4. Confirm regeneration doesn't lose the hand-edit
 
@@ -56,10 +68,13 @@ uv run scripts/generate_rider_pairings.py
 ```
 
 **Expected outcome**: `rider_pairings.md` is fully regenerated from current data (your
-hand-edit is gone from the working copy — expected, per FR-014's design), but
-`git log -p -- reports/rider_pairings.md` in the `RKBY_DATA_DIR` repository still shows
-the hand-edited version as a prior commit, recoverable with `git show <commit>:
-reports/rider_pairings.md`.
+hand-edit is gone from the working copy — expected, per FR-014's design). If you
+committed the hand-edited version in step 3, `git log -p -- reports/rider_pairings.md`
+in the `RKBY_DATA_DIR` repository still shows it as a prior commit, recoverable with
+`git show <commit>:reports/rider_pairings.md`. (A hand-edit that was *not* committed
+before the next regeneration is simply overwritten and lost, like any other uncommitted
+change in a git working tree — the script's auto-commit only ever captures what it
+itself writes, never a pending hand-edit made outside it.)
 
 ## 5. Compute-and-export in one step
 
