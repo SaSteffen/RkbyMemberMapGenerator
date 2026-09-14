@@ -26,7 +26,7 @@ with another in-flight task.
 
 ## Phase 1: Setup
 
-- [ ] T001 Add a non-blank `Note` value to at least one `<tr>` in
+- [x] T001 Add a non-blank `Note` value to at least one `<tr>` in
   `tests/fixtures/applicants_page_1.html` (keep the rest blank, matching real-world
   sparsity), so parsing tests have both a populated and a blank case to assert against.
 
@@ -54,49 +54,49 @@ second's is `null`.
 
 ### Tests for User Story 1 (write first, confirm RED)
 
-- [ ] T002 [US1] Add
+- [x] T002 [US1] Add
   `test_parse_applicant_rows_extracts_note_raw_from_the_note_column` to
   `tests/unit/test_parsing.py`, asserting `parse_applicant_rows` returns the non-blank
   Note text from T001's fixture row for `row["note"]`, mirroring
   `test_parse_applicant_rows_extracts_role_raw_from_the_role_column`.
-- [ ] T003 [US1] Add
+- [x] T003 [US1] Add
   `test_parse_applicant_rows_reports_none_note_when_note_column_is_blank` to
   `tests/unit/test_parsing.py`, asserting a blank Note cell yields `row["note"] is None`,
   mirroring `test_parse_applicant_rows_reports_none_role_when_role_column_is_blank`.
-- [ ] T004 [US1] Add `test_validate_record_accepts_a_note_value` and
+- [x] T004 [US1] Add `test_validate_record_accepts_a_note_value` and
   `test_validate_record_accepts_a_record_missing_the_note_key_entirely` to
   `tests/unit/test_schema_validation.py`, mirroring
   `test_validate_record_accepts_a_role_value` /
   `test_validate_record_accepts_a_record_missing_the_role_key_entirely`.
-- [ ] T005 [US1] Add `test_merge_record_fills_note_when_previously_empty` to
+- [x] T005 [US1] Add `test_merge_record_fills_note_when_previously_empty` to
   `tests/unit/test_store_merge.py`, mirroring
   `test_merge_record_fills_role_when_previously_empty`.
-- [ ] T006 [US1] Add `test_record_persisted_before_note_existed_can_still_be_rewritten`
+- [x] T006 [US1] Add `test_record_persisted_before_note_existed_can_still_be_rewritten`
   to `tests/unit/test_store_merge.py`, mirroring
   `test_record_persisted_before_role_existed_can_still_be_rewritten` — asserts a record
   YAML missing the `note` key entirely gets `note` backfilled (as `null` or scraped text)
   on the next run without disturbing any other field.
-- [ ] T007 [US1] Run `uv run pytest tests/unit/test_parsing.py
+- [x] T007 [US1] Run `uv run pytest tests/unit/test_parsing.py
   tests/unit/test_store_merge.py tests/unit/test_schema_validation.py` and confirm the
   five new tests from T002-T006 fail (RED) for the expected reason (missing `note`
   support), not for an unrelated error.
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] In `scripts/schemas/applicant_record.schema.json`, add the `note`
+- [x] T008 [US1] In `scripts/schemas/applicant_record.schema.json`, add the `note`
   property (`type: ["string", "null"]`, description as in data-model.md) directly after
   `role`, matching the copy already staged in
   `specs/008-applicant-note-field/contracts/applicant-record.schema.json`.
-- [ ] T009 [US1] In `scripts/rkby_records.py`, add `"note"` to `_RECORD_FIELD_ORDER`
+- [x] T009 [US1] In `scripts/rkby_records.py`, add `"note"` to `_RECORD_FIELD_ORDER`
   directly after `"role"`, so `_dump_record_yaml`'s existing `.get()`-based backfill
   picks it up automatically.
-- [ ] T010 [US1] In `scripts/scrape_applicants.py`'s `parse_applicant_rows`, extract
+- [x] T010 [US1] In `scripts/scrape_applicants.py`'s `parse_applicant_rows`, extract
   `row["note"] = cell["Note"].get_text(strip=True) or None` alongside the existing
   `Role`/`Address`/`Phone` cell reads.
-- [ ] T011 [US1] In `scripts/scrape_applicants.py`'s `persist_records`, add
+- [x] T011 [US1] In `scripts/scrape_applicants.py`'s `persist_records`, add
   `"note": row.get("note")` to the new-record dict alongside the other list-row-sourced
   fields.
-- [ ] T012 [US1] Run `uv run pytest tests/unit/test_parsing.py
+- [x] T012 [US1] Run `uv run pytest tests/unit/test_parsing.py
   tests/unit/test_store_merge.py tests/unit/test_schema_validation.py` and confirm all
   tests from T002-T006 now pass (GREEN), along with the full pre-existing suite in those
   three files.
@@ -118,32 +118,32 @@ unchanged even though the intranet still shows Note text; separately, mark a rec
 
 ### Tests for User Story 2 (write first, confirm RED)
 
-- [ ] T013 [US2] Add `test_merge_record_keeps_a_hand_corrected_note_even_when_scraped_value_differs`
+- [x] T013 [US2] Add `test_merge_record_keeps_a_hand_corrected_note_even_when_scraped_value_differs`
   to `tests/unit/test_store_merge.py`, mirroring
   `test_merge_record_keeps_a_hand_corrected_role_even_when_scraped_value_differs`.
-- [ ] T014 [US2] Extend `test_ignored_record_is_byte_for_byte_unchanged_even_if_person_reappears`
+- [x] T014 [US2] Extend `test_ignored_record_is_byte_for_byte_unchanged_even_if_person_reappears`
   in `tests/unit/test_store_merge.py` (or add a sibling case) so the ignored fixture
   record carries a non-null `note` and the assertion covers `note` staying byte-for-byte
   unchanged alongside the fields it already checks.
-- [ ] T015 [US2] In `scripts/scrape_applicants.py`, add `"note"` to `_CONFLICT_FIELDS`.
+- [x] T015 [US2] In `scripts/scrape_applicants.py`, add `"note"` to `_CONFLICT_FIELDS`.
   Add `test_deduplicate_scraped_rows_flags_conflicting_note_values_within_one_scrape` to
   `tests/unit/test_store_merge.py` (or the module already covering
   `deduplicate_scraped_rows` conflicts, per the file `_CONFLICT_FIELDS`-driven tests live
   in) asserting two same-person rows with disagreeing non-empty `note` values are flagged
   as a conflict and neither is persisted that run, mirroring the existing
   `address`/`phone`/`role` conflict-dedup coverage.
-- [ ] T016 [US2] Run `uv run pytest tests/unit/test_store_merge.py` and confirm the three
+- [x] T016 [US2] Run `uv run pytest tests/unit/test_store_merge.py` and confirm the three
   new tests from T013-T015 fail (RED) for the expected reason (note not yet in
   `_CONFLICT_FIELDS` / merge not yet fill-empty-only for note).
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] In `scripts/scrape_applicants.py`, add `"note"` to the
+- [x] T017 [US2] In `scripts/scrape_applicants.py`, add `"note"` to the
   `_CONFLICT_FIELDS` tuple (this single change drives `merge_record`'s fill-empty-only
   behavior, `_conflicting_fields`'s existing-vs-scraped conflict logging, and
   `deduplicate_scraped_rows`'s within-scrape conflict detection for `note`, per
   research.md §3 — no other code change is needed for this story).
-- [ ] T018 [US2] Run `uv run pytest tests/unit/test_store_merge.py` and confirm all
+- [x] T018 [US2] Run `uv run pytest tests/unit/test_store_merge.py` and confirm all
   tests from T013-T015 now pass (GREEN), along with the full pre-existing suite in that
   file.
 
@@ -154,9 +154,9 @@ protect `note` exactly as they already protect every other optional field.
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T019 Run `uv run ruff check .` and `uv run ruff format .` across the whole repo
+- [x] T019 Run `uv run ruff check .` and `uv run ruff format .` across the whole repo
   and fix any issues introduced by this feature's changes.
-- [ ] T020 Run the full suite with `uv run pytest` and confirm zero failures/regressions.
+- [x] T020 Run the full suite with `uv run pytest` and confirm zero failures/regressions.
 - [ ] T021 Walk through `specs/008-applicant-note-field/quickstart.md` Scenarios 1-4
   manually against `$RKBY_DATA_DIR` (real intranet credentials available via existing
   env/direnv setup) to confirm end-to-end behavior beyond unit-test coverage, if a live
