@@ -157,7 +157,7 @@ protect `note` exactly as they already protect every other optional field.
 - [x] T019 Run `uv run ruff check .` and `uv run ruff format .` across the whole repo
   and fix any issues introduced by this feature's changes.
 - [x] T020 Run the full suite with `uv run pytest` and confirm zero failures/regressions.
-- [ ] T021 Walk through `specs/008-applicant-note-field/quickstart.md` Scenarios 1-4
+- [x] T021 Walk through `specs/008-applicant-note-field/quickstart.md` Scenarios 1-4
   manually against `$RKBY_DATA_DIR` (real intranet credentials available via existing
   env/direnv setup) to confirm end-to-end behavior beyond unit-test coverage, if a live
   run is practical at this time; skip with a note in the PR/commit if not.
