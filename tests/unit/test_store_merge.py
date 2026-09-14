@@ -178,6 +178,18 @@ def test_merge_record_keeps_a_hand_corrected_note_even_when_scraped_value_differ
     assert merged["note"] == "Hand-corrected note"
 
 
+def test_merge_record_self_heals_a_stale_click_to_edit_placeholder_note():
+    # A record persisted before the "Click to edit" placeholder was filtered
+    # out -- must self-heal on the next scrape run rather than needing a
+    # one-off data migration.
+    existing = _base_record(note="Click to edit")
+    scraped = {"address": None, "phone": None, "birthday": None, "note": None}
+
+    merged = merge_record(existing, scraped)
+
+    assert merged["note"] is None
+
+
 def test_merge_record_drops_a_stale_unknown_placeholder_from_additional_roles():
     # A record persisted before "Unknown" filtering existed -- must self-heal
     # on the next scrape run rather than needing a one-off data migration.

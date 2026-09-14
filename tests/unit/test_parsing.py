@@ -80,6 +80,15 @@ def test_parse_applicant_rows_reports_none_note_when_note_column_is_blank():
     assert by_name[("Erika", "Beispiel")]["note"] is None
 
 
+def test_parse_applicant_rows_reports_none_note_for_the_click_to_edit_placeholder():
+    # The intranet renders the literal placeholder text "Click to edit" for a
+    # Note cell that has never actually been filled in -- not a real note.
+    rows = parse_applicant_rows(_load("applicants_page_1.html"))
+    by_name = {(r["first_name"], r["last_name"]): r for r in rows}
+
+    assert by_name[("Jonas", "Beispiel")]["note"] is None
+
+
 def test_parse_applicant_rows_reports_none_photo_url_when_no_photo_uploaded():
     rows = parse_applicant_rows(_load("applicants_page_1.html"))
     by_name = {(r["first_name"], r["last_name"]): r for r in rows}

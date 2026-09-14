@@ -386,6 +386,16 @@ def _is_unknown_role(role: str) -> bool:
     return role.strip().lower() == "unknown"
 
 
+def _normalize_note(note_text: str) -> str | None:
+    """The intranet renders the literal placeholder text "Click to edit" for
+    a Note cell that has never actually been filled in -- not a real note,
+    so it's normalized to None just like a genuinely blank cell."""
+    stripped = note_text.strip()
+    if not stripped or stripped.lower() == "click to edit":
+        return None
+    return stripped
+
+
 def _compute_additional_roles(
     all_roles: list[str] | None, primary_role: str | None
 ) -> list[str] | None:
@@ -498,7 +508,7 @@ def parse_applicant_rows(html: str) -> list[dict]:
                 "phone": cell["Phone"].get_text(strip=True) or None,
                 "address": address,
                 "role": cell["Role"].get_text(strip=True) or None,
-                "note": cell["Note"].get_text(strip=True) or None,
+                "note": _normalize_note(cell["Note"].get_text(strip=True)),
                 "birthday": None,  # fetched later from the detail popup if needed
                 "sex": None,  # ditto
                 "num_previous_seasons": None,  # ditto
@@ -683,11 +693,12 @@ def merge_record(existing: dict, scraped: dict) -> dict:
     never overwritten by a new scrape; `status` is frozen at creation and
     never touched here. Returns a new dict; does not mutate `existing`.
 
-    `additional_roles` is the one exception to fill-empty-only: it's always
-    re-filtered to drop any "Unknown" placeholder (see `_is_unknown_role`)
-    even when already populated, so records persisted before that filtering
-    existed self-heal on their next scrape run instead of needing a one-off
-    migration."""
+    `additional_roles` and `note` are the exceptions to fill-empty-only: they
+    are always re-normalized even when already populated -- `additional_roles`
+    to drop any "Unknown" placeholder (see `_is_unknown_role`), `note` to drop
+    the "Click to edit" placeholder (see `_normalize_note`) -- so records
+    persisted before that filtering existed self-heal on their next scrape
+    run instead of needing a one-off migration."""
     merged = dict(existing)
     for field in _CONFLICT_FIELDS:
         if not merged.get(field) and scraped.get(field):
@@ -696,6 +707,8 @@ def merge_record(existing: dict, scraped: dict) -> dict:
         merged["additional_roles"] = [
             role for role in merged["additional_roles"] if not _is_unknown_role(role)
         ]
+    if merged.get("note"):
+        merged["note"] = _normalize_note(merged["note"])
     return merged
 
 
