@@ -100,6 +100,7 @@ def _base_record(**overrides) -> dict:
         "address": None,
         "phone": None,
         "role": None,
+        "note": None,
         "birthday": None,
         "status": "yes",
         "excluded": False,
@@ -157,6 +158,24 @@ def test_merge_record_backfills_role_on_a_pre_existing_record_missing_the_key():
     merged = merge_record(existing, scraped)
 
     assert merged["role"] == "Rider"
+
+
+def test_merge_record_fills_note_when_previously_empty():
+    existing = _base_record(note=None)
+    scraped = {"address": None, "phone": None, "birthday": None, "note": "Some note"}
+
+    merged = merge_record(existing, scraped)
+
+    assert merged["note"] == "Some note"
+
+
+def test_merge_record_keeps_a_hand_corrected_note_even_when_scraped_value_differs():
+    existing = _base_record(note="Hand-corrected note")
+    scraped = {"address": None, "phone": None, "birthday": None, "note": "Other note"}
+
+    merged = merge_record(existing, scraped)
+
+    assert merged["note"] == "Hand-corrected note"
 
 
 def test_merge_record_drops_a_stale_unknown_placeholder_from_additional_roles():
@@ -285,6 +304,7 @@ def test_ignored_record_is_byte_for_byte_unchanged_even_if_person_reappears(tmp_
             last_name="Doe",
             status="yes",
             ignore=True,
+            note="Existing note",
         )
     )
     ignored_file.write_text(ignored_content)
@@ -300,6 +320,7 @@ def test_ignored_record_is_byte_for_byte_unchanged_even_if_person_reappears(tmp_
             "address": "Somewhere Else 9",
             "status": "no",
             "photo_thumbnail_url": "/jane.jpg?w=60",
+            "note": "A different note",
         }
     ]
 
@@ -386,6 +407,38 @@ def test_record_persisted_before_role_existed_can_still_be_rewritten(tmp_path):
     updated_record = yaml.safe_load((a_dir / "jane-doe.yaml").read_text())
     assert updated_record["excluded"] is True
     assert updated_record["role"] is None
+
+
+def test_record_persisted_before_note_existed_can_still_be_rewritten(tmp_path):
+    # Regression: a record written before "note" was added to the schema has
+    # no "note" key at all on disk. Any later write path (here: the FR-015
+    # exclusion flip) must backfill it as null rather than KeyError.
+    a_dir = tmp_path / "seasons" / "2025-26" / "applicants"
+    a_dir.mkdir(parents=True)
+    pre_note_record = _base_record(
+        match_key="jane-doe", first_name="Jane", last_name="Doe", status="yes"
+    )
+    del pre_note_record["note"]
+    (a_dir / "jane-doe.yaml").write_text(yaml.safe_dump(pre_note_record))
+
+    logger, _log_file = setup_run_logger(tmp_path / "logs")
+    rows = [
+        {
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "phone": None,
+            "address": None,
+            "status": "no",
+            "photo_thumbnail_url": None,
+        }
+    ]
+
+    summary = persist_records(tmp_path, "2025-26", 1181, rows, _NoPhotoClient(), logger)
+
+    assert summary["validation_errors"] == 0
+    updated_record = yaml.safe_load((a_dir / "jane-doe.yaml").read_text())
+    assert updated_record["excluded"] is True
+    assert updated_record["note"] is None
 
 
 def test_ignored_record_observing_no_status_produces_no_exclusion_and_no_log(

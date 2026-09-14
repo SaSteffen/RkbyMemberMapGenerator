@@ -106,6 +106,20 @@ def test_conflicting_within_scrape_duplicates_are_flagged_and_dropped(caplog):
     assert any("jane-doe" in record.message for record in caplog.records)
 
 
+def test_conflicting_within_scrape_duplicate_notes_are_flagged_and_dropped(caplog):
+    logger = logging.getLogger("test_dedup_note_conflict")
+    rows = [
+        _row(note="Follow up re: allergy form"),
+        _row(note="A totally different note"),  # meaningful conflict
+    ]
+
+    with caplog.at_level(logging.WARNING, logger=logger.name):
+        result = deduplicate_scraped_rows(rows, logger)
+
+    assert result == []  # neither persisted this run
+    assert any("jane-doe" in record.message for record in caplog.records)
+
+
 def test_deduplication_leaves_unrelated_applicants_untouched(caplog):
     logger = logging.getLogger("test_dedup_passthrough")
     rows = [_row(), _row(first_name="John", last_name="Smith")]

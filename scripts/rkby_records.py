@@ -95,6 +95,7 @@ _RECORD_FIELD_ORDER = (
     "phone",
     "email",
     "role",
+    "note",
     "additional_roles",
     "birthday",
     "sex",

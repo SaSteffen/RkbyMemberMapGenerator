@@ -68,6 +68,18 @@ def test_validate_record_accepts_a_record_missing_the_role_key_entirely():
     validate_record(VALID_RECORD)  # must not raise
 
 
+def test_validate_record_accepts_a_note_value():
+    record = {**VALID_RECORD, "note": "Follow up re: allergy form"}
+    validate_record(record)  # must not raise
+
+
+def test_validate_record_accepts_a_record_missing_the_note_key_entirely():
+    # "note" is optional -- a record persisted before the field existed, and
+    # not yet backfilled, must still validate.
+    assert "note" not in VALID_RECORD
+    validate_record(VALID_RECORD)  # must not raise
+
+
 def test_validate_record_accepts_an_empty_last_name_single_name_applicant():
     # The intranet sometimes has just one name on file for a person -- no
     # last name, and no separator to split one out of.

@@ -498,6 +498,7 @@ def parse_applicant_rows(html: str) -> list[dict]:
                 "phone": cell["Phone"].get_text(strip=True) or None,
                 "address": address,
                 "role": cell["Role"].get_text(strip=True) or None,
+                "note": cell["Note"].get_text(strip=True) or None,
                 "birthday": None,  # fetched later from the detail popup if needed
                 "sex": None,  # ditto
                 "num_previous_seasons": None,  # ditto
@@ -534,7 +535,7 @@ def fetch_all_pages(client: IntranetClient, team_id: int, season_id: int) -> lis
     return all_rows
 
 
-_CONFLICT_FIELDS = ("address", "phone", "birthday", "role")
+_CONFLICT_FIELDS = ("address", "phone", "birthday", "role", "note")
 
 
 def _conflicting_fields(a: dict, b: dict) -> list[str]:
@@ -688,7 +689,7 @@ def merge_record(existing: dict, scraped: dict) -> dict:
     existed self-heal on their next scrape run instead of needing a one-off
     migration."""
     merged = dict(existing)
-    for field in ("address", "phone", "birthday", "role"):
+    for field in _CONFLICT_FIELDS:
         if not merged.get(field) and scraped.get(field):
             merged[field] = scraped[field]
     if merged.get("additional_roles"):
@@ -835,6 +836,7 @@ def persist_records(
                 "phone": row.get("phone"),
                 "email": row.get("email"),
                 "role": row.get("role"),
+                "note": row.get("note"),
                 "additional_roles": row.get("additional_roles"),
                 "birthday": row.get("birthday"),
                 "sex": row.get("sex"),

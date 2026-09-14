@@ -66,6 +66,20 @@ def test_parse_applicant_rows_reports_none_role_when_role_column_is_blank():
     assert rows[0]["role"] is None
 
 
+def test_parse_applicant_rows_extracts_note_raw_from_the_note_column():
+    rows = parse_applicant_rows(_load("applicants_page_1.html"))
+    by_name = {(r["first_name"], r["last_name"]): r for r in rows}
+
+    assert by_name[("Max", "Mustermann")]["note"] == "Follow up re: allergy form"
+
+
+def test_parse_applicant_rows_reports_none_note_when_note_column_is_blank():
+    rows = parse_applicant_rows(_load("applicants_page_1.html"))
+    by_name = {(r["first_name"], r["last_name"]): r for r in rows}
+
+    assert by_name[("Erika", "Beispiel")]["note"] is None
+
+
 def test_parse_applicant_rows_reports_none_photo_url_when_no_photo_uploaded():
     rows = parse_applicant_rows(_load("applicants_page_1.html"))
     by_name = {(r["first_name"], r["last_name"]): r for r in rows}

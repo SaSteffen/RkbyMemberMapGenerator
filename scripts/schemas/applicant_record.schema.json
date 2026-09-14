@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://rkby.local/schemas/applicant-record.schema.json",
   "title": "Applicant Record",
-  "description": "One retained applicant's persisted data for one season. See specs/001-scraper-persistence/data-model.md and specs/002-map-generator/data-model.md for field-by-field write rules.",
+  "description": "One retained applicant's persisted data for one season. See specs/001-scraper-persistence/data-model.md, specs/002-map-generator/data-model.md, and specs/008-applicant-note-field/data-model.md for field-by-field write rules.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -48,6 +48,10 @@
     "role": {
       "type": ["string", "null"],
       "description": "Raw participation role text as scraped from the intranet applicant table's Role column (e.g. \"Rider\", \"Service Crew\", \"Supporter\"), or null if not yet known."
+    },
+    "note": {
+      "type": ["string", "null"],
+      "description": "Free-text internal note entered by a team admin against this applicant directly in the intranet applicant list table's Note column, or null if none has been recorded."
     },
     "additional_roles": {
       "type": ["array", "null"],
