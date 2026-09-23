@@ -242,14 +242,14 @@ def test_stitch_basemap_produces_a_canvas_of_the_requested_pixel_size(tmp_path):
     assert canvas.size == (400, 300)
 
 
-# --- Detail-map bounding-box sizing (research.md §5) -------------------------------
+# --- Bounding-box sizing (research.md §5) ------------------------------------------
 
 
 def test_zoom_for_bounding_box_centers_on_the_midpoint_of_the_points():
     points = [(53.50, 9.90), (53.60, 10.00)]
 
     center, _zoom = zoom_for_bounding_box(
-        points, padding_km=1.0, min_width_km=50, canvas_size=(1600, 1200)
+        points, padding_px=40, min_width_km=50, canvas_size=(1600, 1200)
     )
 
     assert center[0] == pytest.approx(53.55, abs=1e-6)
@@ -260,7 +260,7 @@ def test_zoom_for_bounding_box_result_covers_at_least_the_configured_minimum_wid
     points = [(53.549, 9.989), (53.551, 9.991)]  # a tight cluster
 
     center, zoom = zoom_for_bounding_box(
-        points, padding_km=1.0, min_width_km=50, canvas_size=(1600, 1200)
+        points, padding_px=40, min_width_km=50, canvas_size=(1600, 1200)
     )
 
     covered_km = meters_per_pixel(center[0], zoom) * 1600 / 1000
@@ -272,10 +272,10 @@ def test_zoom_for_bounding_box_widens_beyond_the_minimum_for_a_spread_out_group(
     spread_points = [(53.0, 9.0), (54.0, 11.0)]  # far wider than 50km
 
     _center_tight, zoom_tight = zoom_for_bounding_box(
-        tight_points, padding_km=1.0, min_width_km=50, canvas_size=(1600, 1200)
+        tight_points, padding_px=40, min_width_km=50, canvas_size=(1600, 1200)
     )
     _center_spread, zoom_spread = zoom_for_bounding_box(
-        spread_points, padding_km=1.0, min_width_km=50, canvas_size=(1600, 1200)
+        spread_points, padding_px=40, min_width_km=50, canvas_size=(1600, 1200)
     )
 
     # A much wider bounding box must produce a wider (lower-zoom) map.
@@ -284,7 +284,7 @@ def test_zoom_for_bounding_box_widens_beyond_the_minimum_for_a_spread_out_group(
 
 def test_zoom_for_bounding_box_a_single_point_falls_back_to_the_minimum_width():
     center, zoom = zoom_for_bounding_box(
-        [(53.55, 9.99)], padding_km=1.0, min_width_km=50, canvas_size=(1600, 1200)
+        [(53.55, 9.99)], padding_px=40, min_width_km=50, canvas_size=(1600, 1200)
     )
 
     assert center == (53.55, 9.99)
@@ -293,3 +293,37 @@ def test_zoom_for_bounding_box_a_single_point_falls_back_to_the_minimum_width():
     # And it's the tightest zoom satisfying that bound.
     covered_km_tighter = meters_per_pixel(center[0], zoom + 1) * 1600 / 1000
     assert covered_km_tighter < 50
+
+
+def test_zoom_for_bounding_box_keeps_the_padding_free_of_the_bounding_box():
+    # Leaflet's own fitBounds-with-padding semantics, which the interactive
+    # map frames itself by (main.js MEMBER_FIT_PADDING): the box has to fit
+    # inside the canvas *minus* `padding_px` on every side, so a marker on
+    # the box's own edge is never drawn clipped by the canvas border.
+    points = [(53.40, 9.80), (53.70, 10.30)]
+    canvas_size = (1600, 1200)
+    padding_px = 120
+
+    center, zoom = zoom_for_bounding_box(
+        points, padding_px=padding_px, min_width_km=1, canvas_size=canvas_size
+    )
+
+    for latitude, longitude in points:
+        x, y = lonlat_to_pixel(
+            latitude, longitude, center=center, zoom=zoom, canvas_size=canvas_size
+        )
+        assert padding_px <= x <= canvas_size[0] - padding_px
+        assert padding_px <= y <= canvas_size[1] - padding_px
+
+
+def test_zoom_for_bounding_box_more_padding_never_zooms_in_tighter():
+    points = [(53.40, 9.80), (53.70, 10.30)]
+
+    _center, unpadded_zoom = zoom_for_bounding_box(
+        points, padding_px=0, min_width_km=1, canvas_size=(1600, 1200)
+    )
+    _padded_center, padded_zoom = zoom_for_bounding_box(
+        points, padding_px=300, min_width_km=1, canvas_size=(1600, 1200)
+    )
+
+    assert padded_zoom <= unpadded_zoom

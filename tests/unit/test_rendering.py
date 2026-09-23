@@ -12,17 +12,13 @@ from scripts.rkby_maps.rendering import (
     HOVER_PHOTO_MAX_PX,
     NEUTRAL_COLOR,
     PHOTO_DIAMETER_PX,
-    PHOTO_OFFSET_FRACTION,
     PIN_RADIUS_PX,
     ROLE_COLORS,
     crop_circular_photo,
     draw_attribution,
-    draw_merged_pin,
-    draw_offset_photo_circles,
     draw_photo_circle,
     draw_pin,
     draw_scale_bar,
-    merged_role_color,
     role_color,
     scale_to_hover_size,
 )
@@ -235,76 +231,3 @@ def test_draw_photo_circle_leaves_pixels_far_outside_it_untouched():
 
     far_x = 100 + PHOTO_DIAMETER_PX
     assert canvas.getpixel((far_x, 75)) == BACKGROUND
-
-
-# --- FR-013 fallback rendering: merged pin + multiplicity badge -------------------
-
-
-def test_merged_role_color_returns_the_shared_color_for_a_single_role_group():
-    group = [{"role": "Rider"}, {"role": "Rider"}, {"role": "Rider"}]
-
-    assert merged_role_color(group) == role_color("Rider")
-
-
-def test_merged_role_color_returns_neutral_for_a_mixed_role_group():
-    group = [{"role": "Rider"}, {"role": "Supporter"}]
-
-    assert merged_role_color(group) == NEUTRAL_COLOR
-
-
-def test_draw_merged_pin_colors_the_pin_center():
-    canvas = _blank_canvas()
-    draw_merged_pin(canvas, (100, 75), count=3, color="#4C8C86")
-
-    assert canvas.getpixel((100, 75)) == _hex_to_rgb("#4C8C86")
-
-
-def test_draw_merged_pin_draws_a_distinguishable_badge_near_the_pin():
-    canvas = _blank_canvas()
-    draw_merged_pin(canvas, (100, 75), count=3, color="#4C8C86")
-
-    # The badge sits offset to the pin's upper-right (research.md §8) -- some
-    # pixel there must differ from both the background and the pin's own
-    # fill color, proving a distinct badge shape was drawn. The region below
-    # is the whole upper-right quadrant relative to the pin center, generous
-    # enough to contain the badge at any PIN_RADIUS_PX.
-    region = canvas.crop((100, 0, 200, 75))
-    region_colors = {pixel for pixel in region.getdata()}
-    assert region_colors - {BACKGROUND, _hex_to_rgb("#4C8C86")}
-
-
-# --- FR-013 fallback rendering: offset (not stacked) photo circles ---------------
-
-
-def test_draw_offset_photo_circles_places_the_first_circle_at_the_given_position():
-    canvas = _blank_canvas()
-    circles = [crop_circular_photo(SAMPLE_PHOTO_PATH)]
-
-    draw_offset_photo_circles(canvas, (100, 75), circles)
-
-    assert canvas.getpixel((100, 75)) == SAMPLE_PHOTO_COLOR
-
-
-def test_draw_offset_photo_circles_offsets_each_additional_circle_by_the_offset_fraction():
-    canvas = _blank_canvas()
-    circles = [crop_circular_photo(SAMPLE_PHOTO_PATH) for _ in range(2)]
-    offset_step = round(PHOTO_DIAMETER_PX * PHOTO_OFFSET_FRACTION)
-
-    draw_offset_photo_circles(canvas, (60, 75), circles)
-
-    assert canvas.getpixel((60, 75)) == SAMPLE_PHOTO_COLOR  # first circle
-    assert canvas.getpixel((60 + offset_step, 75)) == SAMPLE_PHOTO_COLOR  # second
-
-
-def test_draw_offset_photo_circles_does_not_fully_stack_two_circles():
-    # If circles were stacked (no offset) rather than side-by-side, the
-    # region exactly one full diameter to the right of the first circle
-    # would still be background -- offsetting by PHOTO_OFFSET_FRACTION
-    # instead of 100% means it must already be covered by the second circle.
-    canvas = _blank_canvas()
-    circles = [crop_circular_photo(SAMPLE_PHOTO_PATH) for _ in range(2)]
-
-    draw_offset_photo_circles(canvas, (60, 75), circles)
-
-    just_past_first_circle_edge = 60 + PHOTO_DIAMETER_PX // 2 + 2
-    assert canvas.getpixel((just_past_first_circle_edge, 75)) == SAMPLE_PHOTO_COLOR

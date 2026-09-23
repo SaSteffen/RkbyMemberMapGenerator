@@ -42,15 +42,20 @@ privately, inside `scripts/generate_member_maps.py` into a new shared module
 - `CANVAS_SIZE`, `DEFAULT_MIN_WIDTH_KM` — unchanged values, moved as-is.
 - `DETAIL_MAP_PADDING_KM` / `DETAIL_MAP_EDGE_MARGIN_PX` → renamed `PADDING_KM` /
   `EDGE_MARGIN_PX` (no longer detail-map-specific once a second caller uses them for
-  cluster maps).
+  cluster maps). *Both are gone post-launch*, replaced by a single `FRAME_PADDING_PX`
+  (002 research.md §5 addendum); this feature's callers moved with them.
 - `_pixel_positions` → `pixel_positions` (public).
-- `_group_position` → `group_position` (public).
+- `_group_position` → `group_position` (public). *Removed post-launch* — the centroid
+  math moved into `rkby_maps/declutter.py` (002 research.md §8 addendum).
 - `_records_within_frame` → `records_within_frame` (public) — this is the exact
   function FR-005 needs: "other current-season members of any role who fall within
   the same geographic area," already implemented for 002's own detail maps.
 - `_draw_pin_layer` → `render_pin_layer` (public) — draws individual role-colored
-  pins plus merged fallback pins for same-scale overlaps (FR-014-style handling),
-  already implemented for 002.
+  pins, with same-scale overlaps handled by 002's own overlap rendering (FR-014-style
+  handling), already implemented for 002. *Post-launch* that handling is a decluttered
+  grid rather than a merged fallback pin (002 research.md §8 addendum), and this
+  feature renders faces via `render_photo_layer` rather than pins — both changes reach
+  it through the shared module, with no separate decision here.
 - `_overview_center_and_zoom` → `overview_center_and_zoom` (public) — bounding-box
   framing with the empty-member-set fallback to Germany's geographic center
   (`DEFAULT_CENTER`), already implemented for 002's overview map and directly reusable

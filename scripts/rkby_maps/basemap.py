@@ -70,7 +70,7 @@ def zoom_for_min_width_km(
 
 def zoom_for_bounding_box(
     points: list[tuple[float, float]],
-    padding_km: float,
+    padding_px: float,
     min_width_km: float,
     canvas_size: tuple[int, int],
     max_zoom: int = 19,
@@ -78,20 +78,33 @@ def zoom_for_bounding_box(
     """Center on the midpoint of `points`' bounding box and pick the
     tightest integer zoom whose covered width is still >= `max(min_width_km,
     required_width)`, where `required_width` is the box's own span (aspect-
-    corrected to the canvas) plus a fixed padding margin on each side
-    (research.md §5). A single point has zero span, so `required_width`
-    collapses to just the padding and `min_width_km` is the effective
-    floor."""
+    corrected to the canvas) widened so the box fits inside the canvas
+    *minus* `padding_px` on every side (research.md §5). A single point has
+    zero span, so `min_width_km` is the effective floor.
+
+    The padding is a pixel margin rather than a real-world one because it
+    exists to keep a marker drawn on the bounding box's own edge from being
+    clipped by the canvas border -- and a marker's size is fixed in pixels,
+    whatever the map's scale. This is the same framing the interactive map
+    does through Leaflet's `fitBounds(..., {padding})` (main.js
+    MEMBER_FIT_PADDING), where a fixed real-world margin would likewise be
+    far too small when zoomed out and needlessly large when zoomed in."""
     lats = [point[0] for point in points]
     lons = [point[1] for point in points]
     center = ((min(lats) + max(lats)) / 2, (min(lons) + max(lons)) / 2)
 
     canvas_width_px, canvas_height_px = canvas_size
-    aspect_ratio = canvas_width_px / canvas_height_px
+    usable_width_px = max(canvas_width_px - 2 * padding_px, 1)
+    usable_height_px = max(canvas_height_px - 2 * padding_px, 1)
 
     lat_span_km = (max(lats) - min(lats)) * 111.32
     lon_span_km = (max(lons) - min(lons)) * 111.32 * math.cos(math.radians(center[0]))
-    required_width_km = max(lon_span_km, lat_span_km * aspect_ratio) + 2 * padding_km
+    # Both spans are expressed as the *full-canvas* width they imply once the
+    # padded-away pixels no longer count toward covering them.
+    required_width_km = max(
+        lon_span_km * canvas_width_px / usable_width_px,
+        lat_span_km * canvas_width_px / usable_height_px,
+    )
     target_width_km = max(min_width_km, required_width_km)
 
     zoom = zoom_for_min_width_km(

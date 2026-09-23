@@ -49,14 +49,16 @@ behind (data-model.md § Local Data Repository, "Idempotency").
 - **Detail map membership** (FR-021): a detail map shows every eligible member who
   falls within its rendered area, not just the overlap group that triggered it — the
   `--min-width-km` floor routinely makes that area wider than the triggering group
-  alone. A member landing within a small margin of the map's own edge is left off that
-  specific map instead of drawn clipped or crowded against the border; they remain
-  visible on the overview (research.md §5).
-- **Overlap fallback** (FR-013, applies on whichever map(s) a still-overlapping group
-  appears on — an overview if no detail map was generated for it per FR-014, or a
-  detail map that couldn't fully resolve it per research.md §5): pin variant shows one
-  merged pin plus a small numeric multiplicity badge; photo variant shows the group's
-  photo circles offset side-by-side (research.md §8).
+  alone. Everyone who lands on the canvas is drawn, however close to its edge — framing
+  keeps FR-022's one-marker margin free around the box the map is built from, so an
+  edge member's marker still fits whole (research.md §5 + its addendum).
+- **Overlap decluttering** (FR-013, applies on whichever map(s) a still-overlapping
+  group appears on — an overview if no detail map was generated for it per FR-014, or a
+  detail map that couldn't fully resolve it per research.md §5): both variants pack the
+  group into a compact grid centered on its shared position, one cell per member at one
+  marker-diameter spacing, every member keeping their own full-size marker — never a
+  merged marker, never a partly covered face (research.md §8 addendum). Identical to the
+  interactive photo map's own decluttering (spec 003).
 - **Scale bar**: bottom-right corner, a labeled ruler bar (e.g. `"5 km"`) reflecting
   that specific map's actual rendered scale (research.md §6). Present by default,
   absent for a whole run when `--no-scale-bar` is passed.

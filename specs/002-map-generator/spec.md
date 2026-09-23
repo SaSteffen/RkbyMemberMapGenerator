@@ -116,13 +116,13 @@ shows a readable stand-in for the whole cluster.
 2. **Given** exactly two members whose markers would overlap at the overview scale and
    who share the exact same address, **When** the map generator runs, **Then** no
    detail map is generated for that pair — they are rendered directly on whichever map
-   they appear on using the overlap fallback (merged multiplicity pin, or side-by-side
-   photos).
+   they appear on, decluttered side by side so both markers stay whole and individually
+   visible.
 3. **Given** an overlap remains even at the configured minimum map width (e.g., a pair
    sharing one address within a larger cluster), **When** the map generator renders
-   that map, **Then** the pin variant shows one merged pin at the shared position with
-   a multiplicity badge showing the count, and the photo variant shows the affected
-   members' circular photos offset next to each other instead of stacked.
+   that map, **Then** both variants spread the affected members' markers into a
+   compact grid centered on their shared position, each member keeping their own
+   full-size marker (their own pin color, their own whole photo).
 
 ---
 
@@ -139,12 +139,11 @@ shows a readable stand-in for the whole cluster.
   Principle I).
 - Two or more members share the exact same address → they always overlap regardless of
   zoom; never spawn a detail map for a group that is *only* that shared-address set
-  (zooming in further cannot separate them) — render them with the overlap fallback
-  wherever they appear.
+  (zooming in further cannot separate them) — declutter them into a grid wherever they
+  appear.
 - A cluster is large enough that even a detail map at the configured minimum width
-  still has internal overlaps → those specific overlapping members use the fallback
-  rendering (merged pin / offset photos) on that detail map; the generator does not
-  recurse into further detail maps.
+  still has internal overlaps → those specific overlapping members are decluttered into
+  a grid on that detail map; the generator does not recurse into further detail maps.
 - A season folder exists but has zero members with usable addresses → an overview map
   is still produced if reasonably possible showing an empty/near-empty result is
   acceptable, and the run logs that nothing could be plotted rather than failing.
@@ -196,14 +195,24 @@ shows a readable stand-in for the whole cluster.
   the identical address (see FR-014), the system MUST generate an additional detail
   map (per variant) zoomed in enough to resolve that overlap, while still respecting
   the FR-010 minimum width.
-- **FR-013**: On any map where an overlap cannot be resolved by zooming (i.e. persists
-  at the FR-010 minimum width, such as members sharing one exact address), the system
-  MUST fall back to: a single merged pin with a multiplicity badge showing the member
-  count for the pin variant, and members' circular photos offset to sit next to each
-  other (not stacked) for the photo variant.
+- **FR-013** *(revised post-launch — see research.md §8 Addendum)*: On any map where an
+  overlap cannot be resolved by zooming (i.e. persists at the FR-010 minimum width, such
+  as members sharing one exact address), the system MUST spread the affected members'
+  markers into a compact grid centered on the group's shared position, spaced far enough
+  apart that no two members of that group still overlap, with every member keeping their
+  own full-size marker. No member may be hidden behind, merged into, or partly covered
+  by another member's marker. This MUST behave identically on both variants, and MUST
+  match the interactive photo map's own decluttering (spec 003), so one group reads the
+  same way in both artifacts.
+
+  *Originally this required the opposite:* a single **merged** pin carrying a
+  multiplicity badge (pin variant), and a row of circular photos each offset by a
+  fraction of a diameter (photo variant). Both hid which specific members were there —
+  the merged pin by construction, the offset row by covering every face but the last —
+  which is the one thing these maps exist to show.
 - **FR-014**: The system MUST NOT generate a detail map for an overlap group that
   consists of exactly two members sharing the identical address — such a pair is
-  always rendered via the FR-013 fallback wherever it appears, never given its own
+  always rendered decluttered per FR-013 wherever it appears, never given its own
   detail map.
 - **FR-015**: The system MUST write all generated map images into one top-level maps
   folder in the local data directory (identified by the existing `RKBY_DATA_DIR`
@@ -231,10 +240,21 @@ shows a readable stand-in for the whole cluster.
   render every other resolvable member of that season/variant whose marker position
   falls within that area — not just the overlap group that triggered the map — since
   the FR-010 minimum width commonly makes a detail map's covered area wider than the
-  triggering group alone. A member whose marker would fall within a small margin of the
-  map's own edge MUST instead be omitted from that specific detail map rather than
-  rendered clipped or crowded against the border; they remain visible on the overview
-  (and any detail map whose area does comfortably contain them).
+  triggering group alone. Every such member MUST be drawn, including one whose marker
+  lands close to the map's own edge — matching the interactive photo map (spec 003),
+  where every member inside the viewport is rendered no matter where in it they sit.
+
+  *Originally* a member landing within a small margin of the border was omitted from
+  that specific map instead, to avoid rendering them clipped or crowded. Clipping is now
+  prevented at its actual cause (FR-022's framing margin), so a member who is on a map
+  has no reason to be left off it.
+- **FR-022** *(added post-launch — see research.md §5 Addendum)*: Every generated map
+  (overview and detail) MUST be framed so that a margin at least one full marker wide is
+  kept free between the bounding box the map is built from and the canvas border, so a
+  member sitting on that box's own edge still gets their whole marker drawn inside the
+  image. That margin MUST be a fixed pixel distance rather than a real-world one, since
+  a marker's size is fixed in pixels whatever the map's scale — the same fit-to-bounds
+  padding the interactive photo map (spec 003) applies.
 
 ### Key Entities
 
@@ -250,7 +270,7 @@ shows a readable stand-in for the whole cluster.
   specific geographic area at a specific scale.
 - **Overlap Group / Cluster**: A set of two or more members whose map markers would
   visually overlap at a given map's scale; drives whether a detail map is generated
-  (FR-012) and whether fallback rendering applies (FR-013).
+  (FR-012) and how the group's markers are laid out where one isn't (FR-013).
 
 ## Success Criteria *(mandatory)*
 
@@ -262,9 +282,11 @@ shows a readable stand-in for the whole cluster.
 - **SC-002**: Every member skipped from a map (missing or unresolvable address) is
   individually identifiable from the run's log output, with zero skipped members
   causing the run to stop early. A missing photo never causes a skip (FR-020).
-- **SC-003**: On every generated map, no two distinct members' markers visually
-  overlap — each is either spatially separated, resolved onto its own detail map, or
-  shown via the multiplicity/offset fallback.
+- **SC-003**: On every generated map, each member's own marker is drawn in full and is
+  individually identifiable — never merged into another member's, never partly covered
+  by one. Members whose markers would collide are either spatially separated, resolved
+  onto their own detail map, or decluttered into a grid that leaves no two members of
+  that group overlapping (FR-013).
 - **SC-004**: A viewer with no access to the underlying data can read the real-world
   distance between two members' markers on any map using only the on-map scale
   indicator (when enabled).
@@ -290,12 +312,13 @@ shows a readable stand-in for the whole cluster.
   diameter) — i.e., two members overlap on a given map if their geographic distance,
   projected at that map's scale, is smaller than the combined radius of their two
   markers. This is the single criterion driving both detail-map creation (FR-012) and
-  the fallback rendering (FR-013), and it naturally terminates recursion since the
+  the decluttering (FR-013), and it naturally terminates recursion since the
   minimum map width (FR-010) puts a floor on how far zooming in can shrink an overlap.
 - **Detail map framing**: A detail map is centered on the overlapping group and sized
-  to the smallest width that both resolves the overlap and respects the FR-010 minimum
-  width; if the minimum width itself is too wide to resolve the overlap, FR-013's
-  fallback rendering applies instead of an ever-tighter detail map. Whoever else falls
+  to the smallest width that resolves the overlap, keeps FR-022's margin free around the
+  group, and respects the FR-010 minimum width; if the minimum width itself is too wide
+  to resolve the overlap, FR-013's decluttering applies instead of an ever-tighter
+  detail map. Whoever else falls
   inside that resulting area is drawn on the map too (FR-021), since the minimum width
   floor routinely makes the area wider than the group that triggered it.
 - **Detail map file naming**: Detail map filenames additionally include a

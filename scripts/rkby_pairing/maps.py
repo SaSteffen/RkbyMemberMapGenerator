@@ -56,7 +56,7 @@ def render_cluster_map(
     points = [(record["latitude"], record["longitude"]) for record in cluster_records]
     center, zoom = zoom_for_bounding_box(
         points,
-        padding_km=pin_map.PADDING_KM,
+        padding_px=pin_map.FRAME_PADDING_PX,
         min_width_km=pin_map.DEFAULT_MIN_WIDTH_KM,
         canvas_size=pin_map.CANVAS_SIZE,
     )
@@ -66,7 +66,6 @@ def render_cluster_map(
         center=center,
         zoom=zoom,
         canvas_size=pin_map.CANVAS_SIZE,
-        edge_margin_px=pin_map.EDGE_MARGIN_PX,
     )
 
     canvas = stitch_basemap(

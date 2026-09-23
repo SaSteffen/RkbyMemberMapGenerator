@@ -117,8 +117,8 @@ includes one overview map on which members of all three roles appear.
   report.
 - Two riders share the exact same address (already a recognized case in the existing
   member-map generator): they still form their own two-member Training Cluster and
-  its map renders them as one merged marker rather than trying to zoom in far enough
-  to visually separate two identical points.
+  its map declutters them side by side rather than trying to zoom in far enough to
+  visually separate two identical points.
 - A single Training Cluster is very large (e.g., most of the season's riders live in
   one metro area): its map still renders sensibly, using the same map-sizing behavior
   the existing member-map generator already applies to large groups.

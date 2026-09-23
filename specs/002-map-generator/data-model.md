@@ -68,14 +68,14 @@ produces in a run:
 
 Computed independently for each `(season, variant, map)` combination (research.md §4).
 Not written to disk in any form; exists only during rendering to decide (a) whether a
-detail map is generated for that group (FR-012), and (b) whether the FR-013 fallback
-rendering applies on whichever map(s) that group appears on.
+detail map is generated for that group (FR-012), and (b) how the group's markers are
+decluttered (FR-013) on whichever map(s) that group appears on.
 
 | Field | Type | Notes |
 |---|---|---|
 | `members` | list of Member Location | Size ≥ 2 by definition (connected component). |
-| `same_address_pair` | bool | True iff exactly 2 members, identical `address` string (FR-014) — short-circuits detail-map generation for this group entirely; it's rendered via the FR-013 fallback wherever it naturally appears, with no detail map ever attempted for it. |
-| `resolved_at_detail_width` | bool | Set after rendering the group's detail map (when one is generated): whether the overlap was fully resolved at `max(min_width_km, required_width_km)` (research.md §5). False triggers the FR-013 fallback on that detail map instead of further recursion. |
+| `same_address_pair` | bool | True iff exactly 2 members, identical `address` string (FR-014) — short-circuits detail-map generation for this group entirely; it's rendered decluttered (FR-013) wherever it naturally appears, with no detail map ever attempted for it. |
+| `resolved_at_detail_width` | bool | Conceptual only, never a stored field: whether an overlap was fully resolved at the group's detail-map width `max(min_width_km, required_width_km)` (research.md §5). A subset still overlapping there is simply decluttered on that detail map (FR-013) instead of recursing into an ever-tighter one. |
 
 ## Tile Cache Entry
 

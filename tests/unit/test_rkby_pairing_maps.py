@@ -20,9 +20,10 @@ from scripts.rkby_maps.basemap import (
     zoom_for_bounding_box,
     zoom_for_min_width_km,
 )
+from scripts.rkby_maps.declutter import declutter_positions
 from scripts.rkby_maps.rendering import (
     PHOTO_DIAMETER_PX,
-    PHOTO_OFFSET_FRACTION,
+    PHOTO_RADIUS_PX,
     PLACEHOLDER_PHOTO_PATH,
     crop_circular_photo,
 )
@@ -139,7 +140,7 @@ def test_render_cluster_map_always_draws_every_cluster_members_own_photo(tmp_pat
 
     center, zoom = zoom_for_bounding_box(
         [(53.55, 9.99), (53.55, 10.0)],
-        padding_km=pin_map.PADDING_KM,
+        padding_px=pin_map.FRAME_PADDING_PX,
         min_width_km=pin_map.DEFAULT_MIN_WIDTH_KM,
         canvas_size=pin_map.CANVAS_SIZE,
     )
@@ -160,11 +161,11 @@ def test_render_cluster_map_draws_an_eligible_member_of_another_role_inside_the_
     cluster = TrainingCluster(member_match_keys=["jane"], centroid=(53.55, 9.99))
     center, zoom = zoom_for_bounding_box(
         [(53.55, 9.99)],
-        padding_km=pin_map.PADDING_KM,
+        padding_px=pin_map.FRAME_PADDING_PX,
         min_width_km=pin_map.DEFAULT_MIN_WIDTH_KM,
         canvas_size=pin_map.CANVAS_SIZE,
     )
-    appearing_lon = _lon_at_pixel_x(center, zoom, pin_map.EDGE_MARGIN_PX + 150)
+    appearing_lon = _lon_at_pixel_x(center, zoom, 150)
     eligible_pool = [
         _member("jane", 53.55, 9.99, photo=None),
         _member("supporter-b", center[0], appearing_lon, photo="photos/supporter.jpg"),
@@ -215,7 +216,7 @@ def test_render_cluster_map_single_member_cluster_returns_a_valid_canvas_sized_i
 
 
 @responses.activate
-def test_render_cluster_map_merges_two_overlapping_members_into_offset_photo_circles(
+def test_render_cluster_map_declutters_two_overlapping_members_into_a_grid(
     tmp_path,
 ):
     _write_photo(tmp_path, "photos/jane.jpg")
@@ -236,17 +237,19 @@ def test_render_cluster_map_merges_two_overlapping_members_into_offset_photo_cir
 
     center, zoom = zoom_for_bounding_box(
         [(53.55, 9.99), (53.55, 9.99)],
-        padding_km=pin_map.PADDING_KM,
+        padding_px=pin_map.FRAME_PADDING_PX,
         min_width_km=pin_map.DEFAULT_MIN_WIDTH_KM,
         canvas_size=pin_map.CANVAS_SIZE,
     )
     positions = pin_map.pixel_positions(eligible_pool, center, zoom)
-    x, y = pin_map.group_position(["jane", "john"], positions)
-    offset_step = round(PHOTO_DIAMETER_PX * PHOTO_OFFSET_FRACTION)
-    # Two side-by-side circles (FR-013-style overlap fallback), not one pin
-    # covering the other.
-    assert image.getpixel((round(x), round(y))) == SAMPLE_PHOTO_COLOR
-    assert image.getpixel((round(x) + offset_step, round(y))) == SAMPLE_PHOTO_COLOR
+    decluttered, _groups = declutter_positions(positions, marker_radius=PHOTO_RADIUS_PX)
+    # Two fully-visible circles, spaced a full diameter apart by the same
+    # decluttering the interactive map uses -- neither covering the other,
+    # neither cropped by the other's overlap.
+    for match_key in ("jane", "john"):
+        x, y = decluttered[match_key]
+        assert image.getpixel((round(x), round(y))) == SAMPLE_PHOTO_COLOR
+    assert abs(decluttered["jane"][0] - decluttered["john"][0]) == PHOTO_DIAMETER_PX
 
 
 @responses.activate
@@ -273,7 +276,7 @@ def test_render_cluster_map_wider_than_min_width_km_frames_around_its_own_boundi
 
     expected_center, expected_zoom = zoom_for_bounding_box(
         points,
-        padding_km=pin_map.PADDING_KM,
+        padding_px=pin_map.FRAME_PADDING_PX,
         min_width_km=pin_map.DEFAULT_MIN_WIDTH_KM,
         canvas_size=pin_map.CANVAS_SIZE,
     )

@@ -1,6 +1,7 @@
 """Pins, role colors, scale bar, OSM attribution, and circular photo cropping
-(research.md §6-8). Overlap-fallback rendering is added by a later phase
-(US3) in this same module."""
+(research.md §6-8). Overlapping members are no longer drawn by a fallback
+marker of their own -- `rkby_maps.declutter` spreads them out so each one
+gets an ordinary pin/photo circle from here instead."""
 
 from __future__ import annotations
 
@@ -17,11 +18,6 @@ RESOLUTION_SCALE = 2
 PIN_RADIUS_PX = 10 * RESOLUTION_SCALE
 PHOTO_DIAMETER_PX = 48 * RESOLUTION_SCALE
 PHOTO_RADIUS_PX = PHOTO_DIAMETER_PX // 2
-# Fraction of the photo diameter each additional overlapping member's circle
-# is offset by (research.md §8: "offset... so faces stay individually
-# visible instead of fully stacking"). Higher = less overlap between
-# adjacent circles.
-PHOTO_OFFSET_FRACTION = 0.8
 
 # Matches the ~8px cap-height of PIL's fixed default bitmap font at
 # RESOLUTION_SCALE == 1, so text keeps the same on-map proportions as before
@@ -205,71 +201,3 @@ def draw_photo_circle(
     radius = circular_photo.width / 2
     paste_position = (round(x - radius), round(y - radius))
     image.paste(circular_photo, paste_position, mask=circular_photo)
-
-
-# --- FR-013 fallback rendering (research.md §8) -----------------------------------
-
-
-def merged_role_color(records: list[dict]) -> str:
-    """The shared role color if every member of an overlap group has the
-    same role, otherwise the neutral color to signal a mixed group."""
-    roles = {role_color(record.get("role")) for record in records}
-    if len(roles) == 1:
-        return roles.pop()
-    return NEUTRAL_COLOR
-
-
-def draw_merged_pin(
-    image: Image.Image,
-    position: tuple[float, float],
-    count: int,
-    color: str,
-    radius: int = PIN_RADIUS_PX,
-) -> None:
-    """Draw one merged pin at `position` plus a small counter badge offset
-    to its upper-right (research.md §8) -- the standard map-marker-cluster
-    visual language."""
-    draw_pin(image, position, color=color, radius=radius)
-
-    x, y = position
-    badge_radius = max(round(radius * 0.7), 6 * RESOLUTION_SCALE)
-    badge_center = (x + radius + badge_radius, y - radius - badge_radius)
-    draw = ImageDraw.Draw(image)
-    draw.ellipse(
-        (
-            badge_center[0] - badge_radius,
-            badge_center[1] - badge_radius,
-            badge_center[0] + badge_radius,
-            badge_center[1] + badge_radius,
-        ),
-        fill="black",
-    )
-    label = str(count)
-    font = _default_font()
-    text_bbox = draw.textbbox((0, 0), label, font=font)
-    text_width = text_bbox[2] - text_bbox[0]
-    text_height = text_bbox[3] - text_bbox[1]
-    draw.text(
-        (
-            badge_center[0] - text_width / 2,
-            badge_center[1] - text_height / 2 - 2 * RESOLUTION_SCALE,
-        ),
-        label,
-        fill="white",
-        font=font,
-    )
-
-
-def draw_offset_photo_circles(
-    image: Image.Image,
-    position: tuple[float, float],
-    circular_photos: list[Image.Image],
-) -> None:
-    """Draw each member's circular photo at the shared `position`, offset
-    horizontally by `PHOTO_OFFSET_FRACTION` of the circle's diameter per
-    additional member (research.md §8) so faces stay individually visible
-    instead of fully stacking."""
-    x, y = position
-    for index, circular_photo in enumerate(circular_photos):
-        offset_step = round(circular_photo.width * PHOTO_OFFSET_FRACTION)
-        draw_photo_circle(image, (x + index * offset_step, y), circular_photo)

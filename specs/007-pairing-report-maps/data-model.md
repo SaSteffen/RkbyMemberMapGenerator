@@ -59,21 +59,26 @@ identical function `rkby_pairing/eligibility.py` already exposes.
 least one member — i.e., every cluster, since the minimum is now 1).
 
 **Framing** (FR-003, research.md §2 promoted helpers):
-- `center, zoom = zoom_for_bounding_box(cluster_member_points, padding_km=PADDING_KM,
-  min_width_km=DEFAULT_MIN_WIDTH_KM, canvas_size=CANVAS_SIZE)` — identical sizing
-  formula 002 already uses for its own detail maps (handles the "very large single
-  cluster" Edge Case by widening past the floor as needed).
+- `center, zoom = zoom_for_bounding_box(cluster_member_points,
+  padding_px=FRAME_PADDING_PX, min_width_km=DEFAULT_MIN_WIDTH_KM,
+  canvas_size=CANVAS_SIZE)` — identical sizing formula 002 already uses for its own
+  detail maps (handles the "very large single cluster" Edge Case by widening past the
+  floor as needed). *Post-launch*, that padding is one marker wide in pixels rather
+  than `padding_km=PADDING_KM` (002 research.md §5 addendum).
 - `frame_records = records_within_frame(eligible_member_pool, always_include=
-  set(cluster.member_match_keys), center, zoom, canvas_size=CANVAS_SIZE, edge_margin_px
-  =EDGE_MARGIN_PX)` — the cluster's own riders are always drawn (they define the
-  frame); any other eligible member (any role) whose position lands inside the frame
-  is drawn too (FR-005), consistent with how 002's own detail maps already behave.
+  set(cluster.member_match_keys), center, zoom, canvas_size=CANVAS_SIZE)` — the
+  cluster's own riders are always drawn (they define the frame); any other eligible
+  member (any role) whose position lands inside the frame is drawn too (FR-005),
+  consistent with how 002's own detail maps already behave. *Post-launch*, "inside the
+  frame" means anywhere on the canvas: the `edge_margin_px=EDGE_MARGIN_PX` exclusion is
+  gone (002 research.md §5 addendum).
 
-**Rendering** *(updated post-launch — faces, not pins)*: `render_photo_layer(s_dir,
-canvas, frame_records, center, zoom)` — individual circular member photos (the Team
-Rynkeby mascot standing in for anyone without a photo on file), with same-scale
-overlaps (including the exact-same-address pair Edge Case) drawn as offset side-by-side
-circles exactly as 002's own photo maps already render, via the promoted
+**Rendering** *(updated post-launch — faces, not pins; then decluttered grids, not
+offset circles)*: `render_photo_layer(s_dir, canvas, frame_records, center, zoom)` —
+individual circular member photos (the Team Rynkeby mascot standing in for anyone
+without a photo on file), with same-scale overlaps (including the exact-same-address
+pair Edge Case) decluttered into a compact grid, each face drawn whole, exactly as
+002's own photo maps already render (002 research.md §8 addendum), via the promoted
 `scripts.rkby_maps.photo_map` module (mirrors `pin_map.py`'s promotion, Decision 2).
 
 **Output**: `<RKBY_DATA_DIR>/reports/maps/cluster_<n>.png`, `<n>` = this cluster's
@@ -96,9 +101,10 @@ already uses (falls back to `DEFAULT_CENTER`, geographic center of Germany, and 
 `min_width_km` floor's zoom when `eligible_member_pool` is empty — Acceptance
 Scenario 3.3).
 
-**Rendering** *(updated post-launch — faces, not pins)*: `render_photo_layer(s_dir,
-canvas, eligible_member_pool, center, zoom)` — same circular-photo/overlap-offset
-rendering as Cluster Maps, over the full pool instead of one cluster's frame.
+**Rendering** *(updated post-launch — faces, not pins; then decluttered grids, not
+offset circles)*: `render_photo_layer(s_dir, canvas, eligible_member_pool, center,
+zoom)` — same circular-photo/declutter rendering as Cluster Maps, over the full pool
+instead of one cluster's frame.
 
 **Output**: `<RKBY_DATA_DIR>/reports/maps/overview.png`.
 

@@ -14,7 +14,7 @@ via Nominatim (caching the result back into their record, once, forever), and re
 two PNG map variants per season — role-colored pins and circular member photos — onto
 an in-house-fetched OpenStreetMap raster basemap. It detects marker overlaps at each
 map's rendered scale and spawns additional zoomed-in detail maps for crowded areas
-(down to a configurable minimum covered width), falling back to a merged/offset
+(down to a configurable minimum covered width), falling back to a decluttered-grid
 rendering where even that minimum can't fully separate a group. All output lands in a
 gitignored `maps/` folder, split into `pins/`/`photos/` variant subfolders, inside the
 same `RKBY_DATA_DIR` the scraper already uses. See research.md for every technical
@@ -134,7 +134,7 @@ scripts/
 │   ├── basemap.py                   # Web Mercator projection + OSM tile fetch/stitch/cache
 │   │                                 #   (research.md §1, §2, §5, §6)
 │   ├── clustering.py                # overlap graph / connected components (research.md §4)
-│   └── rendering.py                 # pins, photo circles, fallback badges/offsets, scale
+│   └── rendering.py                 # pins, photo circles, scale
 │                                     #   bar, attribution, photo circular crop (research.md §6–8)
 └── schemas/
     └── applicant_record.schema.json # extended in place: + latitude/longitude (shared with 001)
@@ -146,9 +146,9 @@ tests/
 │   ├── test_basemap.py              # projection math, meters-per-pixel, zoom-from-width,
 │   │                                 #   tile fetch/stitch/cache (mocked HTTP)
 │   ├── test_clustering.py           # overlap graph, same-address special case (FR-014),
-│   │                                 #   unresolved-at-min-width fallback trigger
+│   │                                 #   unresolved-at-min-width declutter trigger
 │   ├── test_rendering.py            # role-color pins, photo crop, scale bar, attribution,
-│   │                                 #   fallback badge/offset rendering — pixel-level asserts
+│   │                                 #   declutter-grid rendering — pixel-level asserts
 │   └── test_generate_member_maps_cli.py  # arg parsing, defaults, no season/variant switches
 └── fixtures/
     ├── nominatim_response_*.json    # mocked geocoder responses (match / no-match)

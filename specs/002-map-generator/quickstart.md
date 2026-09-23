@@ -64,8 +64,8 @@ ls "$RKBY_DATA_DIR"/maps/pins/2025_26_detail_* "$RKBY_DATA_DIR"/maps/photos/2025
 **Expect**: a `2025_26_detail_pins_<slug>.png` and/or
 `2025_26_detail_photos_<slug>.png` file exists, zoomed in enough that those members'
 markers no longer overlap on it (unless the group is still too tight even at
-`--min-width-km`'s floor — then check that map for the FR-013 fallback rendering
-instead, per `contracts/map-output.md` § Visual contract).
+`--min-width-km`'s floor — then check that map for FR-013's decluttered grid instead,
+per `contracts/map-output.md` § Visual contract).
 
 ## Scenario 4 — Exact same-address pair never gets its own detail map (FR-014)
 
@@ -78,8 +78,8 @@ ls "$RKBY_DATA_DIR"/maps/pins/2025_26_detail_* "$RKBY_DATA_DIR"/maps/photos/2025
 
 **Expect**: no detail map is generated for that pair specifically (other, unrelated
 clusters in the same run may still produce their own detail maps) — the pair appears
-on whichever overview/detail map it naturally falls on, rendered via the FR-013
-fallback (merged pin+badge, or offset photo circles).
+on whichever overview/detail map it naturally falls on, decluttered per FR-013 so both
+members keep their own whole marker side by side.
 
 ## Scenario 5 — `--min-width-km` and `--no-scale-bar`
 

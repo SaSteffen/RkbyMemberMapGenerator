@@ -10,9 +10,10 @@ from pathlib import Path
 from PIL import Image
 
 from scripts.rkby_maps import photo_map, pin_map
+from scripts.rkby_maps.declutter import declutter_positions
 from scripts.rkby_maps.rendering import (
     PHOTO_DIAMETER_PX,
-    PHOTO_OFFSET_FRACTION,
+    PHOTO_RADIUS_PX,
     PLACEHOLDER_PHOTO_PATH,
     crop_circular_photo,
 )
@@ -91,7 +92,7 @@ def test_render_photo_layer_draws_an_individual_photo_circle_per_record(tmp_path
     )
 
 
-def test_render_photo_layer_draws_offset_circles_for_an_overlapping_group(tmp_path):
+def test_render_photo_layer_declutters_an_overlapping_group_into_a_grid(tmp_path):
     (tmp_path / "photos").mkdir()
     (tmp_path / "photos" / "jane.jpg").write_bytes(SAMPLE_PHOTO_PATH.read_bytes())
     (tmp_path / "photos" / "john.jpg").write_bytes(SAMPLE_PHOTO_PATH.read_bytes())
@@ -108,11 +109,14 @@ def test_render_photo_layer_draws_offset_circles_for_an_overlapping_group(tmp_pa
         tmp_path, canvas, records, center, zoom
     )
 
-    assert groups == [["jane", "john"]] or groups == [["john", "jane"]]
+    assert [sorted(group) for group in groups] == [["jane", "john"]]
     assert set(by_key) == {"jane", "john"}
+    # Each member keeps their own full circle at their own decluttered
+    # position -- the same grid the interactive map packs them into, not a
+    # row of circles overlapping each other by a fixed offset fraction.
     positions = pin_map.pixel_positions(records, center, zoom)
-    group_position = pin_map.group_position(groups[0], positions)
-    offset_step = round(PHOTO_DIAMETER_PX * PHOTO_OFFSET_FRACTION)
-    x, y = group_position
-    assert canvas.getpixel((round(x), round(y))) == SAMPLE_PHOTO_COLOR
-    assert canvas.getpixel((round(x) + offset_step, round(y))) == SAMPLE_PHOTO_COLOR
+    decluttered, _groups = declutter_positions(positions, marker_radius=PHOTO_RADIUS_PX)
+    for match_key in ("jane", "john"):
+        x, y = decluttered[match_key]
+        assert canvas.getpixel((round(x), round(y))) == SAMPLE_PHOTO_COLOR
+    assert abs(decluttered["jane"][0] - decluttered["john"][0]) == PHOTO_DIAMETER_PX

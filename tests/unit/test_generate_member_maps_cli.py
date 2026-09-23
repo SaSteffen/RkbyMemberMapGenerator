@@ -21,9 +21,8 @@ from scripts.generate_member_maps import (
     main,
 )
 from scripts.rkby_maps.basemap import TILE_SIZE, zoom_for_bounding_box
-from scripts.rkby_maps.pin_map import CANVAS_SIZE, EDGE_MARGIN_PX, PADDING_KM
+from scripts.rkby_maps.pin_map import CANVAS_SIZE, FRAME_PADDING_PX
 from scripts.rkby_maps.rendering import (
-    NEUTRAL_COLOR,
     PHOTO_DIAMETER_PX,
     PLACEHOLDER_PHOTO_PATH,
     crop_circular_photo,
@@ -524,19 +523,23 @@ def test_detail_maps_resolve_a_cluster_and_respect_the_fr014_exception(
     )
     assert bremen_candidates == []
 
-    # The overview still exists and shows at least one merged/fallback marker
-    # (FR-013) for a group that overlaps at the overview's own coarse scale.
+    # The overview still exists, and a group overlapping at its own coarse
+    # scale is decluttered rather than merged: every member of the Verden
+    # cluster keeps their own role-colored pin there too, exactly as on the
+    # interactive map.
     overview_path = pins_dir / "2025_26_overview_pins.png"
     assert overview_path.exists()
     overview_colors = set(Image.open(overview_path).convert("RGB").getdata())
-    assert _hex_to_rgb(NEUTRAL_COLOR) in overview_colors
+    assert _hex_to_rgb(role_color("Rider")) in overview_colors
+    assert _hex_to_rgb(role_color("Supporter")) in overview_colors
+    assert _hex_to_rgb(role_color("Service Crew")) in overview_colors
 
 
 # --- Detail-map frame membership (research.md §5) -----------------------------------
 
 
 @responses.activate
-def test_detail_map_includes_frame_members_and_omits_ones_too_close_to_the_edge(
+def test_detail_map_includes_every_frame_member_and_omits_ones_off_the_canvas(
     monkeypatch, tmp_path
 ):
     monkeypatch.setenv("RKBY_DATA_DIR", str(tmp_path))
@@ -573,7 +576,7 @@ def test_detail_map_includes_frame_members_and_omits_ones_too_close_to_the_edge(
     min_width_km = 5
     center, zoom = zoom_for_bounding_box(
         [(cluster_lat, cluster_lon_a), (cluster_lat, cluster_lon_b)],
-        padding_km=PADDING_KM,
+        padding_px=FRAME_PADDING_PX,
         min_width_km=min_width_km,
         canvas_size=CANVAS_SIZE,
     )
@@ -584,11 +587,12 @@ def test_detail_map_includes_frame_members_and_omits_ones_too_close_to_the_edge(
         dx_px = target_x_px - canvas_width / 2
         return center[1] + dx_px * 360 / scale
 
-    # Well clear of the edge margin -- must appear on the detail map even
-    # though it's no part of the triggering pair.
-    appearing_lon = _lon_at_pixel_x(EDGE_MARGIN_PX + 150)
-    # Inside the edge margin -- must be omitted from this detail map.
-    omitted_lon = _lon_at_pixel_x(EDGE_MARGIN_PX - 20)
+    # Close to the canvas border but still on it -- must appear on the detail
+    # map even though it's no part of the triggering pair, the same rule the
+    # interactive map applies to every member inside its viewport.
+    appearing_lon = _lon_at_pixel_x(20)
+    # Off the canvas entirely -- not on this map's frame at all.
+    omitted_lon = _lon_at_pixel_x(-40)
 
     _write_record(
         a_dir,

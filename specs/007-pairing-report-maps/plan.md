@@ -110,10 +110,10 @@ scripts/
 │   ├── basemap.py                 # existing (002) -- stitch_basemap/zoom_for_bounding_box, unchanged
 │   ├── clustering.py               # existing (002) -- find_overlap_groups, unchanged
 │   ├── geocoding.py                # existing (002) -- unchanged, not called by this feature
-│   ├── rendering.py                # existing (002) -- draw_pin/draw_merged_pin/role_color, unchanged
+│   ├── rendering.py                # existing (002) -- draw_pin/role_color, unchanged
 │   └── pin_map.py                  # NEW -- promoted from generate_member_maps.py's private helpers:
-│                                   #   CANVAS_SIZE, DEFAULT_MIN_WIDTH_KM, PADDING_KM, EDGE_MARGIN_PX,
-│                                   #   pixel_positions(), group_position(), records_within_frame(),
+│                                   #   CANVAS_SIZE, DEFAULT_MIN_WIDTH_KM, FRAME_PADDING_PX,
+│                                   #   pixel_positions(), records_within_frame(),
 │                                   #   render_pin_layer(), overview_center_and_zoom()
 └── generate_member_maps.py        # existing (002) -- refactored to import the above from pin_map.py
                                     #   instead of its own private copies; behavior unchanged

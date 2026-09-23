@@ -32,8 +32,7 @@ from scripts.rkby_maps.photo_map import render_photo_layer
 from scripts.rkby_maps.pin_map import (
     CANVAS_SIZE,
     DEFAULT_MIN_WIDTH_KM,
-    EDGE_MARGIN_PX,
-    PADDING_KM,
+    FRAME_PADDING_PX,
     overview_center_and_zoom,
     records_within_frame,
     render_pin_layer,
@@ -209,10 +208,11 @@ def _generate_detail_maps(
 ) -> None:
     """FR-012: a separate, tighter-zoomed map per overlap group detected on
     the overview -- except the FR-014 same-exact-address pair, which stays
-    merged on the overview forever (never gets its own detail map). Re-runs
-    the same overlap check at the detail map's own (tighter) scale, so a
-    subset still overlapping there falls back to FR-013 on that map too
-    instead of recursing into an ever-tighter detail map (research.md §5).
+    together on the overview forever (never gets its own detail map). A
+    detail map shows the group at its real geographic spread; a subset still
+    overlapping at that tighter scale is simply decluttered there too
+    (`rkby_maps.declutter`), not recursed into an ever-tighter detail map
+    (research.md §5).
 
     Once a detail map's frame is decided, every plottable member who lands
     inside it is drawn -- not just the triggering group (see
@@ -232,7 +232,7 @@ def _generate_detail_maps(
         points = [(record["latitude"], record["longitude"]) for record in group_records]
         center, zoom = zoom_for_bounding_box(
             points,
-            padding_km=PADDING_KM,
+            padding_px=FRAME_PADDING_PX,
             min_width_km=min_width_km,
             canvas_size=CANVAS_SIZE,
         )
@@ -242,7 +242,6 @@ def _generate_detail_maps(
             center=center,
             zoom=zoom,
             canvas_size=CANVAS_SIZE,
-            edge_margin_px=EDGE_MARGIN_PX,
         )
 
         slug = detail_map_slug(group_records[0]["address"], existing_slugs)

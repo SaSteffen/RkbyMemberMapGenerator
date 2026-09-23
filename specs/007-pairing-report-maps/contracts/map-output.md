@@ -50,8 +50,8 @@ regenerates map images either.
   every current-season member of any role who is not excluded, not opted out, and
   successfully geocoded — plotted as their own circular photo (the Team Rynkeby
   mascot placeholder standing in for anyone without a photo on file), with two or
-  more overlapping at this map's zoom level (e.g. members sharing an address) drawn
-  as offset side-by-side circles rather than one covering the other. Zero members
+  more overlapping at this map's zoom level (e.g. members sharing an address)
+  decluttered into a compact grid rather than one covering the other. Zero members
   still produces a valid PNG, centered on Germany's geographic center at the
   configured minimum-width zoom (Acceptance Scenario 3.3) — never a missing file,
   never a script failure.
@@ -61,7 +61,7 @@ regenerates map images either.
   context (FR-005). A cluster of exactly one rider still produces a valid PNG framed
   around that one rider at the configured minimum width.
 - Both variants use the exact same circular-photo styling, placeholder-mascot
-  fallback, overlap-offset behavior, scale bar, and OSM attribution
+  fallback, overlap decluttering, scale bar, and OSM attribution
   `generate_member_maps.py`'s own photo maps already use (FR-004) — a reader who's
   seen one map type in this project recognizes the other immediately. *(Updated
   post-launch: originally rendered as role-colored pins; switched to member photos

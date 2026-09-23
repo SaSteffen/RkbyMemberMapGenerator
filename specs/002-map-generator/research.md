@@ -137,14 +137,14 @@ season, independently parameterized).
 exception), compute the smallest bounding box containing the group's members plus a
 fixed padding margin, convert that to a required covered width in km, then render the
 detail map at `max(configured minimum width, required width)`. Re-run the §4 overlap
-check against that render; any member pair still overlapping at that width uses the
-FR-013 fallback (§8) on that same detail map — the generator does not recurse into an
+check against that render; any member pair still overlapping at that width is
+decluttered (§8) on that same detail map — the generator does not recurse into an
 ever-tighter detail map.
 
 **Rationale**: This is a direct implementation of spec.md's own "Detail map framing"
 Assumption — "sized to the smallest width that both resolves the overlap and respects
 the FR-010 minimum width; if the minimum width itself is too wide to resolve the
-overlap, FR-013's fallback rendering applies" — so no new design judgment call is being
+overlap, FR-013's decluttering applies" — so no new design judgment call is being
 made here, only the concrete formula. Because OSM tiles only exist at discrete integer
 zoom levels, "smallest width" in practice means: pick the tightest (highest) integer
 zoom level whose resulting covered width is still ≥ `max(configured minimum, required
@@ -163,13 +163,35 @@ triggering group's own bounding box, but the FR-010 floor routinely makes the re
 area wider than that group — so once the area is fixed, every other resolvable member
 of that season/variant is projected into it and drawn if they land inside, not just the
 triggering group. Otherwise a detail map would visually cover ground it doesn't
-actually report on, silently omitting members who happen to live in the same area. A
-member landing within `DETAIL_MAP_EDGE_MARGIN_PX` of the canvas border is left off that
-specific map instead — a marker crowded against (or clipped by) the edge reads worse
-than that member simply not appearing on this one map; they're still on the overview.
-The triggering group's own members are always drawn regardless of where they land,
-since they define the frame. Re-running the §4 overlap check (above) against this
-wider member set is what a detail map already did per-group; nothing new there.
+actually report on, silently omitting members who happen to live in the same area.
+Everyone who lands on the canvas is drawn (see the addendum below for the edge-margin
+exclusion this originally carried instead). The triggering group's own members are
+always drawn regardless of where they land, since they define the frame. Re-running the
+§4 overlap check (above) against this wider member set is what a detail map already did
+per-group; nothing new there.
+
+### Addendum §5: framing padding in pixels, and no edge-margin exclusion (post-launch)
+
+**Decision revised**: the bounding-box padding above is now a fixed *pixel* margin
+(`pin_map.FRAME_PADDING_PX`, one full photo-circle diameter) rather than a real-world
+one (`PADDING_KM = 0.5`), and `zoom_for_bounding_box(..., padding_px=...)` picks the
+tightest zoom whose covered width still fits the box inside the canvas *minus* that
+margin on every side. With that in place the "Frame membership" rule's edge exclusion is
+dropped: every member who lands on the canvas is drawn, `records_within_frame` no longer
+takes an `edge_margin_px`, and `DETAIL_MAP_EDGE_MARGIN_PX` (renamed `EDGE_MARGIN_PX` by
+007) is gone.
+
+**Rationale**: The padding exists to keep a marker drawn on the bounding box's own edge
+from being clipped by the canvas border — and a marker's size is fixed in pixels
+whatever the map's scale, so a fixed real-world margin is far too small when zoomed out
+and needlessly large when zoomed in. On an overview of a nationally-spread team, 0.5 km
+is a couple of pixels, which is precisely why an edge-margin exclusion was needed as a
+second line of defense: it was treating the symptom. Fixing the cause makes it
+unnecessary, and dropping it matches the interactive map, where every member inside the
+viewport renders no matter how close to its border they sit — Leaflet's
+`fitBounds(..., {padding})` (`main.js` `MEMBER_FIT_PADDING`, itself one icon wide) does
+exactly this framing. At detail-map zoom the new margin works out to ~0.45 km, so
+detail/cluster framing is essentially unchanged; only the overview visibly re-frames.
 
 ## 6. Scale bar (ruler) rendering
 
@@ -212,21 +234,22 @@ Constitution IV and the "no legend" requirement don't demand a particular palett
 this table is a proposal the implementer (tasks phase) can freely retune without a
 spec/plan change.
 
-## 8. Photo circular crop & offset-stack fallback
+## 8. Photo circular crop & overlap layout
 
 **Decision**: Match the intranet table's presentation by taking a centered square crop
 of the source photo (side length = `min(width, height)`), resizing to the target
 diameter, then masking to a circle with `Pillow` (`ImageDraw.ellipse` alpha mask +
-`Image.composite`). For the FR-013 photo-variant fallback (an unresolved overlap),
-render each affected member's circle at the shared position but horizontally offset by
-a configurable fraction (`PHOTO_OFFSET_FRACTION`, `rkby_maps/rendering.py`; currently
-80%) of the circle's diameter per additional member, so faces stay individually visible
-instead of fully stacking. For the pin-variant fallback, draw one merged pin at the
-shared position plus a small counter badge (a filled circle with the member count as
-white text) offset to its upper-right — the same visual language commonly used for
-map-marker clusters. A merged pin uses the shared role color if every member in the
-group shares one role, otherwise the neutral "unrecognized" color (§7) to signal a
-mixed group.
+`Image.composite`). **The overlap half of this decision is superseded by the addendum
+below** — kept here for the historical record of how it started. For the FR-013
+photo-variant fallback (an unresolved overlap), render each affected member's circle at
+the shared position but horizontally offset by a configurable fraction
+(`PHOTO_OFFSET_FRACTION`, `rkby_maps/rendering.py`; currently 80%) of the circle's
+diameter per additional member, so faces stay individually visible instead of fully
+stacking. For the pin-variant fallback, draw one merged pin at the shared position plus
+a small counter badge (a filled circle with the member count as white text) offset to
+its upper-right — the same visual language commonly used for map-marker clusters. A
+merged pin uses the shared role color if every member in the group shares one role,
+otherwise the neutral "unrecognized" color (§7) to signal a mixed group.
 
 **Rationale**: "Same as the website's table" is already interpreted in spec.md's
 Assumptions as a centered-square-then-circle crop; this section just names the concrete
@@ -234,6 +257,37 @@ Pillow calls. The offset-stack and multiplicity-badge behaviors are exactly what
 FR-013 describes ("side-by-side... offset", "merged pin with a multiplicity badge");
 the mixed-role color rule is a natural, minor resolution of an otherwise-unstated case
 that the plan surfaces explicitly rather than deciding silently in code.
+
+### Addendum §8: a decluttered grid, not merged pins or offset photo rows (post-launch)
+
+**Decision reversed** — the crop half above stands unchanged; only the overlap half is
+replaced. Overlapping members are no longer merged or offset-stacked. Both variants now
+lay a group out through `scripts/rkby_maps/declutter.py`, a port of the interactive
+map's `frontend/interactive-map/src/declutter.js`: the group is packed into a
+square-ish grid centered on its own centroid, one cell per member, cell spacing equal to
+the overlap threshold (`2 * marker_radius`) — the minimum gap that guarantees no two
+members of the group still overlap once rearranged. Every member keeps their own
+full-size marker. `PHOTO_OFFSET_FRACTION`, `draw_merged_pin()`, `merged_role_color()`
+and `draw_offset_photo_circles()` are gone from `rkby_maps/rendering.py`; the mixed-role
+color rule has nothing left to decide, since every pin keeps its own role color.
+
+**Rationale**: User-directed — "make the pins/picture position setting and the logic for
+including people on maps the same as in the interactive map. currently especially in the
+overview map the stacking of pictures pins next to each other is not looking good".
+Both original fallbacks defeated what these maps are for: a merged pin shows a count
+instead of people, and an 80%-of-a-diameter offset row leaves every face but the last
+partly covered — the "stacking... not looking good", worst on the overview, where a
+whole team's clusters are largest. Sharing the interactive map's algorithm rather than
+inventing a third layout means one group reads the same way in both artifacts, and gives
+the port a ready-made test suite to mirror (`declutter.test.js` →
+`tests/unit/test_rkby_maps_declutter.py`).
+
+**Known limitation, shared with `declutter.js`**: packing is per-group, so two groups
+packed independently can still collide with each other even though neither collides
+internally. Resolving that means iterating the pack-and-re-detect cycle to a fixpoint,
+which would diverge from the interactive map and requires §4's `<=` threshold comparison
+to become `<` (006's training-cluster detection reuses `find_overlap_groups` and would
+be affected). Deliberately left as is, per user decision.
 
 ## 9. Detail-map filename slug
 
